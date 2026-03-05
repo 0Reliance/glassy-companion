@@ -1,0 +1,129 @@
+import React, { useState, useCallback } from 'react'
+import CollectionPicker from './CollectionPicker.jsx'
+import TagEditor from './TagEditor.jsx'
+import QuickActions from './QuickActions.jsx'
+
+export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, saving }) {
+  const [title, setTitle]           = useState('')
+  const [notes, setNotes]           = useState('')
+  const [collectionId, setCollection] = useState(null)
+  const [tags, setTags]             = useState([])
+  const [aiTag, setAiTag]           = useState(true)
+  const [showNotes, setShowNotes]   = useState(false)
+
+  // Effective title: edited > extracted > url
+  const effectiveTitle = title || pageMeta?.title || pageMeta?.url || '(Untitled)'
+
+  const handleSave = useCallback(() => {
+    if (!pageMeta?.url) return
+    onSave({
+      url: pageMeta.url,
+      title: title || pageMeta?.title || pageMeta?.url,
+      description: pageMeta?.description || '',
+      og_image: pageMeta?.og_image || '',
+      favicon_url: pageMeta?.favicon_url || '',
+      domain: pageMeta?.domain || '',
+      notes: notes || '',
+      collection_id: collectionId,
+      tags: tags.join(','),
+      ai_tag: aiTag,
+    })
+  }, [pageMeta, title, notes, collectionId, tags, aiTag, onSave])
+
+  const handleSaveNote = useCallback((text) => {
+    if (!pageMeta?.url || !text) return
+    onSaveNote({
+      content: text,
+      source_url: pageMeta.url,
+      source_title: pageMeta?.title || pageMeta?.url,
+    })
+  }, [pageMeta, onSaveNote])
+
+  if (!pageMeta) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 16px', gap: 8 }}>
+        <div className="spinner" />
+        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Reading page…</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* OG image if present */}
+      {pageMeta.og_image && (
+        <div style={{ borderRadius: 10, overflow: 'hidden', height: 100 }}>
+          <img
+            src={pageMeta.og_image}
+            alt="Page preview"
+            className="og-image"
+            style={{ height: 100 }}
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        </div>
+      )}
+
+      {/* Site row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {pageMeta.favicon_url && (
+          <img
+            src={pageMeta.favicon_url}
+            alt=""
+            style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0 }}
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        )}
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {pageMeta.domain || new URL(pageMeta.url).hostname}
+        </span>
+      </div>
+
+      {/* Title (editable) */}
+      <input
+        className="glass-input"
+        value={title || pageMeta.title || ''}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Page title…"
+        style={{ fontWeight: 600, fontSize: 13 }}
+      />
+
+      {/* Collection picker */}
+      <CollectionPicker value={collectionId} onChange={setCollection} />
+
+      {/* Tag editor */}
+      <TagEditor tags={tags} onChange={setTags} aiTag={aiTag} onToggleAi={() => setAiTag(!aiTag)} />
+
+      {/* Optional notes toggle */}
+      <button
+        onClick={() => setShowNotes(!showNotes)}
+        style={{
+          background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
+          fontSize: 11, cursor: 'pointer', textAlign: 'left', padding: 0,
+          display: 'flex', alignItems: 'center', gap: 4,
+        }}
+      >
+        <span style={{ fontSize: 13 }}>{showNotes ? '▾' : '▸'}</span>
+        Add a note
+      </button>
+      {showNotes && (
+        <textarea
+          className="glass-input"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Your thoughts…"
+          rows={3}
+          style={{ resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }}
+        />
+      )}
+
+      {/* Quick actions */}
+      <QuickActions pageMeta={pageMeta} onSaveNote={handleSaveNote} />
+
+      {/* Save button */}
+      <button className="btn-accent" onClick={handleSave} disabled={saving || !pageMeta?.url}>
+        {saving ? <span className="spinner" /> : '🔖'}
+        {saving ? 'Saving…' : 'Save bookmark'}
+      </button>
+    </div>
+  )
+}

@@ -1,0 +1,114 @@
+/**
+ * Glassy API client — authenticated fetch wrapper for extension API routes.
+ * Reads the token from chrome.storage.session on each call.
+ */
+import { getToken, getBaseUrl, clearAuth } from './auth.js'
+
+/**
+ * Core fetch wrapper. Handles auth headers, JSON encoding,
+ * and 401 → clear token flow.
+ */
+async function apiFetch(path, options = {}) {
+  const token = await getToken()
+  const baseUrl = await getBaseUrl()
+  const url = `${baseUrl}${path}`
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  }
+
+  const res = await fetch(url, {
+    ...options,
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  })
+
+  if (res.status === 401) {
+    await clearAuth()
+    throw new ApiError(401, 'Session expired. Please log in again.')
+  }
+
+  if (!res.ok) {
+    let errMsg = `Request failed (${res.status})`
+    try {
+      const errData = await res.json()
+      errMsg = errData.error || errData.message || errMsg
+    } catch {}
+    throw new ApiError(res.status, errMsg)
+  }
+
+  // 204 No Content
+  if (res.status === 204) return null
+  return res.json()
+}
+
+class ApiError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.status = status
+  }
+}
+
+// ── Extension API ──────────────────────────────────────────────────────────────
+
+/** GET /api/ext/me — fetch current user with entitlements and Keep stats. */
+export function fetchMe() {
+  return apiFetch('/api/ext/me')
+}
+
+/** GET /api/ext/ping — health check (no auth required). */
+export async function pingServer() {
+  const baseUrl = await getBaseUrl()
+  const res = await fetch(`${baseUrl}/api/ext/ping`)
+  return res.ok
+}
+
+/** GET /api/ext/collections — list user bookmark collections. */
+export function fetchCollections() {
+  return apiFetch('/api/ext/collections')
+}
+
+/** GET /api/ext/check-url?url= — check if URL already saved. */
+export function checkUrl(url) {
+  return apiFetch(`/api/ext/check-url?url=${encodeURIComponent(url)}`)
+}
+
+/**
+ * POST /api/ext/bookmarks — save a bookmark.
+ * @param {object} payload
+ * @param {string} payload.url
+ * @param {string} [payload.title] - pre-extracted title (extension provides it)
+ * @param {string} [payload.description]
+ * @param {string} [payload.og_image]
+ * @param {string} [payload.favicon_url]
+ * @param {string} [payload.domain]
+ * @param {string[]} [payload.tags]
+ * @param {number|null} [payload.collection_id]
+ * @param {boolean} [payload.ai_tag] - request AI auto-tagging
+ */
+export function saveBookmark(payload) {
+  return apiFetch('/api/ext/bookmarks', { method: 'POST', body: payload })
+}
+
+/**
+ * POST /api/ext/notes — create a Glassy note from selected text.
+ * @param {object} payload
+ * @param {string} payload.content   - markdown content (will include source citation)
+ * @param {string} [payload.title]
+ * @param {string[]} [payload.tags]
+ */
+export function saveNote(payload) {
+  return apiFetch('/api/ext/notes', { method: 'POST', body: payload })
+}
+
+/**
+ * POST /api/ext/ai/summarize — AI-summarize page text.
+ * @param {object} payload
+ * @param {string} payload.text - page body text (max 5000 chars)
+ * @param {string} [payload.url]
+ */
+export function summarizePage(payload) {
+  return apiFetch('/api/ext/ai/summarize', { method: 'POST', body: payload })
+}
