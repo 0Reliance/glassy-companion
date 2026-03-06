@@ -93,6 +93,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse({ text: getPageText() })
       return true
 
+    case 'GET_SELECTED_TEXT':
+      sendResponse({ text: getSelectedText() })
+      return true
+
     default:
       return false
   }

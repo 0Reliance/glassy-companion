@@ -289,7 +289,8 @@ async function getActiveTabMeta() {
 
 async function checkAuth() {
   const result = await verifyToken()
-  return result
+  // Popup expects { authenticated, user } shape
+  return { authenticated: result.ok, user: result.user || null }
 }
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────

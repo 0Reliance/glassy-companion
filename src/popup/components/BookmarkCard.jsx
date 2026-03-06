@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import QuickActions from './QuickActions.jsx'
@@ -13,6 +13,14 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
 
   // Effective title: edited > extracted > url
   const effectiveTitle = title || pageMeta?.title || pageMeta?.url || '(Untitled)'
+
+  // Sync title field when pageMeta first arrives (don't overwrite user edits)
+  useEffect(() => {
+    if (pageMeta?.title && !title) {
+      setTitle(pageMeta.title)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMeta?.title])
 
   const handleSave = useCallback(() => {
     if (!pageMeta?.url) return

@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS = {
   showQuickActions: true,
   defaultCollection: null,
   badgeCount: true,
+  showNotifications: true,
 }
 
 // Context menu IDs

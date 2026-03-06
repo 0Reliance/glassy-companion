@@ -43,6 +43,7 @@ export async function getSettings() {
     showQuickActions: true,
     defaultCollection: null,
     badgeCount: true,
+    showNotifications: true,
     ...result[STORAGE_KEYS.settings],
   }
 }
