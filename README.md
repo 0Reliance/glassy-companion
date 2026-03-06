@@ -79,6 +79,7 @@
 | **Keyboard Shortcut** | `Ctrl+Shift+G` (Windows/Linux) / `⌘+Shift+G` (macOS) — quick save from any tab |
 | **Popup Shortcut** | `Ctrl+Shift+B` / `⌘+Shift+B` — open the Glassy Companion popup |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is temporarily unreachable |
+| **Smart Retry Policy** | Background saves classify auth, duplicate, entitlement, retryable, and fatal failures so the queue can retry or stop intentionally |
 | **Collections** | Choose which Glassy Keep collection to save into right from the popup |
 | **Notifications** | Optional browser notifications on successful save or error |
 
@@ -108,6 +109,9 @@ npm install
 
 # Development (watch mode)
 npm run dev
+
+# Run the extension test suite
+npm test
 
 # Production build (Chrome/Edge/Opera)
 npm run build

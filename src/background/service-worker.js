@@ -10,10 +10,11 @@
  * - Badge count updates
  */
 
-import { getToken, verifyToken, clearAuth, getBaseUrl } from '../lib/auth.js'
-import { saveBookmark, saveNote, checkUrl } from '../lib/api.js'
+import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
+import { saveBookmark, saveNote } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
+import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import {
   CTX_SAVE_PAGE,
   CTX_SAVE_LINK,
@@ -25,12 +26,22 @@ import {
 
 chrome.runtime.onInstalled.addListener(() => {
   registerContextMenus()
-  chrome.alarms.create(ALARM_OFFLINE_SYNC, { periodInMinutes: 1 })
+  ensureOfflineSyncAlarm().catch(() => {})
 })
 
 chrome.runtime.onStartup.addListener(() => {
   registerContextMenus()
+  ensureOfflineSyncAlarm().catch(() => {})
 })
+
+ensureOfflineSyncAlarm().catch(() => {})
+
+async function ensureOfflineSyncAlarm() {
+  const existingAlarm = await chrome.alarms.get(ALARM_OFFLINE_SYNC)
+  if (!existingAlarm) {
+    await chrome.alarms.create(ALARM_OFFLINE_SYNC, { periodInMinutes: 1 })
+  }
+}
 
 function registerContextMenus() {
   chrome.contextMenus.removeAll(() => {
@@ -104,12 +115,17 @@ async function backgroundSave(type, payload, tab) {
     return
   }
 
+  const settings = await getSettings()
+  const savePayload = type === 'bookmark'
+    ? { ...payload, ai_tag: settings.aiAutoTag }
+    : payload
+
   // For bookmarks, extract metadata from the content script first
-  if (type === 'bookmark' && tab?.id && !payload.title) {
+  if (type === 'bookmark' && tab?.id && !savePayload.title) {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
       if (response?.meta) {
-        Object.assign(payload, response.meta)
+        Object.assign(savePayload, response.meta)
       }
     } catch {
       // Content script not ready or restricted page — continue with just URL
@@ -117,40 +133,48 @@ async function backgroundSave(type, payload, tab) {
   }
 
   if (!navigator.onLine) {
-    await enqueue(type, payload)
+    await enqueue(type, savePayload)
     showNotification('Glassy — Queued', 'You\'re offline. This will sync when you reconnect.', 'info')
     return
   }
 
   try {
-    const settings = await getSettings()
-    const savePayload = type === 'bookmark'
-      ? { ...payload, ai_tag: settings.aiAutoTag }
-      : payload
-
     const result = type === 'bookmark'
       ? await saveBookmark(savePayload)
       : await saveNote(savePayload)
 
     if (result?.duplicate) {
-      showNotification('Glassy — Already Saved', `"${payload.title || payload.url}" is already in your Keep.`, 'info')
+      showNotification('Glassy — Already Saved', `"${savePayload.title || savePayload.url}" is already in your Keep.`, 'info')
     } else {
       showNotification(
         type === 'bookmark' ? 'Glassy — Saved to Keep ✓' : 'Glassy — Note Saved ✓',
-        payload.title || payload.url || 'Saved successfully',
+        savePayload.title || savePayload.url || 'Saved successfully',
         'success'
       )
       await updateBadge(1)
     }
   } catch (err) {
-    if (err?.status === 403) {
-      showNotification('Glassy Keep Required', 'Purchase Glassy Keep in the dashboard store ($9).', 'error')
-    } else if (err?.status === 401) {
-      showNotification('Session Expired', 'Open the extension popup to log in again.', 'error')
-    } else {
-      // Queue for retry
-      await enqueue(type, payload)
-      showNotification('Glassy — Queued', 'Save failed — will retry automatically.', 'info')
+    const failurePlan = planBackgroundSaveFailure(err)
+
+    if (failurePlan.queue) {
+      await enqueue(type, savePayload)
+    }
+
+    switch (failurePlan.kind) {
+      case 'duplicate':
+        showNotification('Glassy — Already Saved', `"${savePayload.title || savePayload.url}" is already in your Keep.`, 'info')
+        break
+      case 'auth':
+        showNotification('Session Expired', 'Save queued. Open the extension popup to log in again.', 'error')
+        break
+      case 'entitlement':
+        showNotification('Glassy Keep Required', 'Purchase Glassy Keep in the dashboard store ($9).', 'error')
+        break
+      case 'retryable':
+        showNotification('Glassy — Queued', 'Save failed — will retry automatically.', 'info')
+        break
+      default:
+        showNotification('Glassy — Save Failed', err?.message || 'Could not save this item.', 'error')
     }
   }
 }
@@ -168,6 +192,9 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (!token) return
 
   let synced = 0
+  let duplicates = 0
+  let droppedForEntitlement = 0
+  let droppedAsFatal = 0
   for (const item of queue) {
     if (item.attempts >= 5) {
       // Give up after 5 attempts
@@ -183,13 +210,45 @@ chrome.alarms.onAlarm.addListener(async alarm => {
       }
       await dequeue(item.id)
       synced++
-    } catch {
-      await incrementAttempts(item.id)
+    } catch (err) {
+      const failurePlan = planQueueFailure(err)
+
+      if (failurePlan.action === 'pause') {
+        showNotification('Session Expired', 'Queued saves are paused until you log in again.', 'error')
+        break
+      }
+
+      if (failurePlan.action === 'retry') {
+        await incrementAttempts(item.id)
+        continue
+      }
+
+      await dequeue(item.id)
+
+      if (failurePlan.kind === 'duplicate') {
+        duplicates++
+      } else if (failurePlan.kind === 'entitlement') {
+        droppedForEntitlement++
+      } else {
+        droppedAsFatal++
+      }
     }
   }
 
   if (synced > 0) {
     showNotification('Glassy — Synced', `${synced} queued item${synced === 1 ? '' : 's'} saved.`, 'success')
+  }
+
+  if (duplicates > 0) {
+    showNotification('Glassy — Up To Date', `${duplicates} queued item${duplicates === 1 ? '' : 's'} already existed in Keep.`, 'info')
+  }
+
+  if (droppedForEntitlement > 0) {
+    showNotification('Glassy Keep Required', `${droppedForEntitlement} queued item${droppedForEntitlement === 1 ? '' : 's'} could not be saved without Glassy Keep.`, 'error')
+  }
+
+  if (droppedAsFatal > 0) {
+    showNotification('Glassy — Save Failed', `${droppedAsFatal} queued item${droppedAsFatal === 1 ? '' : 's'} could not be recovered automatically.`, 'error')
   }
 })
 
