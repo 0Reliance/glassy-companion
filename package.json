@@ -1,6 +1,6 @@
 {
   "name": "glassy-companion",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "Glassy Companion — Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
