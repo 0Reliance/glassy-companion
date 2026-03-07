@@ -3,11 +3,11 @@ import { getSettings, saveSettings, invalidateCollections } from '../../lib/cach
 import { getBaseUrl, setBaseUrl } from '../../lib/auth.js'
 
 export default function SettingsPanel({ user, onClose, onLogout }) {
-  const [baseUrl, setBaseUrlState]   = useState('')
-  const [aiTag, setAiTag]            = useState(true)
-  const [notifications, setNotifs]   = useState(true)
-  const [saving, setSaving]          = useState(false)
-  const [saved, setSaved]            = useState(false)
+  const [baseUrl, setBaseUrlState] = useState('')
+  const [aiTag, setAiTag] = useState(true)
+  const [notifications, setNotifs] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     getBaseUrl().then(setBaseUrlState)
@@ -71,7 +71,7 @@ export default function SettingsPanel({ user, onClose, onLogout }) {
           className="glass-input"
           value={baseUrl}
           onChange={(e) => setBaseUrlState(e.target.value)}
-          placeholder="https://dash.0rel.com"
+          placeholder="https://glassy.fyi"
           style={{ fontSize: 12 }}
         />
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
