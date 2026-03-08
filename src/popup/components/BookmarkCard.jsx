@@ -4,12 +4,12 @@ import TagEditor from './TagEditor.jsx'
 import QuickActions from './QuickActions.jsx'
 
 export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, saving }) {
-  const [title, setTitle]           = useState('')
-  const [notes, setNotes]           = useState('')
+  const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
   const [collectionId, setCollection] = useState(null)
-  const [tags, setTags]             = useState([])
-  const [aiTag, setAiTag]           = useState(true)
-  const [showNotes, setShowNotes]   = useState(false)
+  const [tags, setTags] = useState([])
+  const [aiTag, setAiTag] = useState(true)
+  const [showNotes, setShowNotes] = useState(false)
 
   // Effective title: edited > extracted > url
   const effectiveTitle = title || pageMeta?.title || pageMeta?.url || '(Untitled)'
@@ -19,7 +19,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
     if (pageMeta?.title && !title) {
       setTitle(pageMeta.title)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageMeta?.title])
 
   const handleSave = useCallback(() => {
@@ -88,6 +88,8 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
 
       {/* Title (editable) */}
       <input
+        id="companion-bookmark-title"
+        name="title"
         className="glass-input"
         value={title || pageMeta.title || ''}
         onChange={(e) => setTitle(e.target.value)}
@@ -115,6 +117,8 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
       </button>
       {showNotes && (
         <textarea
+          id="companion-bookmark-notes"
+          name="notes"
           className="glass-input"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

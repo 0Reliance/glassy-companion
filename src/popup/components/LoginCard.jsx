@@ -2,10 +2,10 @@ import React, { useState } from 'react'
 import { login } from '../../lib/auth.js'
 
 export default function LoginCard({ onLoginSuccess }) {
-  const [email, setEmail]       = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -47,10 +47,12 @@ export default function LoginCard({ onLoginSuccess }) {
       {/* Form */}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <label htmlFor="companion-email" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Email
           </label>
           <input
+            id="companion-email"
+            name="email"
             className="glass-input"
             type="email"
             value={email}
@@ -62,10 +64,12 @@ export default function LoginCard({ onLoginSuccess }) {
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <label htmlFor="companion-password" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Password
           </label>
           <input
+            id="companion-password"
+            name="password"
             className="glass-input"
             type="password"
             value={password}

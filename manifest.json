@@ -1,9 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
-
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -13,20 +12,16 @@
     "offscreen",
     "tabs"
   ],
-
   "optional_permissions": [],
-
   "host_permissions": [
     "https://dash.0rel.com/*",
     "https://glassy.fyi/*",
     "https://glassy.stanz.info/*"
   ],
-
   "background": {
     "service_worker": "src/background/service-worker.js",
     "type": "module"
   },
-
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
@@ -37,15 +32,17 @@
     },
     "default_title": "Save to Glassy"
   },
-
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/content/extractor.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content/extractor.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "commands": {
     "quick-save": {
       "suggested_key": {
@@ -61,18 +58,21 @@
       }
     }
   },
-
   "icons": {
     "16": "assets/icon-16.png",
     "32": "assets/icon-32.png",
     "48": "assets/icon-48.png",
     "128": "assets/icon-128.png"
   },
-
   "web_accessible_resources": [
     {
-      "resources": ["assets/*.png", "assets/*.svg"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "assets/*.png",
+        "assets/*.svg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
