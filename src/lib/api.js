@@ -112,3 +112,13 @@ export function saveNote(payload) {
 export function summarizePage(payload) {
   return apiFetch('/api/ext/ai/summarize', { method: 'POST', body: payload })
 }
+
+/**
+ * GET /api/keep/bookmarks?q=... — quick search bookmarks from extension popup.
+ * @param {string} q - search query
+ * @param {number} [limit] - max results (default 10)
+ */
+export function searchBookmarks(q, limit = 10) {
+  const params = new URLSearchParams({ q, limit: String(limit) })
+  return apiFetch(`/api/keep/bookmarks?${params}`)
+}

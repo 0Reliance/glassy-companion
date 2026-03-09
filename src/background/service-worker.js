@@ -11,7 +11,7 @@
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote } from '../lib/api.js'
+import { saveBookmark, saveNote, searchBookmarks } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
@@ -266,6 +266,12 @@ async function handleMessage(message) {
     case 'SAVE_BOOKMARK':
       return saveBookmarkFromPopup(message.payload)
 
+    case 'SAVE_ALL_TABS':
+      return saveAllTabsFromPopup()
+
+    case 'SEARCH_BOOKMARKS':
+      return searchBookmarksFromPopup(message.query)
+
     case 'SAVE_NOTE':
       return saveNoteFromPopup(message.payload)
 
@@ -297,12 +303,40 @@ async function saveBookmarkFromPopup(payload) {
   }
 }
 
+async function saveAllTabsFromPopup() {
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true })
+    const httpTabs = tabs.filter(t => t.url && /^https?:\/\//i.test(t.url))
+    let saved = 0, skipped = 0
+    for (const tab of httpTabs) {
+      try {
+        const result = await saveBookmark({ url: tab.url, title: tab.title || tab.url })
+        if (result?.duplicate) { skipped++ } else { saved++; await updateBadge(1) }
+      } catch {
+        skipped++
+      }
+    }
+    return { ok: true, saved, skipped, total: httpTabs.length }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+}
+
 async function saveNoteFromPopup(payload) {
   try {
     const result = await saveNote(payload)
     return { ok: true, data: result }
   } catch (err) {
     return { ok: false, error: err.message, status: err.status }
+  }
+}
+
+async function searchBookmarksFromPopup(q) {
+  try {
+    const result = await searchBookmarks(String(q || '').slice(0, 200))
+    return { ok: true, bookmarks: result?.bookmarks || [] }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 }
 

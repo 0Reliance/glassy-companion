@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useCallback } from 'react'
+import React, { useEffect, useReducer, useCallback, useState, useRef } from 'react'
 import LoginCard from './components/LoginCard.jsx'
 import UpsellCard from './components/UpsellCard.jsx'
 import BookmarkCard from './components/BookmarkCard.jsx'
@@ -60,6 +60,32 @@ function sendMessage(msg) {
 
 export default function Popup() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchInputRef = useRef(null)
+
+  // Debounced search
+  useEffect(() => {
+    if (!showSearch) return
+    if (!searchQ.trim()) { setSearchResults([]); return }
+    setSearchLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await sendMessage({ type: 'SEARCH_BOOKMARKS', query: searchQ.trim() })
+        setSearchResults(res?.ok ? (res.bookmarks || []).slice(0, 8) : [])
+      } catch { setSearchResults([]) }
+      finally { setSearchLoading(false) }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQ, showSearch])
+
+  // Focus input when search opens
+  useEffect(() => {
+    if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50)
+    else { setSearchQ(''); setSearchResults([]) }
+  }, [showSearch])
 
   // On mount: check auth, then fetch page meta
   useEffect(() => {
@@ -139,12 +165,27 @@ export default function Popup() {
     dispatch({ type: 'SET_PAGE_META', pageMeta: null })
   }, [])
 
+  const handleSaveAllTabs = useCallback(async () => {
+    dispatch({ type: 'SET_SAVING' })
+    try {
+      const res = await sendMessage({ type: 'SAVE_ALL_TABS' })
+      if (res?.ok) {
+        dispatch({ type: 'SET_SAVED', url: `${res.saved} of ${res.total} tabs saved` })
+      } else {
+        dispatch({ type: 'SET_ERROR', message: res?.error || 'Save all tabs failed.' })
+      }
+    } catch (err) {
+      dispatch({ type: 'SET_ERROR', message: err.message || 'Save all tabs failed.' })
+    }
+  }, [])
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const { view, user, pageMeta, errorMessage, showSettings } = state
 
   // Gear button in header (only when auth'd)
   const isAuthed = ['no_entitlement', 'ready', 'saving', 'saved', 'duplicate', 'error'].includes(view)
+  const canSearch = isAuthed && ['ready', 'saving', 'saved', 'duplicate', 'error'].includes(view)
 
   return (
     <div className="popup-root" style={{ width: 380, fontFamily: 'Inter, sans-serif', background: '#0c0c14', color: 'rgba(255,255,255,0.9)', minHeight: 200 }}>
@@ -152,8 +193,11 @@ export default function Popup() {
       <Header
         showGear={isAuthed}
         userEmail={user?.email}
-        onGearClick={() => dispatch({ type: 'TOGGLE_SETTINGS' })}
+        onGearClick={() => { setShowSearch(false); dispatch({ type: 'TOGGLE_SETTINGS' }) }}
         gearActive={showSettings}
+        showSearch={canSearch}
+        searchActive={showSearch}
+        onSearchClick={() => { dispatch({ type: 'CLOSE_SETTINGS' }); setShowSearch(s => !s) }}
       />
 
       {/* Settings overlay */}
@@ -165,8 +209,20 @@ export default function Popup() {
         />
       )}
 
-      {/* Main content — hidden when settings open */}
-      {!showSettings && (
+      {/* Search panel */}
+      {showSearch && !showSettings && (
+        <SearchPanel
+          searchQ={searchQ}
+          onSearchChange={setSearchQ}
+          results={searchResults}
+          loading={searchLoading}
+          inputRef={searchInputRef}
+          onClose={() => setShowSearch(false)}
+        />
+      )}
+
+      {/* Main content — hidden when settings or search open */}
+      {!showSettings && !showSearch && (
         <main style={{ padding: '12px 14px 14px' }}>
           {view === 'loading' && <LoadingView />}
 
@@ -179,13 +235,35 @@ export default function Popup() {
           )}
 
           {(view === 'ready' || view === 'saving') && (
-            <BookmarkCard
-              pageMeta={pageMeta}
-              user={user}
-              onSave={handleSave}
-              onSaveNote={handleSaveNote}
-              saving={view === 'saving'}
-            />
+            <>
+              <BookmarkCard
+                pageMeta={pageMeta}
+                user={user}
+                onSave={handleSave}
+                onSaveNote={handleSaveNote}
+                saving={view === 'saving'}
+              />
+              <button
+                onClick={handleSaveAllTabs}
+                disabled={view === 'saving'}
+                style={{
+                  marginTop: 10,
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 10,
+                  color: 'rgba(255,255,255,0.45)',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+              >
+                📋 Save all tabs in window
+              </button>
+            </>
           )}
 
           {(view === 'saved' || view === 'duplicate' || view === 'error') && (
@@ -204,7 +282,7 @@ export default function Popup() {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-function Header({ showGear, userEmail, onGearClick, gearActive }) {
+function Header({ showGear, userEmail, onGearClick, gearActive, showSearch, searchActive, onSearchClick }) {
   return (
     <header style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -221,27 +299,163 @@ function Header({ showGear, userEmail, onGearClick, gearActive }) {
           Companion
         </span>
       </div>
-      {showGear && (
-        <button
-          onClick={onGearClick}
-          title={userEmail || 'Settings'}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {showSearch && (
+          <button
+            onClick={onSearchClick}
+            title="Search bookmarks"
+            style={{
+              background: searchActive ? 'rgba(20,184,166,0.15)' : 'transparent',
+              border: '1px solid',
+              borderColor: searchActive ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: '4px 7px',
+              color: searchActive ? '#2dd4bf' : 'rgba(255,255,255,0.45)',
+              cursor: 'pointer',
+              fontSize: 15,
+              lineHeight: 1,
+              transition: 'all 0.15s',
+            }}
+          >
+            🔍
+          </button>
+        )}
+        {showGear && (
+          <button
+            onClick={onGearClick}
+            title={userEmail || 'Settings'}
+            style={{
+              background: gearActive ? 'rgba(99,102,241,0.15)' : 'transparent',
+              border: '1px solid',
+              borderColor: gearActive ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: '4px 7px',
+              color: gearActive ? '#818cf8' : 'rgba(255,255,255,0.45)',
+              cursor: 'pointer',
+              fontSize: 16,
+              lineHeight: 1,
+              transition: 'all 0.15s',
+            }}
+          >
+            ⚙
+          </button>
+        )}
+      </div>
+    </header>
+  )
+}
+
+// ── Search Panel ──────────────────────────────────────────────────────────────
+
+function SearchPanel({ searchQ, onSearchChange, results, loading, inputRef, onClose }) {
+  return (
+    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* Search input */}
+      <div style={{ padding: '10px 14px 0', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchQ}
+          onChange={e => onSearchChange(e.target.value)}
+          placeholder="Search your bookmarks…"
           style={{
-            background: gearActive ? 'rgba(99,102,241,0.15)' : 'transparent',
-            border: '1px solid',
-            borderColor: gearActive ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)',
+            flex: 1,
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 8,
-            padding: '4px 7px',
-            color: gearActive ? '#818cf8' : 'rgba(255,255,255,0.45)',
+            padding: '7px 11px',
+            color: 'rgba(255,255,255,0.9)',
+            fontSize: 13,
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={onClose}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'rgba(255,255,255,0.3)',
             cursor: 'pointer',
             fontSize: 16,
             lineHeight: 1,
-            transition: 'all 0.15s',
+            padding: '4px',
           }}
-        >
-          ⚙
-        </button>
+          title="Close search"
+        >✕</button>
+      </div>
+
+      {/* Results */}
+      <div style={{ maxHeight: 320, overflowY: 'auto', padding: '8px 14px 12px' }}>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '16px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
+            Searching…
+          </div>
+        )}
+        {!loading && searchQ.trim() && results.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '16px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
+            No bookmarks found.
+          </div>
+        )}
+        {!loading && !searchQ.trim() && (
+          <div style={{ textAlign: 'center', padding: '12px 0', color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>
+            Type to search your saved bookmarks
+          </div>
+        )}
+        {!loading && results.map(bm => (
+          <SearchResultItem key={bm.id} bookmark={bm} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SearchResultItem({ bookmark }) {
+  const domain = (() => { try { return new URL(bookmark.url).hostname.replace(/^www\./, '') } catch { return '' } })()
+  const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : null
+  return (
+    <a
+      href={bookmark.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 9,
+        padding: '7px 9px',
+        borderRadius: 8,
+        textDecoration: 'none',
+        color: 'inherit',
+        transition: 'background 0.12s',
+        cursor: 'pointer',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      {faviconUrl && (
+        <img src={faviconUrl} width={16} height={16} style={{ marginTop: 2, flexShrink: 0, borderRadius: 3 }} alt="" />
       )}
-    </header>
+      {!faviconUrl && (
+        <div style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }} />
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 13,
+          color: 'rgba(255,255,255,0.85)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          fontWeight: 500,
+        }}>{bookmark.title || domain}</div>
+        <div style={{
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.3)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          marginTop: 1,
+        }}>{domain}</div>
+      </div>
+    </a>
   )
 }
 
