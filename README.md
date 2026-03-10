@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a Manifest V3 browser extension that lets you save bookmarks, highlights, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy) — your self-hosted digital workspace.
 
-[![Version](https://img.shields.io/badge/version-1.0.2-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-1.1.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)](#)
 [![Browsers](https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Opera%20%7C%20Firefox-supported?style=flat-square)](#supported-browsers)
@@ -74,6 +74,8 @@
 | Feature | Description |
 |---|---|
 | **Quick Save** | One-click save of the current page URL, title, and favicon to Glassy Keep |
+| **Save All Tabs** | Save every open HTTP/HTTPS tab in one click — already-saved duplicates are skipped automatically |
+| **Quick Search** | Search your Glassy Keep bookmarks inline in the popup without opening the dashboard |
 | **AI Tagging** | Automatically suggests relevant tags using the AI provider configured in your Glassy instance |
 | **Highlight Capture** | Select text on any page and save it as a highlighted bookmark with context |
 | **Keyboard Shortcut** | `Ctrl+Shift+G` (Windows/Linux) / `⌘+Shift+G` (macOS) — quick save from any tab |
@@ -124,6 +126,13 @@ npm run zip
 ```
 
 The built extension will be in `dist/`. Load it as an unpacked extension (see [Installation](#installation) above).
+
+---
+
+## What's New in v1.1.0 (March 9, 2026)
+
+- **Save All Tabs** — Save every open HTTP/HTTPS tab in one click. Already-saved duplicates (matched by URL) are detected and skipped automatically.
+- **Quick Search** — Search your Glassy Keep bookmarks inline directly in the popup. Results appear as you type without needing to open the dashboard.
 
 ---
 

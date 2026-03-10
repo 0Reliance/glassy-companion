@@ -46,7 +46,7 @@ export default function UpsellCard({ user }) {
       <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '12px 14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>Glassy Keep</span>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#818cf8' }}>$9 <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.4)' }}>one-time</span></span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#818cf8' }}>$15 <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.4)' }}>one-time</span></span>
         </div>
         <button className="btn-accent" onClick={openStore}>
           ✦ Get Glassy Keep
