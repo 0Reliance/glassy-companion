@@ -21,11 +21,16 @@ async function apiFetch(path, options = {}) {
     ...options.headers,
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    })
+  } catch (networkErr) {
+    throw new ApiError(0, networkErr.message || 'Network request failed')
+  }
 
   if (res.status === 401) {
     await clearAuth()
@@ -43,7 +48,11 @@ async function apiFetch(path, options = {}) {
 
   // 204 No Content
   if (res.status === 204) return null
-  return res.json()
+  try {
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 
 class ApiError extends Error {
@@ -123,4 +132,63 @@ export function summarizePage(payload) {
 export function searchBookmarks(q, limit = 10) {
   const params = new URLSearchParams({ q, limit: String(limit) })
   return apiFetch(`/api/keep/bookmarks?${params}`)
+}
+
+/**
+ * PATCH /api/ext/bookmarks/:id — update a bookmark.
+ * @param {number} id - bookmark ID
+ * @param {object} updates - fields to update (title, description, tags, is_archived, is_starred, mark_read, notes)
+ */
+export function updateBookmark(id, updates) {
+  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}`, { method: 'PATCH', body: updates })
+}
+
+/**
+ * DELETE /api/ext/bookmarks/:id — delete a bookmark.
+ * @param {number} id - bookmark ID
+ */
+export function deleteBookmark(id) {
+  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+/**
+ * GET /api/ext/bookmarks/:id/highlights — list highlights for a bookmark.
+ * @param {number} id - bookmark ID
+ */
+export function fetchHighlights(id) {
+  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}/highlights`)
+}
+
+/**
+ * POST /api/ext/bookmarks/:id/highlights — create a highlight.
+ * @param {number} id - bookmark ID
+ * @param {object} payload - { text, note?, color }
+ */
+export function createHighlight(id, payload) {
+  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}/highlights`, { method: 'POST', body: payload })
+}
+
+/**
+ * DELETE /api/ext/highlights/:id — delete a highlight.
+ * @param {number} id - highlight ID
+ */
+export function deleteHighlight(id) {
+  return apiFetch(`/api/ext/highlights/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+/**
+ * GET /api/ext/tags — list all tags for autocomplete.
+ */
+export function fetchTags() {
+  return apiFetch('/api/ext/tags')
+}
+
+/**
+ * POST /api/ext/collections — create a new collection.
+ */
+export function createCollection(name) {
+  return apiFetch('/api/ext/collections', {
+    method: 'POST',
+    body: { name },
+  })
 }

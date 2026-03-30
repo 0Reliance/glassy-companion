@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a Manifest V3 browser extension that lets you save bookmarks, highlights, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy) — your self-hosted digital workspace.
 
-[![Version](https://img.shields.io/badge/version-1.1.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-1.2.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)](#)
 [![Browsers](https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Opera%20%7C%20Firefox-supported?style=flat-square)](#supported-browsers)
@@ -77,9 +77,13 @@
 | **Save All Tabs** | Save every open HTTP/HTTPS tab in one click — already-saved duplicates are skipped automatically |
 | **Quick Search** | Search your Glassy Keep bookmarks inline in the popup without opening the dashboard |
 | **AI Tagging** | Automatically suggests relevant tags using the AI provider configured in your Glassy instance |
+| **Quick Note Composer** | Capture thoughts directly from the popup — title, textarea, auto-save drafts, Cmd+Enter shortcut, link to current page |
 | **Highlight Capture** | Select text on any page and save it as a highlighted bookmark with context |
-| **Keyboard Shortcut** | `Ctrl+Shift+G` (Windows/Linux) / `⌘+Shift+G` (macOS) — quick save from any tab |
-| **Popup Shortcut** | `Ctrl+Shift+B` / `⌘+Shift+B` — open the Glassy Companion popup |
+| **Tag Autocomplete** | Tags are fetched from your Keep and suggested as you type in the tag editor |
+| **Inline Collection Create** | Create new collections on the fly from the collection picker dropdown |
+| **Saved Page Badge** | Green ✓ badge on the extension icon when the current page is already in your Keep |
+| **AI Summary** | Generate an AI summary of the current page with one click — copy or save as a note |
+| **Keyboard Shortcuts** | Quick-save (`Ctrl+Shift+G`), open popup (`Ctrl+Shift+B`), quick note (`Ctrl+Shift+N`) |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is temporarily unreachable |
 | **Smart Retry Policy** | Background saves classify auth, duplicate, entitlement, retryable, and fatal failures so the queue can retry or stop intentionally |
 | **Collections** | Choose which Glassy Keep collection to save into right from the popup |
@@ -93,6 +97,7 @@
 |---|---|---|
 | Quick-save current page | `Ctrl+Shift+G` | `⌘+Shift+G` |
 | Open Glassy Companion popup | `Ctrl+Shift+B` | `⌘+Shift+B` |
+| Open Quick Note | `Ctrl+Shift+N` | `⌘+Shift+N` |
 
 Shortcuts can be customised in your browser's extension keyboard shortcuts settings:
 - Chrome: `chrome://extensions/shortcuts`
@@ -129,7 +134,19 @@ The built extension will be in `dist/`. Load it as an unpacked extension (see [I
 
 ---
 
-## What's New in v1.1.0 (March 9, 2026)
+## What's New in v1.2.0 (March 30, 2026)
+
+- **Quick Note Composer** — New "Note" tab for capturing thoughts directly from the popup. Supports titles, auto-save drafts, page linking, collection & tag assignment, and Cmd/Ctrl+Enter to save.
+- **Tag Autocomplete** — Start typing a tag and see suggestions from your existing tags, navigable with arrow keys.
+- **Inline Collection Create** — Create new collections without leaving the popup.
+- **Saved Page Badge** — A green ✓ appears on the extension icon when the current page is already saved.
+- **AI Summary Card** — AI summaries now display in the popup with Copy and Save-as-Note buttons.
+- **Keyboard Shortcut** — `Ctrl+Shift+N` / `⌘+Shift+N` opens the popup straight to Note view.
+- **Popup Redesign** — Tabbed interface (Save / Note / Search) with a cleaner component architecture.
+- **Logout Safety** — Warns before signing out if offline queue has unsaved items.
+- **Error Handling** — Network failures, rate limits (429), and edge cases handled across all API calls.
+
+### Previous: v1.1.0 (March 9, 2026)
 
 - **Save All Tabs** — Save every open HTTP/HTTPS tab in one click. Already-saved duplicates (matched by URL) are detected and skipped automatically.
 - **Quick Search** — Search your Glassy Keep bookmarks inline directly in the popup. Results appear as you type without needing to open the dashboard.

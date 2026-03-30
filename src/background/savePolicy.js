@@ -4,6 +4,7 @@ export function classifySaveError(error) {
   if (status === 409) return 'duplicate'
   if (status === 401) return 'auth'
   if (status === 403) return 'entitlement'
+  if (status === 429) return 'retryable'
   if (!status || status >= 500) return 'retryable'
 
   return 'fatal'

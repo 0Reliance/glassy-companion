@@ -5,6 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.0] — 2026-03-30
+
+### Added
+- **Quick Note Composer** — new "Note" tab in the popup for capturing thoughts, with title, rich textarea (10k char limit), Cmd/Ctrl+Enter shortcut, character count, and draft auto-save (500ms debounce to `chrome.storage.local`)
+- **Link to Current Page** — toggle in Note view attaches the active tab's URL, title, and favicon to saved notes
+- **Tag Autocomplete** — `TagEditor` now fetches all tags from the server and shows a filtered dropdown as you type, with arrow-key navigation
+- **Inline Collection Create** — "+ New collection" button inside `CollectionPicker` dropdown with inline name input
+- **Saved Page Badge** — green "✓" badge on the extension icon when the active tab URL is already saved to Keep, with in-memory cache (500 entries)
+- **AI Summary Display** — `SummaryCard` component renders AI-generated summaries with Copy and Save-as-Note actions
+- **Quick Note Keyboard Shortcut** — `Ctrl+Shift+N` / `⌘+Shift+N` opens popup directly to Note view
+- **Quick Note Context Menu** — right-click "New Glassy Note" opens popup in note mode
+- **GET_QUEUE_LENGTH message** — service worker responds with offline queue count for logout confirmation
+- **New API functions** — `updateBookmark`, `deleteBookmark`, `fetchHighlights`, `createHighlight`, `deleteHighlight`, `fetchTags`, `createCollection`
+- **Tags cache** — `getTags()` / `invalidateTags()` with 10-minute TTL in `cache.js`
+- **Test suite** — 3 new test files: `api.test.js` (9 tests), `cache.test.js` (13 tests), `useExtensionBridge.test.js` (9 tests); total suite now 44 tests
+
+### Changed
+- **Popup architecture** — decomposed ~500-line `Popup.jsx` monolith into `AppShell` + `useAppState` hook + 4 view components (`SaveView`, `NoteView`, `SearchView`, `SettingsView`); Popup.jsx reduced to ~80 lines
+- **Tab navigation** — popup now has Save / Note / Search tabs in the header, with active tab indicator
+- **Logout confirmation** — `SettingsView` checks offline queue length before logout and warns if items would be lost
+- **Error handling hardened** — `apiFetch` now wraps `fetch()` in try/catch for network errors and handles non-JSON responses; `SearchView` shows error state instead of silent empty results; `SummaryCard` shows clipboard failure feedback; `NoteView` handles `chrome.storage` errors on draft restore; `SettingsView` catches mount-time failures
+- **Tag normalization** — `TagEditor` now uses a shared `normalizeTag()` function for consistent input and autocomplete comparison
+
+### Fixed
+- **AI Summary display** — `QuickActions` now stores and renders AI summary results via `SummaryCard` (previously called API but never displayed result)
+- **429 rate limiting** — `savePolicy.js` now classifies HTTP 429 as "retryable" instead of "fatal"
+
+### Permissions
+- Added `sidePanel` and `scripting` permissions to `manifest.json`
+- Added `quick-note` command (`Ctrl+Shift+N` / `⌘+Shift+N`)
+
+---
+
 ## [1.1.1] — 2026-03-10
 
 ### Changed

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
   "permissions": [
     "activeTab",
@@ -10,7 +10,9 @@
     "notifications",
     "alarms",
     "offscreen",
-    "tabs"
+    "tabs",
+    "sidePanel",
+    "scripting"
   ],
   "optional_permissions": [],
   "host_permissions": [
@@ -56,6 +58,13 @@
         "default": "Ctrl+Shift+B",
         "mac": "Command+Shift+B"
       }
+    },
+    "quick-note": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+N",
+        "mac": "Command+Shift+N"
+      },
+      "description": "Quick note — open note composer"
     }
   },
   "icons": {

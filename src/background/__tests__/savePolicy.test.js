@@ -10,6 +10,17 @@ describe('savePolicy', () => {
     expect(classifySaveError({ status: 409 })).toBe('duplicate')
   })
 
+  it('classifies 429 rate limit as retryable', () => {
+    expect(classifySaveError({ status: 429 })).toBe('retryable')
+  })
+
+  it('queues 429 failures for retry in background saves', () => {
+    expect(planBackgroundSaveFailure({ status: 429 })).toEqual({
+      kind: 'retryable',
+      queue: true,
+    })
+  })
+
   it('queues auth failures for later user recovery in background saves', () => {
     expect(planBackgroundSaveFailure({ status: 401 })).toEqual({
       kind: 'auth',

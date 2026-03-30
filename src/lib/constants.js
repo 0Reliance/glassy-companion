@@ -36,6 +36,7 @@ export const CTX_SAVE_PAGE = 'glassy_save_page'
 export const CTX_SAVE_LINK = 'glassy_save_link'
 export const CTX_SAVE_SELECTION = 'glassy_save_selection'
 export const CTX_SAVE_HIGHLIGHT = 'glassy_save_highlight'
+export const CTX_QUICK_NOTE = 'glassy_quick_note'
 
 // Alarm names
 export const ALARM_OFFLINE_SYNC = 'glassy_offline_sync'

@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { getCollections } from '../../lib/cache.js'
+import { createCollection } from '../../lib/api.js'
 
 export default function CollectionPicker({ value, onChange }) {
   const [collections, setCollections] = useState([])
   const [loading, setLoading]         = useState(true)
   const [open, setOpen]               = useState(false)
+  const [creating, setCreating]       = useState(false)
+  const [newName, setNewName]         = useState('')
+  const [createError, setCreateError] = useState('')
   const wrapperRef = useRef(null)
+  const createInputRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -61,14 +66,64 @@ export default function CollectionPicker({ value, onChange }) {
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100,
           background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          maxHeight: 180, overflowY: 'auto',
+          maxHeight: 220, overflowY: 'auto',
         }}>
           {/* None option */}
-          <button type="button" style={optionStyle(value === null)} onClick={() => { onChange(null); setOpen(false) }}>
+          <button type="button" style={optionStyle(value === null)} onClick={() => { onChange(null); setOpen(false); setCreating(false) }}>
             <span>—</span> No collection
           </button>
+
+          {/* Inline create */}
+          {creating ? (
+            <div style={{ padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const name = newName.trim()
+                if (!name) return
+                setCreateError('')
+                try {
+                  const created = await createCollection(name)
+                  setCollections(prev => [...prev, created])
+                  onChange(created.id)
+                  setCreating(false)
+                  setNewName('')
+                  setOpen(false)
+                } catch (err) {
+                  setCreateError(err.message || 'Failed to create')
+                }
+              }} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input
+                  ref={createInputRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Collection name"
+                  maxLength={50}
+                  autoFocus
+                  style={{
+                    flex: 1, padding: '5px 8px', fontSize: 12, borderRadius: 6,
+                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#fff', outline: 'none',
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
+                />
+                <button type="submit" style={{
+                  background: 'rgba(99,102,241,0.6)', border: 'none', borderRadius: 6,
+                  padding: '5px 10px', fontSize: 11, color: '#fff', cursor: 'pointer',
+                }}>Add</button>
+              </form>
+              {createError && <div style={{ fontSize: 10, color: '#f87171', marginTop: 3 }}>{createError}</div>}
+            </div>
+          ) : (
+            <button type="button" style={{
+              ...optionStyle(false),
+              color: '#818cf8', fontWeight: 500,
+            }} onClick={() => setCreating(true)}>
+              <span>＋</span> New collection
+            </button>
+          )}
+
           {collections.map((c) => (
-            <button type="button" key={c.id} style={optionStyle(value === c.id)} onClick={() => { onChange(c.id); setOpen(false) }}>
+            <button type="button" key={c.id} style={optionStyle(value === c.id)} onClick={() => { onChange(c.id); setOpen(false); setCreating(false) }}>
               <span>{c.emoji || '📁'}</span> {c.name}
             </button>
           ))}

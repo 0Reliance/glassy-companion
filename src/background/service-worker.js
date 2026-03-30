@@ -11,7 +11,7 @@
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote, searchBookmarks } from '../lib/api.js'
+import { saveBookmark, saveNote, searchBookmarks, checkUrl } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
@@ -19,6 +19,7 @@ import {
   CTX_SAVE_PAGE,
   CTX_SAVE_LINK,
   CTX_SAVE_SELECTION,
+  CTX_QUICK_NOTE,
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
 
@@ -62,6 +63,12 @@ function registerContextMenus() {
       title: 'Save selection as Glassy Note',
       contexts: ['selection'],
     })
+
+    chrome.contextMenus.create({
+      id: CTX_QUICK_NOTE,
+      title: 'New Glassy Note',
+      contexts: ['page', 'frame'],
+    })
   })
 }
 
@@ -89,6 +96,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }, tab)
       break
     }
+
+    case CTX_QUICK_NOTE:
+      // Open popup in note mode
+      await chrome.action.openPopup?.()
+        .catch(() => {})
+      // Set a flag so popup opens to note view
+      await chrome.storage.session.set({ glassy_open_view: 'note' })
+      break
   }
 })
 
@@ -98,6 +113,11 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'quick-save') {
     // Quick-save current page silently (no popup)
     await backgroundSave('bookmark', { url: tab.url }, tab)
+  }
+  if (command === 'quick-note') {
+    // Open popup to note view
+    await chrome.storage.session.set({ glassy_open_view: 'note' })
+    await chrome.action.openPopup?.().catch(() => {})
   }
 })
 
@@ -152,6 +172,10 @@ async function backgroundSave(type, payload, tab) {
         'success'
       )
       await updateBadge(1)
+      // Update saved-page cache for instant badge
+      if (type === 'bookmark' && savePayload.url) {
+        savedUrlCache.set(savePayload.url, true)
+      }
     }
   } catch (err) {
     const failurePlan = planBackgroundSaveFailure(err)
@@ -288,6 +312,11 @@ async function handleMessage(message) {
       await chrome.action.setBadgeText({ text: '' })
       return { ok: true }
 
+    case 'GET_QUEUE_LENGTH': {
+      const q = await getQueue()
+      return { ok: true, count: q.length }
+    }
+
     default:
       return { ok: false, error: 'Unknown message type' }
   }
@@ -415,3 +444,54 @@ function showNotification(title, message, type = 'success') {
     priority: type === 'error' ? 2 : 0,
   })
 }
+
+// ── Saved-page badge ──────────────────────────────────────────────────────────
+
+// Cache of recently checked URLs → boolean (in-memory, cleared on restart)
+const savedUrlCache = new Map()
+
+async function checkSavedPageBadge(tabId, url) {
+  if (!url || !/^https?:\/\//i.test(url)) {
+    await chrome.action.setBadgeText({ text: '', tabId })
+    return
+  }
+
+  const token = await getToken()
+  if (!token) return
+
+  // Check memory cache first
+  if (savedUrlCache.has(url)) {
+    const saved = savedUrlCache.get(url)
+    await chrome.action.setBadgeText({ text: saved ? '✓' : '', tabId })
+    if (saved) await chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId })
+    return
+  }
+
+  try {
+    const result = await checkUrl(url)
+    const saved = result?.exists === true
+    savedUrlCache.set(url, saved)
+    // Evict old entries
+    if (savedUrlCache.size > 500) {
+      const first = savedUrlCache.keys().next().value
+      savedUrlCache.delete(first)
+    }
+    await chrome.action.setBadgeText({ text: saved ? '✓' : '', tabId })
+    if (saved) await chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId })
+  } catch {
+    // Silently fail — don't disrupt UX
+  }
+}
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId)
+    if (tab?.url) await checkSavedPageBadge(activeInfo.tabId, tab.url)
+  } catch {}
+})
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (changeInfo.url) {
+    await checkSavedPageBadge(tabId, changeInfo.url)
+  }
+})
