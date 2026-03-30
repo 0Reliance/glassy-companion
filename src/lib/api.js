@@ -2,7 +2,7 @@
  * Glassy API client — authenticated fetch wrapper for extension API routes.
  * Reads the token from chrome.storage.session on each call.
  */
-import { getToken, getBaseUrl, clearAuth } from './auth.js'
+import { getToken, getBaseUrl, getActiveAccountId, clearAuth } from './auth.js'
 
 /**
  * Core fetch wrapper. Handles auth headers, JSON encoding,
@@ -11,11 +11,13 @@ import { getToken, getBaseUrl, clearAuth } from './auth.js'
 async function apiFetch(path, options = {}) {
   const token = await getToken()
   const baseUrl = await getBaseUrl()
+  const activeAccountId = await getActiveAccountId()
   const url = `${baseUrl}${path}`
 
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(activeAccountId ? { 'X-Account-Id': activeAccountId } : {}),
     ...options.headers,
   }
 

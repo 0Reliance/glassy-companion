@@ -17,6 +17,7 @@ export const API_PATHS = {
 export const STORAGE_KEYS = {
   token: 'glassy_token',
   user: 'glassy_user',
+  activeAccountId: 'glassy_active_account_id',
   baseUrl: 'glassy_base_url',
   settings: 'glassy_settings',
   offlineQueue: 'glassy_offline_queue',

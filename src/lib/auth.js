@@ -19,6 +19,7 @@ export async function setToken(token) {
 export async function clearAuth() {
   await chrome.storage.session.remove(STORAGE_KEYS.token)
   await chrome.storage.local.remove(STORAGE_KEYS.user)
+  await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
 }
 
 /** Retrieve cached user profile, or null. */
@@ -30,6 +31,21 @@ export async function getCachedUser() {
 /** Cache user profile locally so popup doesn't need to re-fetch /me on every open. */
 export async function setCachedUser(user) {
   await chrome.storage.local.set({ [STORAGE_KEYS.user]: user })
+}
+
+/** Retrieve the active account ID, or null (uses primary account via server fallback). */
+export async function getActiveAccountId() {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.activeAccountId)
+  return result[STORAGE_KEYS.activeAccountId] || null
+}
+
+/** Set the active account ID for multi-account support. */
+export async function setActiveAccountId(accountId) {
+  if (accountId) {
+    await chrome.storage.local.set({ [STORAGE_KEYS.activeAccountId]: accountId })
+  } else {
+    await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
+  }
 }
 
 /** Get configured base URL (allows users to point at self-hosted instances). */
