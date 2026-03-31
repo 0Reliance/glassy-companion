@@ -162,9 +162,23 @@ After installing, click the Glassy Companion icon and enter:
 | **Glassy URL** | The full URL of your Glassy instance (e.g. `https://dash.example.com`) |
 | **Username / Password** | Your Glassy account credentials |
 
-The extension stores your session token securely in `chrome.storage.local` — credentials are never sent anywhere except your own Glassy server.
+The extension stores your session token in `chrome.storage.session` (cleared when the browser closes) and your profile cache in `chrome.storage.local`. Credentials are never sent anywhere except your own Glassy server.
 
 **Host permissions** are scoped to your Glassy instance URL only. No data is sent to third-party servers.
+
+---
+
+## Multi-Account Support
+
+If your Glassy instance runs v2.1.0+, the extension automatically supports multi-account workspaces:
+
+- When you switch accounts in the Glassy dashboard, the extension picks up the active account.
+- All saves, searches, and tag lookups are scoped to the active account via the `X-Account-Id` header.
+- Account limits depend on your subscription tier: Free (1), Paid (3), Lifetime (5).
+
+## AI Provider
+
+AI features (auto-tagging, page summaries) use whichever AI provider is configured in your Glassy instance — Google Gemini, Z.AI, OpenAI, Anthropic, or local Ollama. No additional configuration is needed in the extension.
 
 ---
 
