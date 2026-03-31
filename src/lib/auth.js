@@ -94,15 +94,20 @@ export async function verifyToken() {
 
   try {
     const baseUrl = await getBaseUrl()
-    const res = await fetch(`${baseUrl}${API_PATHS.me}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const activeAccountId = await getActiveAccountId()
+    const headers = { Authorization: `Bearer ${token}` }
+    if (activeAccountId) headers['X-Account-Id'] = activeAccountId
+    const res = await fetch(`${baseUrl}${API_PATHS.me}`, { headers })
     if (!res.ok) {
       await clearAuth()
       return { ok: false }
     }
     const user = await res.json()
     await setCachedUser(user)
+    // Persist the active account ID so subsequent API calls include X-Account-Id
+    if (user.activeAccountId && !activeAccountId) {
+      await setActiveAccountId(user.activeAccountId)
+    }
     return { ok: true, user }
   } catch {
     return { ok: false }
