@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
   "permissions": [
     "activeTab",

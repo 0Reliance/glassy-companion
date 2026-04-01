@@ -109,6 +109,7 @@ export function saveBookmark(payload) {
  * @param {string} payload.content   - markdown content (will include source citation)
  * @param {string} [payload.title]
  * @param {string[]} [payload.tags]
+ * @param {'markdown'} [payload.content_format]
  */
 export function saveNote(payload) {
   return apiFetch('/api/ext/notes', { method: 'POST', body: payload })

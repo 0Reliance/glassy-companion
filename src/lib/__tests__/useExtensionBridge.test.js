@@ -38,9 +38,10 @@ describe('useExtensionBridge', () => {
   it('saveNote sends SAVE_NOTE with payload', async () => {
     sendMessageSpy.mockImplementation((msg, cb) => cb({ ok: true }))
     const { saveNote } = await importBridge()
-    await saveNote({ content: 'hello', title: 'Note' })
+    const payload = { content: 'hello', title: 'Note', content_format: 'markdown' }
+    await saveNote(payload)
     expect(sendMessageSpy).toHaveBeenCalledWith(
-      { type: 'SAVE_NOTE', payload: { content: 'hello', title: 'Note' } },
+      { type: 'SAVE_NOTE', payload },
       expect.any(Function),
     )
   })

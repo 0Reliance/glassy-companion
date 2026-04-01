@@ -67,6 +67,7 @@ export default function NoteView({ pageMeta }) {
         title: title.trim() || content.trim().split('\n')[0].slice(0, 100),
         tags: tags,
         collection_id: collectionId,
+        content_format: 'markdown',
       }
       // Attach page context if toggled on
       if (linkPage && pageMeta?.url) {
@@ -149,7 +150,7 @@ export default function NoteView({ pageMeta }) {
         value={content}
         onChange={(e) => setContent(e.target.value.slice(0, MAX_CONTENT))}
         onKeyDown={handleKeyDown}
-        placeholder="Capture a thought..."
+        placeholder="Capture a note... Markdown and pasted links are preserved."
         rows={6}
         style={{
           resize: 'vertical', minHeight: 120, maxHeight: 280,
@@ -163,7 +164,7 @@ export default function NoteView({ pageMeta }) {
         fontSize: 11, color: 'rgba(255,255,255,0.3)',
       }}>
         <span>{charCount > 0 ? `${charCount.toLocaleString()} chars` : ''}</span>
-        <span style={{ color: 'rgba(255,255,255,0.2)' }}>⌘+Enter to save</span>
+        <span style={{ color: 'rgba(255,255,255,0.2)' }}>Markdown supported • ⌘+Enter to save</span>
       </div>
 
       {/* Link to current page toggle */}
