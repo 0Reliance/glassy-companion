@@ -178,7 +178,31 @@ If your Glassy instance runs v2.1.0+, the extension automatically supports multi
 
 ## AI Provider
 
-AI features (auto-tagging, page summaries) use whichever AI provider is configured in your Glassy instance — Google Gemini, Z.AI, OpenAI, Anthropic, or local Ollama. No additional configuration is needed in the extension.
+AI features (auto-tagging, page summaries) use whichever AI provider is configured in your Glassy instance — Google Gemini, OpenAI, Anthropic, or local Ollama. No additional configuration is needed in the extension.
+
+---
+
+## Extension API Routes *(v1.2.0+)*
+
+The companion communicates with your Glassy instance exclusively through `/api/ext/*` endpoints. All requests include a `Bearer` token and, when multi-account is active, an `X-Account-Id` header so data is always scoped to the correct account.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/ext/ping` | GET | Health check (no auth required) |
+| `/api/ext/me` | GET | Current user profile, entitlements, Keep stats |
+| `/api/ext/collections` | GET | List bookmark collections |
+| `/api/ext/collections` | POST | Create a new collection |
+| `/api/ext/bookmarks` | POST | Save a bookmark (supports AI auto-tag) |
+| `/api/ext/bookmarks/:id` | PATCH | Update bookmark fields |
+| `/api/ext/bookmarks/:id` | DELETE | Delete a bookmark |
+| `/api/ext/bookmarks/:id/highlights` | GET | List highlights for a bookmark |
+| `/api/ext/bookmarks/:id/highlights` | POST | Create a highlight with optional note |
+| `/api/ext/highlights/:id` | DELETE | Delete a highlight |
+| `/api/ext/notes` | POST | Create a Glassy note from selected text |
+| `/api/ext/tags` | GET | List all tags (for autocomplete) |
+| `/api/ext/check-url` | GET | Check if a URL is already saved |
+| `/api/ext/ai/summarize` | POST | AI-summarize page text |
+| `/api/keep/bookmarks` | GET | Quick-search bookmarks from popup |
 
 ---
 

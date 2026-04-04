@@ -192,7 +192,7 @@ async function backgroundSave(type, payload, tab) {
         showNotification('Session Expired', 'Save queued. Open the extension popup to log in again.', 'error')
         break
       case 'entitlement':
-        showNotification('Glassy Keep Required', 'Purchase Glassy Keep in the dashboard store ($9).', 'error')
+        showNotification('Glassy Keep Required', 'Purchase Glassy Keep in the dashboard store ($15).', 'error')
         break
       case 'retryable':
         showNotification('Glassy — Queued', 'Save failed — will retry automatically.', 'info')

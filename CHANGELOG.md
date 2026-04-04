@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.1] — 2026-04-04
+
+### Fixed
+- **Multi-account auth** — `verifyToken()` now sends `X-Account-Id` header and persists the active account ID so subsequent API calls are correctly scoped
+- **Note content format** — notes saved from the Quick Note Composer now include `content_format: 'markdown'` to align with the dashboard's rendering
+- **Price display** — service-worker notification updated to reflect the correct $15 Glassy Keep price
+
+### Changed
+- Note composer placeholder updated: "Capture a note... Markdown and pasted links are preserved."
+- Character count footer now shows "Markdown supported • ⌘+Enter to save"
+
+---
+
 ## [1.2.0] — 2026-03-30
 
 ### Added
