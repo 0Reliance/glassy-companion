@@ -2,22 +2,23 @@
  * Glassy API client — authenticated fetch wrapper for extension API routes.
  * Reads the token from chrome.storage.session on each call.
  */
-import { getToken, getBaseUrl, getActiveAccountId, clearAuth } from './auth.js'
+import { getToken, getBaseUrl, getActiveAccountId, getApiContext, clearAuth } from './auth.js'
 
 /**
  * Core fetch wrapper. Handles auth headers, JSON encoding,
  * 401 → clear token, request timeouts, HTTPS enforcement, and 5xx retry.
  */
 async function apiFetch(path, options = {}, _retryCount = 0) {
-  const token = await getToken()
-  const baseUrl = await getBaseUrl()
+  const [token, { baseUrl, activeAccountId }] = await Promise.all([
+    getToken(),
+    getApiContext(),
+  ])
 
   // Enforce HTTPS — allow localhost for dev
   if (!/^https:\/\//i.test(baseUrl) && !/^http:\/\/localhost(:\d+)?$/i.test(baseUrl)) {
     throw new ApiError(0, 'Server URL must use HTTPS.')
   }
 
-  const activeAccountId = await getActiveAccountId()
   const url = `${baseUrl}${path}`
 
   const controller = new AbortController()
@@ -151,6 +152,8 @@ export function summarizePage(payload) {
 
 /**
  * GET /api/keep/bookmarks?q=... — quick search bookmarks from extension popup.
+ * Intentionally uses the Keep API surface which natively supports full-text search
+ * with ?q=, collection filters, tags, and pagination.
  * @param {string} q - search query
  * @param {number} [limit] - max results (default 10)
  */

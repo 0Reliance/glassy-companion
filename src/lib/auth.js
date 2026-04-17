@@ -85,6 +85,15 @@ export async function getBaseUrl() {
   return result[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL
 }
 
+/** Batch-read baseUrl + activeAccountId in a single storage call. */
+export async function getApiContext() {
+  const result = await chrome.storage.local.get([STORAGE_KEYS.baseUrl, STORAGE_KEYS.activeAccountId])
+  return {
+    baseUrl: result[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL,
+    activeAccountId: result[STORAGE_KEYS.activeAccountId] || null,
+  }
+}
+
 /** Set a custom base URL (for self-hosted Glassy instances). */
 export async function setBaseUrl(url) {
   const clean = url.replace(/\/$/, '')

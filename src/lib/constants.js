@@ -10,8 +10,14 @@ export const API_PATHS = {
   collections: '/api/ext/collections',
   checkUrl: '/api/ext/check-url',
   bookmarks: '/api/ext/bookmarks',
+  highlights: '/api/ext/bookmarks/:id/highlights',
+  highlightsDelete: '/api/ext/highlights/:id',
+  tags: '/api/ext/tags',
+  documents: '/api/ext/documents',
   notes: '/api/ext/notes',
   aiSummarize: '/api/ext/ai/summarize',
+  // Search uses the Keep API surface which natively supports ?q= full-text search
+  searchBookmarks: '/api/keep/bookmarks',
 }
 
 export const STORAGE_KEYS = {

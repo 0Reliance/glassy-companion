@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.1] — 2026-04-17
+
+### Fixed
+- **Offline queue `'page'` type now flushes correctly** — the queue flush loop in `service-worker.js` previously sent queued page-save items to `saveNote()` (wrong API call). Added an explicit `'page'` branch that correctly routes to `saveDocument()`.
+- **`handleSummarize` callback/promise mismatch** — `QuickActions.jsx` was using the old callback-based `chrome.tabs.sendMessage(id, msg, callback)` API inside an `async` function. Errors thrown inside the callback couldn't propagate to the outer `try/catch`. Replaced with the promise-based form and a `finally` block for reliable `setSummaryLoading(false)` cleanup.
+- **`setSaved` unused parameter removed** — `useAppState.js` declared `setSaved((url) => ...)` but never used `url`. Parameter removed to eliminate dead code and misleading intent.
+- **Tags sent as array** — `BookmarkCard.jsx` was sending `tags: tags.join(',')` (comma-separated string) to the API. Server `sanitizeTags()` accepted both formats but the canonical type is an array. Now sends `tags: tags` directly.
+
+### Changed
+- **Permissions cleanup** — removed unused `"offscreen"` and `"sidePanel"` permissions from `manifest.json`.
+- **API call batching** — `api.js` now batch-reads `baseUrl` + `activeAccountId` in a single `chrome.storage.local.get()` via `getApiContext()`, replacing three sequential storage reads per request.
+- **Badge debounce** — `tabs.onActivated` and `tabs.onUpdated` now use a 250 ms per-tab debounce before calling `checkSavedPageBadge()` to avoid flooding the API on rapid tab switching.
+- **Badge batch update** — `saveAllTabsFromPopup()` accumulates a saved count and calls `updateBadge(saved)` once instead of once per tab.
+- **Search debounce** — `SearchView.jsx` search input debounce increased from 300 ms to 500 ms.
+
+### Added
+- **`getApiContext()` helper** — new export in `auth.js` that reads `baseUrl` and `activeAccountId` in a single storage call.
+- **`API_PATHS` completeness** — `highlights`, `highlightsDelete`, `tags`, `documents`, and `searchBookmarks` paths added to `constants.js`. All extension API endpoints are now centralized.
+- **`searchBookmarks` path comment** — clarifies that the search function intentionally uses the `/api/keep/bookmarks` surface (which natively supports `?q=` full-text search) rather than the ext API.
+
+---
+
 ## [2.0.0] — 2026-04-16
 
 ### Added

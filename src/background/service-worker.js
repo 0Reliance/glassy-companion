@@ -226,11 +226,12 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (_queueFlushing) return
   _queueFlushing = true
 
+  try {
   const queue = await getQueue()
-  if (queue.length === 0) return
+  if (queue.length === 0) { _queueFlushing = false; return }
 
   const token = await getToken()
-  if (!token) return
+  if (!token) { _queueFlushing = false; return }
 
   let synced = 0
   let duplicates = 0
@@ -246,6 +247,8 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     try {
       if (item.type === 'bookmark') {
         await saveBookmark(item.payload)
+      } else if (item.type === 'page') {
+        await saveDocument(item.payload)
       } else {
         await saveNote(item.payload)
       }
@@ -291,8 +294,9 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (droppedAsFatal > 0) {
     showNotification('Glassy — Save Failed', `${droppedAsFatal} queued item${droppedAsFatal === 1 ? '' : 's'} could not be recovered automatically.`, 'error')
   }
-
-  _queueFlushing = false
+  } finally {
+    _queueFlushing = false
+  }
 })
 
 // ── Message handler (from popup) ──────────────────────────────────────────────
@@ -362,11 +366,12 @@ async function saveAllTabsFromPopup() {
     for (const tab of httpTabs) {
       try {
         const result = await saveBookmark({ url: tab.url, title: tab.title || tab.url })
-        if (result?.duplicate) { skipped++ } else { saved++; await updateBadge(1) }
+        if (result?.duplicate) { skipped++ } else { saved++ }
       } catch {
         skipped++
       }
     }
+    if (saved > 0) await updateBadge(saved)
     return { ok: true, saved, skipped, total: httpTabs.length }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -515,15 +520,26 @@ async function checkSavedPageBadge(tabId, url) {
   }
 }
 
+// Debounce badge checks per tab to avoid flooding API on rapid tab switching
+const _badgeCheckTimers = new Map()
+
+function debouncedCheckBadge(tabId, url) {
+  if (_badgeCheckTimers.has(tabId)) clearTimeout(_badgeCheckTimers.get(tabId))
+  _badgeCheckTimers.set(tabId, setTimeout(() => {
+    _badgeCheckTimers.delete(tabId)
+    checkSavedPageBadge(tabId, url)
+  }, 250))
+}
+
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId)
-    if (tab?.url) await checkSavedPageBadge(activeInfo.tabId, tab.url)
+    if (tab?.url) debouncedCheckBadge(activeInfo.tabId, tab.url)
   } catch {}
 })
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if (changeInfo.url) {
-    await checkSavedPageBadge(tabId, changeInfo.url)
+    debouncedCheckBadge(tabId, changeInfo.url)
   }
 })

@@ -73,7 +73,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
       domain: pageMeta?.domain || '',
       notes: notes || '',
       collection_id: collectionId,
-      tags: tags.join(','),
+      tags: tags,
       ai_tag: aiTag,
     })
   }, [pageMeta, title, notes, collectionId, tags, aiTag, onSave, clearDraft])

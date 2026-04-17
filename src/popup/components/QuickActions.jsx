@@ -13,20 +13,23 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
     setSummaryLoading(true)
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' }, async (res) => {
-        if (chrome.runtime.lastError || !res?.text) {
-          setSummaryLoading(false)
-          return
-        }
-        try {
-          const result = await summarizePage({ url: pageMeta.url, text: res.text, title: pageMeta.title })
-          setSummaryText(result?.summary || result?.text || (typeof result === 'string' ? result : ''))
-        } catch (_) {
-          // fail silently — summary is bonus feature
-        }
-        setSummaryLoading(false)
-      })
+      let res
+      try {
+        res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' })
+      } catch {
+        // Content script unavailable on this page
+        return
+      }
+      if (!res?.text) return
+      try {
+        const result = await summarizePage({ url: pageMeta.url, text: res.text, title: pageMeta.title })
+        setSummaryText(result?.summary || result?.text || (typeof result === 'string' ? result : ''))
+      } catch (_) {
+        // fail silently — summary is bonus feature
+      }
     } catch (_) {
+      // ignore
+    } finally {
       setSummaryLoading(false)
     }
   }

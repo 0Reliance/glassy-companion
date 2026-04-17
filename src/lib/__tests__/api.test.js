@@ -5,6 +5,7 @@ vi.mock('../auth.js', () => ({
   getToken: vi.fn(() => Promise.resolve('test-token')),
   getBaseUrl: vi.fn(() => Promise.resolve('https://glassy.test')),
   getActiveAccountId: vi.fn(() => Promise.resolve('acc-1')),
+  getApiContext: vi.fn(() => Promise.resolve({ baseUrl: 'https://glassy.test', activeAccountId: 'acc-1' })),
   clearAuth: vi.fn(),
 }))
 
@@ -18,7 +19,7 @@ const {
   saveDocument,
   ApiError,
 } = await import('../api.js')
-const { clearAuth, getBaseUrl } = await import('../auth.js')
+const { clearAuth, getBaseUrl, getApiContext } = await import('../auth.js')
 
 describe('api.js — apiFetch wrapper', () => {
   beforeEach(() => {
@@ -153,6 +154,7 @@ describe('api.js — apiFetch wrapper', () => {
 
   it('rejects immediately when baseUrl uses http:// (not localhost)', async () => {
     getBaseUrl.mockResolvedValueOnce('http://evil.example.com')
+    getApiContext.mockResolvedValueOnce({ baseUrl: 'http://evil.example.com', activeAccountId: 'acc-1' })
 
     await expect(fetchMe()).rejects.toMatchObject({
       status: 0,
@@ -163,6 +165,7 @@ describe('api.js — apiFetch wrapper', () => {
 
   it('allows http://localhost for development', async () => {
     getBaseUrl.mockResolvedValueOnce('http://localhost:3000')
+    getApiContext.mockResolvedValueOnce({ baseUrl: 'http://localhost:3000', activeAccountId: 'acc-1' })
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,

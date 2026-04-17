@@ -26,7 +26,7 @@ export default function SearchView() {
         setResults([])
         setSearchError(err.message || 'Search failed.')
       } finally { setLoading(false) }
-    }, 300)
+    }, 500)
     return () => clearTimeout(timer)
   }, [query])
 

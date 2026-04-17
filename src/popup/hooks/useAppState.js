@@ -71,7 +71,7 @@ export default function useAppState() {
   }, [])
 
   const setSaving = useCallback(() => setSaveStatus('saving'), [])
-  const setSaved = useCallback((url) => {
+  const setSaved = useCallback(() => {
     setSaveStatus('saved')
   }, [])
   const setDuplicate = useCallback(() => setSaveStatus('duplicate'), [])
