@@ -1,6 +1,6 @@
 {
   "name": "glassy-companion",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Glassy Companion — Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
@@ -12,16 +12,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.2",
     "@types/chrome": "^0.0.270",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.18",
+    "jsdom": "^29.0.2",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.4.0",

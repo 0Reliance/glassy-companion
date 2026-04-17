@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 
 // Mock auth module before importing api
 vi.mock('../auth.js', () => ({
@@ -8,13 +8,28 @@ vi.mock('../auth.js', () => ({
   clearAuth: vi.fn(),
 }))
 
-const { fetchMe, checkUrl, fetchCollections, fetchTags, createCollection, saveBookmark } = await import('../api.js')
-const { clearAuth } = await import('../auth.js')
+const {
+  fetchMe,
+  checkUrl,
+  fetchCollections,
+  fetchTags,
+  createCollection,
+  saveBookmark,
+  saveDocument,
+  ApiError,
+} = await import('../api.js')
+const { clearAuth, getBaseUrl } = await import('../auth.js')
 
 describe('api.js — apiFetch wrapper', () => {
   beforeEach(() => {
-    vi.restoreAllMocks()
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    getBaseUrl.mockResolvedValue('https://glassy.test')
     globalThis.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('sends auth headers on every request', async () => {
@@ -33,13 +48,17 @@ describe('api.js — apiFetch wrapper', () => {
     expect(opts.headers['X-Account-Id']).toBe('acc-1')
   })
 
-  it('wraps network failures in ApiError with status 0', async () => {
+  it('wraps network failures in ApiError with status 0 after retry', async () => {
+    globalThis.fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     globalThis.fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
-    await expect(fetchMe()).rejects.toMatchObject({
+    const assertion = expect(fetchMe()).rejects.toMatchObject({
       status: 0,
       message: 'Failed to fetch',
     })
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
   })
 
   it('handles 401 by clearing auth and throwing', async () => {
@@ -71,13 +90,13 @@ describe('api.js — apiFetch wrapper', () => {
   it('handles non-JSON error responses gracefully', async () => {
     globalThis.fetch.mockResolvedValueOnce({
       ok: false,
-      status: 502,
+      status: 400,
       json: () => Promise.reject(new SyntaxError('Unexpected token')),
     })
 
     await expect(fetchMe()).rejects.toMatchObject({
-      status: 502,
-      message: 'Request failed (502)',
+      status: 400,
+      message: 'Request failed (400)',
     })
   })
 
@@ -87,7 +106,6 @@ describe('api.js — apiFetch wrapper', () => {
       status: 204,
     })
 
-    // deleteBookmark returns apiFetch which should return null on 204
     const { deleteBookmark } = await import('../api.js')
     const result = await deleteBookmark('123')
     expect(result).toBeNull()
@@ -131,5 +149,108 @@ describe('api.js — apiFetch wrapper', () => {
     expect(opts.method).toBe('POST')
     expect(opts.body).toBe(JSON.stringify({ name: 'Test' }))
     expect(result).toEqual({ id: 'col-1', name: 'Test' })
+  })
+
+  it('rejects immediately when baseUrl uses http:// (not localhost)', async () => {
+    getBaseUrl.mockResolvedValueOnce('http://evil.example.com')
+
+    await expect(fetchMe()).rejects.toMatchObject({
+      status: 0,
+      message: 'Server URL must use HTTPS.',
+    })
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('allows http://localhost for development', async () => {
+    getBaseUrl.mockResolvedValueOnce('http://localhost:3000')
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: { id: 1 } }),
+    })
+
+    const result = await fetchMe()
+    expect(result).toEqual({ user: { id: 1 } })
+  })
+
+  it('throws ApiError with timed-out message on AbortError', async () => {
+    const abortErr = new DOMException('The user aborted a request.', 'AbortError')
+    globalThis.fetch.mockRejectedValueOnce(abortErr)
+
+    await expect(fetchMe()).rejects.toMatchObject({
+      status: 0,
+      message: 'Request timed out.',
+    })
+    // AbortError should NOT be retried
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries once on 5xx and succeeds', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({ error: 'Service Unavailable' }),
+    })
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: { id: 1 } }),
+    })
+
+    const promise = fetchMe()
+    await vi.runAllTimersAsync()
+    const result = await promise
+
+    expect(result).toEqual({ user: { id: 1 } })
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('throws after two consecutive 5xx responses', async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({ error: 'Service Unavailable' }),
+    })
+
+    const assertion = expect(fetchMe()).rejects.toMatchObject({ status: 503 })
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('passes AbortSignal to fetch', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+    })
+
+    await fetchMe()
+
+    const [, opts] = globalThis.fetch.mock.calls[0]
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('ApiError is exported and instanceof-able', () => {
+    const err = new ApiError(404, 'Not found')
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err).toBeInstanceOf(Error)
+    expect(err.status).toBe(404)
+    expect(err.message).toBe('Not found')
+  })
+
+  it('saveDocument sends POST to /api/ext/documents', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ id: 'doc-1' }),
+    })
+
+    const result = await saveDocument({ url: 'https://example.com', title: 'Test' })
+
+    const [url, opts] = globalThis.fetch.mock.calls[0]
+    expect(url).toContain('/api/ext/documents')
+    expect(opts.method).toBe('POST')
+    expect(result).toEqual({ id: 'doc-1' })
   })
 })

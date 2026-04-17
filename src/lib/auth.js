@@ -4,10 +4,41 @@
  */
 import { STORAGE_KEYS, DEFAULT_BASE_URL, API_PATHS } from './constants.js'
 
-/** Retrieve the stored JWT token, or null if not logged in. */
+/**
+ * Decode JWT payload (base64url → JSON). Returns null if malformed.
+ * @param {string} token
+ */
+function decodeJwtPayload(token) {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    // base64url → base64 → decode
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(base64))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Returns true if the JWT exp claim is in the past.
+ * Treats tokens with no exp as valid.
+ */
+function isTokenExpired(token) {
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return false
+  return Date.now() / 1000 >= payload.exp
+}
+
+/** Retrieve the stored JWT token, or null if not logged in or expired. */
 export async function getToken() {
   const result = await chrome.storage.session.get(STORAGE_KEYS.token)
-  return result[STORAGE_KEYS.token] || null
+  const token = result[STORAGE_KEYS.token] || null
+  if (token && isTokenExpired(token)) {
+    await clearAuth()
+    return null
+  }
+  return token
 }
 
 /** Persist the JWT token in session storage (cleared on browser close). */
@@ -56,8 +87,11 @@ export async function getBaseUrl() {
 
 /** Set a custom base URL (for self-hosted Glassy instances). */
 export async function setBaseUrl(url) {
-  // Strip trailing slash
   const clean = url.replace(/\/$/, '')
+  // Only accept HTTPS or localhost for security
+  if (!/^https:\/\//i.test(clean) && !/^http:\/\/localhost(:\d+)?$/i.test(clean)) {
+    throw new Error('Server URL must use HTTPS.')
+  }
   await chrome.storage.local.set({ [STORAGE_KEYS.baseUrl]: clean })
 }
 
@@ -66,6 +100,9 @@ export async function setBaseUrl(url) {
  * Returns { ok: true, user, token } or { ok: false, error }.
  */
 export async function login(email, password) {
+  if (!email || !/.+@.+\..+/.test(email)) {
+    return { ok: false, error: 'Please enter a valid email address.' }
+  }
   try {
     const baseUrl = await getBaseUrl()
     const res = await fetch(`${baseUrl}${API_PATHS.login}`, {

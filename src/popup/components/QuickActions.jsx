@@ -1,18 +1,17 @@
 import React, { useState } from 'react'
 import { summarizePage } from '../../lib/api.js'
+import { enqueue } from '../../lib/offlineQueue.js'
 import SummaryCard from './SummaryCard.jsx'
 
 export default function QuickActions({ pageMeta, onSaveNote }) {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryText, setSummaryText]       = useState('')
-  const [selectionDone, setSelectionDone]   = useState(false)
-  const [selectionError, setSelectionError] = useState(false)
+  const [pageStatus, setPageStatus]         = useState('idle') // idle | saving | saved | error
 
   async function handleSummarize() {
     if (!pageMeta?.url || summaryLoading) return
     setSummaryLoading(true)
     try {
-      // Ask content script for page text, then summarize
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' }, async (res) => {
         if (chrome.runtime.lastError || !res?.text) {
@@ -32,22 +31,54 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
     }
   }
 
-  async function handleSaveSelection() {
+  async function handleSavePage() {
+    if (pageStatus === 'saving' || pageStatus === 'saved') return
+    setPageStatus('saving')
+
+    const payload = {
+      url: pageMeta?.url,
+      title: pageMeta?.title || '',
+    }
+
+    // Queue for later if offline
+    if (!navigator.onLine) {
+      try {
+        await enqueue('page', payload)
+        setPageStatus('queued')
+        setTimeout(() => setPageStatus('idle'), 3000)
+      } catch (_) {
+        setPageStatus('error')
+        setTimeout(() => setPageStatus('idle'), 3000)
+      }
+      return
+    }
+
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTED_TEXT' }, (res) => {
-        if (chrome.runtime.lastError) return
-        const text = res?.text?.trim()
-        if (!text) {
-          setSelectionError(true)
-          setTimeout(() => setSelectionError(false), 2500)
-          return
-        }
-        onSaveNote(text)
-        setSelectionDone(true)
+      const response = await chrome.runtime.sendMessage({
+        type: 'SAVE_PAGE',
+        payload: {
+          url: payload.url || tab?.url,
+          title: payload.title || tab?.title || '',
+        },
       })
-    } catch (_) {}
+      if (response?.ok) {
+        setPageStatus('saved')
+      } else {
+        setPageStatus('error')
+        setTimeout(() => setPageStatus('idle'), 3000)
+      }
+    } catch (_) {
+      setPageStatus('error')
+      setTimeout(() => setPageStatus('idle'), 3000)
+    }
   }
+
+  const pageLabel = pageStatus === 'saving' ? 'Saving…'
+    : pageStatus === 'saved'  ? 'Saved!'
+    : pageStatus === 'queued' ? 'Queued offline'
+    : pageStatus === 'error'  ? 'Failed'
+    : 'Save page'
 
   return (
     <div>
@@ -55,13 +86,17 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
         <button
           type="button"
           className="quick-action-btn"
-          onClick={handleSaveSelection}
-          disabled={selectionDone}
-          title="Save selected text as a note"
-          style={selectionError ? { borderColor: 'rgba(239,68,68,0.4)' } : undefined}
+          onClick={handleSavePage}
+          disabled={pageStatus === 'saving' || pageStatus === 'saved'}
+          title="Save this page as a readable document"
+          aria-label="Save page to Glassy Keep"
         >
-          <span style={{ fontSize: 16 }}>{selectionDone ? '✅' : selectionError ? '⚠️' : '✍️'}</span>
-          <span>{selectionDone ? 'Saved!' : selectionError ? 'Select text first' : 'Save selection'}</span>
+          {pageStatus === 'saving'
+            ? <span className="spinner" style={{ width: 14, height: 14 }} aria-hidden="true" />
+            : <span style={{ fontSize: 16 }} aria-hidden="true">
+                {pageStatus === 'saved' ? '✅' : pageStatus === 'error' ? '⚠️' : pageStatus === 'queued' ? '📥' : '📄'}
+              </span>}
+          <span>{pageLabel}</span>
         </button>
 
         <button
@@ -70,21 +105,12 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           onClick={handleSummarize}
           disabled={summaryLoading || !!summaryText}
           title="Summarize this page with AI"
+          aria-label="AI summarize this page"
         >
           {summaryLoading
-            ? <span className="spinner" style={{ width: 14, height: 14 }} />
-            : <span style={{ fontSize: 16 }}>{summaryText ? '✅' : '✨'}</span>}
+            ? <span className="spinner" style={{ width: 14, height: 14 }} aria-hidden="true" />
+            : <span style={{ fontSize: 16 }} aria-hidden="true">{summaryText ? '✅' : '✨'}</span>}
           <span>{summaryText ? 'Done!' : summaryLoading ? 'Working…' : 'AI summary'}</span>
-        </button>
-
-        <button
-          type="button"
-          className="quick-action-btn"
-          onClick={() => chrome.tabs.create({ url: pageMeta?.url })}
-          title="Open in new tab"
-        >
-          <span style={{ fontSize: 16 }}>↗️</span>
-          <span>Open tab</span>
         </button>
       </div>
 

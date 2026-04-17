@@ -71,11 +71,46 @@ function getSelectedText() {
   return window.getSelection()?.toString().trim().slice(0, 10000) || ''
 }
 
+/**
+ * Returns the HTML of the current selection (preserves formatting).
+ * Returns empty string if nothing is selected.
+ */
+function getSelectionHtml() {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return ''
+  const container = document.createElement('div')
+  for (let i = 0; i < sel.rangeCount; i++) {
+    container.appendChild(sel.getRangeAt(i).cloneContents())
+  }
+  return container.innerHTML.trim().slice(0, 100_000)
+}
+
 function getPageText() {
-  // Extract readable text, strip scripts/styles, limit to MAX_PAGE_TEXT_CHARS chars
-  const clone = document.body.cloneNode(true)
-  clone.querySelectorAll('script, style, noscript, nav, header, footer, aside').forEach(el => el.remove())
-  return (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 5000)
+  // Walk the DOM text nodes directly — avoids cloneNode(true) freeze on large docs
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        const tag = node.parentElement?.tagName?.toUpperCase()
+        if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'NAV', 'HEADER', 'FOOTER', 'ASIDE'].includes(tag)) {
+          return NodeFilter.FILTER_REJECT
+        }
+        return NodeFilter.FILTER_ACCEPT
+      },
+    }
+  )
+  const chunks = []
+  let total = 0
+  let node
+  while ((node = walker.nextNode()) && total < 5000) {
+    const text = node.textContent.replace(/\s+/g, ' ').trim()
+    if (text) {
+      chunks.push(text)
+      total += text.length
+    }
+  }
+  return chunks.join(' ').slice(0, 5000)
 }
 
 // ── Message handler ──────────────────────────────────────────────────────────
@@ -95,6 +130,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'GET_SELECTED_TEXT':
       sendResponse({ text: getSelectedText() })
+      return true
+
+    case 'GET_SELECTION_HTML':
+      sendResponse({ html: getSelectionHtml() })
+      return true
+
+    case 'GET_PAGE_HTML':
+      sendResponse({
+        url: location.href,
+        title: document.title,
+        excerpt: getPageText().slice(0, 500),
+      })
       return true
 
     default:

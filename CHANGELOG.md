@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.0] — 2026-04-16
+
+### Added
+- **Full Page Save** — new `SAVE_PAGE` message handler calls `saveDocument()`, which POSTs to `/api/ext/documents`. The server runs Mozilla Readability on the submitted HTML and stores the parsed article content (up to 200 KB).
+- **Content extraction pipeline** — `extractor.js` content script now exports `getSelectionHtml()` (TreeWalker-based, preserves heading/list/code/blockquote structure) and `getPageText()` (full visible text). New message types `GET_SELECTION_HTML` and `GET_PAGE_HTML` allow the service worker to request these from any tab.
+- **HTML selection save** — `CTX_SAVE_SELECTION` context-menu handler now requests full HTML from the content script before saving, falling back to plain text.
+- **`ErrorBoundary` component** — wraps the entire popup UI; catches React render errors and shows a "Try again" screen instead of a blank panel.
+- **`saveDocument()` API function** — new export in `api.js` that POSTs `{ url, title, html, text }` to `/api/ext/documents`.
+- **`/api/ext/documents` server route** — new POST endpoint in `extensionRoutes.js`: accepts HTML body, runs Readability, stores result; enforces 200 KB limit and requires auth.
+- **103-test suite** — three new test files added:
+  - `src/lib/__tests__/auth.test.js` — 23 tests covering JWT expiry, HTTPS enforcement, email validation, network errors
+  - `src/content/__tests__/extractor.test.js` — 11 tests covering message handlers, HTML extraction, meta extraction (jsdom environment)
+  - `src/background/__tests__/service-worker.test.js` — 17 tests covering all message handler types and offline queue flush logic
+
+### Changed
+- **React 19.0.0** — popup upgraded from React 18 to React 19; `react`, `react-dom`, `@types/react`, `@types/react-dom` all updated.
+- **Zustand 5** — state management library added (`^5.0.0`); popup index wraps `<Popup />` in `<ErrorBoundary>`.
+- **`api.js` hardened** — `AbortController` timeout (30 s) on every fetch; HTTPS-only enforcement (`setBaseUrl` rejects non-HTTPS); 1-retry on 5xx/network errors; `ApiError` class exported.
+- **`auth.js` hardened** — `getToken()` checks JWT `exp` claim and clears expired tokens automatically; `setBaseUrl()` rejects non-HTTPS URLs; `login()` validates email format before sending.
+- **Offline queue flush lock** — `service-worker.js` uses a module-level `flushLock` flag to prevent concurrent queue flushes when alarms fire close together.
+- **Note limit raised** — `/api/ext/notes` now accepts up to 50,000 characters (previously 10,000) and `html` as a valid `content_format`.
+- **`QuickActions.jsx` redesigned** — "Save page" button added; broken "Save Selection" and "Open Tab" buttons removed.
+
+### Removed
+- **`SettingsPanel.jsx`** — legacy monolithic settings component removed; settings UI lives in `SettingsView.jsx`.
+
+---
+
 ## [1.2.1] — 2026-04-04
 
 ### Fixed

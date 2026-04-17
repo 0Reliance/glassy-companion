@@ -6,13 +6,22 @@ import { getToken, getBaseUrl, getActiveAccountId, clearAuth } from './auth.js'
 
 /**
  * Core fetch wrapper. Handles auth headers, JSON encoding,
- * and 401 → clear token flow.
+ * 401 → clear token, request timeouts, HTTPS enforcement, and 5xx retry.
  */
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}, _retryCount = 0) {
   const token = await getToken()
   const baseUrl = await getBaseUrl()
+
+  // Enforce HTTPS — allow localhost for dev
+  if (!/^https:\/\//i.test(baseUrl) && !/^http:\/\/localhost(:\d+)?$/i.test(baseUrl)) {
+    throw new ApiError(0, 'Server URL must use HTTPS.')
+  }
+
   const activeAccountId = await getActiveAccountId()
   const url = `${baseUrl}${path}`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000)
 
   const headers = {
     'Content-Type': 'application/json',
@@ -27,10 +36,20 @@ async function apiFetch(path, options = {}) {
       ...options,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
     })
   } catch (networkErr) {
+    clearTimeout(timer)
+    if (networkErr.name === 'AbortError') {
+      throw new ApiError(0, 'Request timed out.')
+    }
+    if (_retryCount < 1) {
+      await new Promise(r => setTimeout(r, 1000))
+      return apiFetch(path, options, _retryCount + 1)
+    }
     throw new ApiError(0, networkErr.message || 'Network request failed')
   }
+  clearTimeout(timer)
 
   if (res.status === 401) {
     await clearAuth()
@@ -38,6 +57,11 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!res.ok) {
+    // Retry on 5xx once
+    if (res.status >= 500 && _retryCount < 1) {
+      await new Promise(r => setTimeout(r, 1000 * (_retryCount + 1)))
+      return apiFetch(path, options, _retryCount + 1)
+    }
     let errMsg = `Request failed (${res.status})`
     try {
       const errData = await res.json()
@@ -55,7 +79,7 @@ async function apiFetch(path, options = {}) {
   }
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(status, message) {
     super(message)
     this.status = status
@@ -192,4 +216,15 @@ export function createCollection(name) {
     method: 'POST',
     body: { name },
   })
+}
+
+/**
+ * POST /api/ext/documents — save a full page as a readable document.
+ * @param {object} payload
+ * @param {string} payload.url         - source URL
+ * @param {string} [payload.title]     - page title
+ * @param {string} [payload.html]      - page HTML snippet (optional)
+ */
+export function saveDocument(payload) {
+  return apiFetch('/api/ext/documents', { method: 'POST', body: payload })
 }

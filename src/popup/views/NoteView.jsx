@@ -24,7 +24,10 @@ export default function NoteView({ pageMeta }) {
   useEffect(() => {
     try {
       chrome.storage.local.get(DRAFT_KEY, (result) => {
-        if (chrome.runtime.lastError) return
+        if (chrome.runtime.lastError) {
+          console.warn('[NoteView] draft restore failed:', chrome.runtime.lastError.message)
+          return
+        }
         const draft = result?.[DRAFT_KEY]
         if (draft) {
           if (draft.content) setContent(draft.content)
@@ -35,7 +38,9 @@ export default function NoteView({ pageMeta }) {
           setTimeout(() => setDraftRestored(false), 2000)
         }
       })
-    } catch {}
+    } catch (err) {
+      console.warn('[NoteView] draft restore error:', err)
+    }
     // Focus textarea
     setTimeout(() => textareaRef.current?.focus(), 100)
   }, [])

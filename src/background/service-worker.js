@@ -11,7 +11,7 @@
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote, searchBookmarks, checkUrl } from '../lib/api.js'
+import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
@@ -89,8 +89,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     case CTX_SAVE_SELECTION: {
       const selectedText = info.selectionText?.trim()
       if (!selectedText) break
+      // Try to get rich HTML from content script; fall back to plain text
+      let content = `${selectedText}\n\n*Saved from: [${tab.title}](${tab.url})*`
+      let contentFormat = 'markdown'
+      try {
+        const htmlRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION_HTML' })
+        if (htmlRes?.html) {
+          content = htmlRes.html
+          contentFormat = 'html'
+        }
+      } catch {
+        // Content script unavailable — use plain text fallback
+      }
       await backgroundSave('note', {
-        content: `${selectedText}\n\n*Saved from: [${tab.title}](${tab.url})*`,
+        content,
+        content_format: contentFormat,
         title: `Note from ${new URL(tab.url).hostname}`,
         tags: [],
       }, tab)
@@ -205,9 +218,13 @@ async function backgroundSave(type, payload, tab) {
 
 // ── Offline queue flush ───────────────────────────────────────────────────────
 
+let _queueFlushing = false
+
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
   if (!navigator.onLine) return
+  if (_queueFlushing) return
+  _queueFlushing = true
 
   const queue = await getQueue()
   if (queue.length === 0) return
@@ -274,6 +291,8 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (droppedAsFatal > 0) {
     showNotification('Glassy — Save Failed', `${droppedAsFatal} queued item${droppedAsFatal === 1 ? '' : 's'} could not be recovered automatically.`, 'error')
   }
+
+  _queueFlushing = false
 })
 
 // ── Message handler (from popup) ──────────────────────────────────────────────
@@ -287,6 +306,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function handleMessage(message) {
   switch (message.type) {
+    case 'SAVE_PAGE':
+      return savePageFromPopup(message.payload)
+
     case 'SAVE_BOOKMARK':
       return saveBookmarkFromPopup(message.payload)
 
@@ -354,6 +376,16 @@ async function saveAllTabsFromPopup() {
 async function saveNoteFromPopup(payload) {
   try {
     const result = await saveNote(payload)
+    return { ok: true, data: result }
+  } catch (err) {
+    return { ok: false, error: err.message, status: err.status }
+  }
+}
+
+async function savePageFromPopup(payload) {
+  try {
+    const result = await saveDocument(payload)
+    if (!result?.duplicate) await updateBadge(1)
     return { ok: true, data: result }
   } catch (err) {
     return { ok: false, error: err.message, status: err.status }

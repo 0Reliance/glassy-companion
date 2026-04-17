@@ -1,7 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import QuickActions from './QuickActions.jsx'
+
+const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
 
 export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, saving }) {
   const [title, setTitle] = useState('')
@@ -10,11 +12,48 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
   const [tags, setTags] = useState([])
   const [aiTag, setAiTag] = useState(true)
   const [showNotes, setShowNotes] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+  const draftTimer = useRef(null)
 
   // Effective title: edited > extracted > url
   const effectiveTitle = title || pageMeta?.title || pageMeta?.url || '(Untitled)'
 
-  // Sync title field when pageMeta first arrives (don't overwrite user edits)
+  // Restore draft on mount
+  useEffect(() => {
+    try {
+      chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
+        if (chrome.runtime.lastError) return
+        const draft = result?.[BOOKMARK_DRAFT_KEY]
+        if (draft) {
+          if (draft.title) setTitle(draft.title)
+          if (draft.notes) { setNotes(draft.notes); setShowNotes(true) }
+          if (Array.isArray(draft.tags) && draft.tags.length) setTags(draft.tags)
+          if (draft.collectionId != null) setCollection(draft.collectionId)
+          setDraftRestored(true)
+          setTimeout(() => setDraftRestored(false), 2000)
+        }
+      })
+    } catch { /* storage unavailable */ }
+  }, [])
+
+  // Auto-save draft (debounced 500ms)
+  useEffect(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      if (title || notes || tags.length || collectionId != null) {
+        chrome.storage.local.set({
+          [BOOKMARK_DRAFT_KEY]: { title, notes, tags, collectionId, savedAt: Date.now() }
+        })
+      }
+    }, 500)
+    return () => { if (draftTimer.current) clearTimeout(draftTimer.current) }
+  }, [title, notes, tags, collectionId])
+
+  const clearDraft = useCallback(() => {
+    chrome.storage.local.remove(BOOKMARK_DRAFT_KEY)
+  }, [])
+
+  // Sync title field when pageMeta first arrives (don't overwrite user edits or restored draft)
   useEffect(() => {
     if (pageMeta?.title && !title) {
       setTitle(pageMeta.title)
@@ -24,6 +63,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
 
   const handleSave = useCallback(() => {
     if (!pageMeta?.url) return
+    clearDraft()
     onSave({
       url: pageMeta.url,
       title: title || pageMeta?.title || pageMeta?.url,
@@ -36,7 +76,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
       tags: tags.join(','),
       ai_tag: aiTag,
     })
-  }, [pageMeta, title, notes, collectionId, tags, aiTag, onSave])
+  }, [pageMeta, title, notes, collectionId, tags, aiTag, onSave, clearDraft])
 
   const handleSaveNote = useCallback((text) => {
     if (!pageMeta?.url || !text) return
