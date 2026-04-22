@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.0.2] — 2026-04-22
+## [2.0.3] — 2026-04-22
 
 ### Fixed
 - **SAVE_PAGE no longer fails on SPAs / auth-gated / Cloudflare-protected pages** — the popup's "Save page" action previously sent only `{url, title}` to the server, which then re-fetched the URL and ran Mozilla Readability. For single-page apps (Twitter/X, Reddit, Gmail) the server received an empty JS shell, for auth-gated pages it received a login redirect, and for Cloudflare-protected pages it received a challenge page — all of which caused Readability to return null and the request to fail with a 422 "Could not extract readable content" error. The popup now extracts the page's visible text via the existing `GET_PAGE_TEXT` content-script message and includes it in the SAVE_PAGE payload. The server route `/api/ext/documents` now has two paths: when client-extracted content is present it is saved directly (skipping the URL re-fetch), otherwise it falls back to the original Readability flow for traditional articles.
