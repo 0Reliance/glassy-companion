@@ -58,11 +58,24 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+
+      // Extract page text client-side so the server doesn't need to re-fetch the URL.
+      // This makes saves work for SPAs, auth-gated pages, and Cloudflare-protected sites
+      // where a server-side fetch would get an empty shell or a challenge page.
+      let clientContent = ''
+      try {
+        const textRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' })
+        clientContent = textRes?.text || ''
+      } catch {
+        // Content script unavailable (e.g. chrome:// pages) — server will fetch the URL itself
+      }
+
       const response = await chrome.runtime.sendMessage({
         type: 'SAVE_PAGE',
         payload: {
           url: payload.url || tab?.url,
           title: payload.title || tab?.title || '',
+          ...(clientContent ? { content: clientContent } : {}),
         },
       })
       if (response?.ok) {
