@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.4] — 2026-04-26
+
+### Fixed
+- **Saves no longer retry forever for deleted accounts** (P1-11) — `classifySaveError` in `src/background/savePolicy.js` now treats HTTP `410 Gone` (`ACCOUNT_INACTIVITY_DELETED`) as a terminal `gone` outcome. `planBackgroundSaveFailure` returns `{ queue: false }` and `planQueueFailure` returns `{ action: 'drop' }` for this kind, so a queued save against a server-side-deleted account is dropped instead of retried indefinitely.
+- **`activeAccountId` is session-scoped** (P2-15) — `getActiveAccountId` / `setActiveAccountId` / `getApiContext` in `src/lib/auth.js` now read from and write to `chrome.storage.session` instead of `chrome.storage.local`. The active-account choice now tracks the JWT lifetime instead of persisting across browser restarts, removing a class of "wrong account selected after restart" bugs. `clearAuth` still removes the legacy `chrome.storage.local` key so users upgrading from 2.0.3 are migrated cleanly.
+
+---
+
 ## [2.0.3] — 2026-04-22
 
 ### Fixed
