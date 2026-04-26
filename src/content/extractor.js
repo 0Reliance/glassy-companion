@@ -115,7 +115,11 @@ function getPageText() {
 
 // ── Message handler ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+// P1-13: Validate that messages come from this extension only. Without this
+// check, any other extension on the same page could request page text/HTML,
+// bypassing the user's intention to share content only with Glassy Companion.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) return false
   switch (message.type) {
     case 'GET_PAGE_META':
       sendResponse({
