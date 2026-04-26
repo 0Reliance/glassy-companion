@@ -46,10 +46,13 @@ export async function setToken(token) {
   await chrome.storage.session.set({ [STORAGE_KEYS.token]: token })
 }
 
-/** Clear auth state — both token and cached user. */
+/** Clear auth state — token, cached user, and active account selection. */
 export async function clearAuth() {
   await chrome.storage.session.remove(STORAGE_KEYS.token)
+  await chrome.storage.session.remove(STORAGE_KEYS.activeAccountId)
   await chrome.storage.local.remove(STORAGE_KEYS.user)
+  // P2-15: legacy cleanup — older builds stored activeAccountId in local; remove
+  // it on logout so a stale value can never resurrect after the user signs out.
   await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
 }
 
@@ -65,17 +68,20 @@ export async function setCachedUser(user) {
 }
 
 /** Retrieve the active account ID, or null (uses primary account via server fallback). */
+// P2-15: session-scoped so the account choice tracks the JWT's lifetime — a
+// stale activeAccountId surviving a browser restart could route saves into the
+// wrong account when the token also expired.
 export async function getActiveAccountId() {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.activeAccountId)
+  const result = await chrome.storage.session.get(STORAGE_KEYS.activeAccountId)
   return result[STORAGE_KEYS.activeAccountId] || null
 }
 
 /** Set the active account ID for multi-account support. */
 export async function setActiveAccountId(accountId) {
   if (accountId) {
-    await chrome.storage.local.set({ [STORAGE_KEYS.activeAccountId]: accountId })
+    await chrome.storage.session.set({ [STORAGE_KEYS.activeAccountId]: accountId })
   } else {
-    await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
+    await chrome.storage.session.remove(STORAGE_KEYS.activeAccountId)
   }
 }
 
@@ -87,10 +93,14 @@ export async function getBaseUrl() {
 
 /** Batch-read baseUrl + activeAccountId in a single storage call. */
 export async function getApiContext() {
-  const result = await chrome.storage.local.get([STORAGE_KEYS.baseUrl, STORAGE_KEYS.activeAccountId])
+  // baseUrl is persistent (local); activeAccountId is session-scoped (P2-15).
+  const [localResult, sessionResult] = await Promise.all([
+    chrome.storage.local.get(STORAGE_KEYS.baseUrl),
+    chrome.storage.session.get(STORAGE_KEYS.activeAccountId),
+  ])
   return {
-    baseUrl: result[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL,
-    activeAccountId: result[STORAGE_KEYS.activeAccountId] || null,
+    baseUrl: localResult[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL,
+    activeAccountId: sessionResult[STORAGE_KEYS.activeAccountId] || null,
   }
 }
 

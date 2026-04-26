@@ -4,6 +4,9 @@ export function classifySaveError(error) {
   if (status === 409) return 'duplicate'
   if (status === 401) return 'auth'
   if (status === 403) return 'entitlement'
+  // 410 Gone: the target account was soft-deleted by the inactivity sweeper
+  // (ACCOUNT_INACTIVITY_DELETED). Retrying will never succeed — drop the op.
+  if (status === 410) return 'gone'
   if (status === 429) return 'retryable'
   if (!status || status >= 500) return 'retryable'
 
@@ -19,6 +22,8 @@ export function planBackgroundSaveFailure(error) {
     case 'auth':
       return { kind, queue: true }
     case 'entitlement':
+      return { kind, queue: false }
+    case 'gone':
       return { kind, queue: false }
     case 'retryable':
       return { kind, queue: true }
@@ -36,6 +41,8 @@ export function planQueueFailure(error) {
     case 'auth':
       return { kind, action: 'pause' }
     case 'entitlement':
+      return { kind, action: 'drop' }
+    case 'gone':
       return { kind, action: 'drop' }
     case 'retryable':
       return { kind, action: 'retry' }
