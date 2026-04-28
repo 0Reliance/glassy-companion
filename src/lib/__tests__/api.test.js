@@ -256,4 +256,27 @@ describe('api.js — apiFetch wrapper', () => {
     expect(opts.method).toBe('POST')
     expect(result).toEqual({ id: 'doc-1' })
   })
+
+  it('throws ApiError(413) when content-length exceeds 5 MB cap', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === 'content-length' ? String(6 * 1024 * 1024) : null },
+      text: () => Promise.resolve(''),
+    })
+
+    await expect(fetchMe()).rejects.toMatchObject({ status: 413 })
+  })
+
+  it('throws ApiError(413) when response body length exceeds 5 MB cap (no content-length)', async () => {
+    const huge = 'a'.repeat(5 * 1024 * 1024 + 1)
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: () => Promise.resolve(huge),
+    })
+
+    await expect(fetchMe()).rejects.toMatchObject({ status: 413 })
+  })
 })

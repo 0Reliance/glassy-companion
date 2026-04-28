@@ -13,6 +13,22 @@
  */
 import { STORAGE_KEYS } from './constants.js'
 
+/**
+ * Maximum offline queue size. Repeated 5xx with the browser offline could
+ * grow this list unbounded and eventually trip chrome.storage.local quota.
+ * Cap at 200 items; older items take precedence (we drop the new save and
+ * surface an error so the user knows it didn't queue).
+ */
+export const MAX_QUEUE_SIZE = 200
+
+export class QueueFullError extends Error {
+  constructor() {
+    super('Offline queue is full — please reconnect to sync pending saves.')
+    this.name = 'QueueFullError'
+    this.code = 'QUEUE_FULL'
+  }
+}
+
 /** Load the queue from chrome.storage.local. */
 async function loadQueue() {
   const result = await chrome.storage.local.get(STORAGE_KEYS.offlineQueue)
@@ -27,6 +43,9 @@ async function saveQueue(queue) {
 /** Add an item to the offline queue. Returns the new queue item. */
 export async function enqueue(type, payload) {
   const queue = await loadQueue()
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    throw new QueueFullError()
+  }
   const item = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     type,

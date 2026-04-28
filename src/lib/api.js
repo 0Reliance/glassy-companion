@@ -8,11 +8,16 @@ import { getToken, getBaseUrl, getActiveAccountId, getApiContext, clearAuth } fr
  * Core fetch wrapper. Handles auth headers, JSON encoding,
  * 401 → clear token, request timeouts, HTTPS enforcement, and 5xx retry.
  */
+// Cap any single response body we'll JSON-parse. Protects the popup from a
+// rogue/oversized API response ballooning extension memory.
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+
 async function apiFetch(path, options = {}, _retryCount = 0) {
-  const [token, { baseUrl, activeAccountId }] = await Promise.all([
-    getToken(),
-    getApiContext(),
-  ])
+  // Sequence getToken() BEFORE getApiContext(): getToken() may call
+  // clearAuth() on JWT expiry, which removes activeAccountId. Running them
+  // in parallel could read a stale activeAccountId into the request headers.
+  const token = await getToken()
+  const { baseUrl, activeAccountId } = await getApiContext()
 
   // Enforce HTTPS — allow localhost for dev
   if (!/^https:\/\//i.test(baseUrl) && !/^http:\/\/localhost(:\d+)?$/i.test(baseUrl)) {
@@ -73,6 +78,30 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
 
   // 204 No Content
   if (res.status === 204) return null
+  // Size-guard the response before JSON-parsing. Prefer text() so we can
+  // bound the byte length; fall back to json() for callers/mocks that only
+  // implement json().
+  const cl = parseInt(res.headers?.get?.('content-length') || '0', 10)
+  if (cl && cl > MAX_RESPONSE_BYTES) {
+    throw new ApiError(413, 'Response too large.')
+  }
+  if (typeof res.text === 'function') {
+    let text
+    try {
+      text = await res.text()
+    } catch {
+      return null
+    }
+    if (text.length > MAX_RESPONSE_BYTES) {
+      throw new ApiError(413, 'Response too large.')
+    }
+    if (!text) return null
+    try {
+      return JSON.parse(text)
+    } catch {
+      return null
+    }
+  }
   try {
     return await res.json()
   } catch {

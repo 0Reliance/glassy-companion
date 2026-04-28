@@ -12,7 +12,7 @@
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl } from '../lib/api.js'
-import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
+import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue, QueueFullError } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import {
@@ -166,8 +166,16 @@ async function backgroundSave(type, payload, tab) {
   }
 
   if (!navigator.onLine) {
-    await enqueue(type, savePayload)
-    showNotification('Glassy — Queued', 'You\'re offline. This will sync when you reconnect.', 'info')
+    try {
+      await enqueue(type, savePayload)
+      showNotification('Glassy — Queued', 'You\'re offline. This will sync when you reconnect.', 'info')
+    } catch (err) {
+      if (err instanceof QueueFullError) {
+        showNotification('Glassy — Queue Full', 'Offline queue is full. Reconnect to sync pending saves.', 'error')
+      } else {
+        showNotification('Glassy — Save Failed', err?.message || 'Could not queue this item.', 'error')
+      }
+    }
     return
   }
 
@@ -194,7 +202,15 @@ async function backgroundSave(type, payload, tab) {
     const failurePlan = planBackgroundSaveFailure(err)
 
     if (failurePlan.queue) {
-      await enqueue(type, savePayload)
+      try {
+        await enqueue(type, savePayload)
+      } catch (queueErr) {
+        if (queueErr instanceof QueueFullError) {
+          showNotification('Glassy — Queue Full', 'Offline queue is full. Reconnect to sync pending saves.', 'error')
+          return
+        }
+        // Fall through to original failure notification
+      }
     }
 
     switch (failurePlan.kind) {

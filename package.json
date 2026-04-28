@@ -1,13 +1,12 @@
 {
   "name": "glassy-companion",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "private": true,
   "type": "module",
   "description": "Glassy Companion — Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "build:firefox": "vite build --mode firefox",
     "zip": "node scripts/zip.js",
     "test": "vitest run"
   },

@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.5] — 2026-04-28
+
+### Added
+- **Offline queue size cap** (`MAX_QUEUE_SIZE = 200`) — `src/lib/offlineQueue.js` now refuses new enqueue requests once the queue holds 200 items, throwing a typed `QueueFullError` (code `QUEUE_FULL`). Background save handler in `src/background/service-worker.js` catches this and surfaces a "Glassy — Queue Full" notification instead of silently failing or eventually tripping `chrome.storage.local` quota. Older queued items are preserved; new saves are dropped with user feedback.
+- **Response body size guard** (`MAX_RESPONSE_BYTES = 5 MiB`) — `apiFetch` in `src/lib/api.js` now reads response bodies via `text()` first, bounds them at 5 MiB, and throws `ApiError(413, 'Response too large.')` if exceeded. Protects the popup process from a rogue/oversized API response ballooning extension memory. Falls back to `res.json()` for callers/mocks that only implement `json()`.
+
+### Fixed
+- **`activeAccountId` race on JWT expiry** — `apiFetch` previously ran `getToken()` and `getApiContext()` in parallel via `Promise.all`. `getToken()` may call `clearAuth()` when it detects an expired JWT, which removes `activeAccountId` from session storage; the parallel read could therefore see a stale `activeAccountId` and send the next request with the wrong account header. Sequenced the calls so `getToken()` completes (and any `clearAuth()` runs) before `getApiContext()` reads the active account.
+
+### Removed
+- **`build:firefox` script** — unused; Firefox build pathway was never wired into release tooling. `vite build --mode firefox` is still available manually if needed.
+
+---
+
 ## [2.0.4] — 2026-04-26
 
 ### Fixed

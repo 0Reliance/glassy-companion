@@ -5,6 +5,8 @@ import {
   enqueue,
   getQueue,
   incrementAttempts,
+  MAX_QUEUE_SIZE,
+  QueueFullError,
 } from '../offlineQueue.js'
 
 function createStorageArea() {
@@ -80,5 +82,24 @@ describe('offlineQueue', () => {
     await clearQueue()
 
     await expect(getQueue()).resolves.toEqual([])
+  })
+
+  it('throws QueueFullError when queue reaches MAX_QUEUE_SIZE', async () => {
+    // Pre-seed storage with MAX_QUEUE_SIZE items to avoid 200 awaited enqueues
+    const seeded = Array.from({ length: MAX_QUEUE_SIZE }, (_, i) => ({
+      id: `seed-${i}`,
+      type: 'bookmark',
+      payload: { url: `https://seed-${i}.test` },
+      queuedAt: i,
+      attempts: 0,
+    }))
+    await local.set({ glassy_offline_queue: seeded })
+
+    await expect(enqueue('bookmark', { url: 'https://overflow.test' }))
+      .rejects.toBeInstanceOf(QueueFullError)
+
+    const queue = await getQueue()
+    expect(queue).toHaveLength(MAX_QUEUE_SIZE)
+    expect(queue.find(it => it.payload.url === 'https://overflow.test')).toBeUndefined()
   })
 })
