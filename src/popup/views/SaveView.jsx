@@ -32,16 +32,24 @@ export default function SaveView({ pageMeta, user, saveStatus, errorMessage, set
   const handleSaveNote = useCallback(async (payload) => {
     setSaving()
     try {
-      const res = await saveNote(payload)
+      const notePayload = typeof payload === 'string'
+        ? {
+            content: payload.trim(),
+            title: payload.trim().split('\n')[0].slice(0, 100) || 'AI summary',
+            content_format: 'markdown',
+            ...(pageMeta?.url ? { source_url: pageMeta.url, source_title: pageMeta.title || pageMeta.url } : {}),
+          }
+        : payload
+      const res = await saveNote(notePayload)
       if (res?.ok) {
-        setSaved(payload.source_url)
+        setSaved(notePayload.source_url)
       } else {
         setError(res?.error || 'Save failed.')
       }
     } catch (err) {
       setError(err.message || 'Save failed.')
     }
-  }, [setSaving, setSaved, setError])
+  }, [pageMeta, setSaving, setSaved, setError])
 
   const handleSaveAllTabs = useCallback(async () => {
     setSaving()

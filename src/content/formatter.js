@@ -39,7 +39,7 @@ export function nodeToMarkdown(node) {
     }
     case 'pre': return `\`\`\`\n${children}\`\`\`\n\n`
     case 'a': {
-      const href = node.getAttribute('href')
+      const href = node.href || node.getAttribute('href')
       return href ? `[${children}](${href})` : children
     }
     case 'ul': return `${children}\n`
@@ -57,7 +57,7 @@ export function nodeToMarkdown(node) {
     case 'blockquote': return `> ${children.trim().replace(/\n/g, '\n> ')}\n\n`
     case 'img': {
       const alt = node.getAttribute('alt') || 'image'
-      const src = node.getAttribute('src')
+      const src = node.src || node.getAttribute('src')
       return src ? `![${alt}](${src})\n\n` : ''
     }
     case 'hr': return '---\n\n'

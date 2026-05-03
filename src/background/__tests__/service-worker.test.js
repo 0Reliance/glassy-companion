@@ -241,6 +241,24 @@ describe('service-worker.js — message handler', () => {
   })
 })
 
+describe('service-worker.js — context menu captures', () => {
+  it('saves a link without extracting metadata from the surrounding page', async () => {
+    const clickHandler = handlers.onClicked[0]
+
+    await clickHandler(
+      { menuItemId: 'glassy_save_link', linkUrl: 'https://target.example/post', linkText: 'Target post' },
+      { id: 1, url: 'https://source.example/page', title: 'Source Page' }
+    )
+
+    expect(chromeMock.tabs.sendMessage).not.toHaveBeenCalled()
+    expect(saveCapture).toHaveBeenCalled()
+    const payload = saveCapture.mock.calls[0][0]
+    expect(payload.sourceUrl).toBe('https://target.example/post')
+    expect(payload.title).toBe('Target post')
+    expect(payload.contentType).toBe('bookmark')
+  })
+})
+
 describe('service-worker.js — offline queue flush', () => {
   it('registers an alarm listener on startup', () => {
     expect(handlers.onAlarm.length).toBeGreaterThan(0)
@@ -268,5 +286,16 @@ describe('service-worker.js — offline queue flush', () => {
 
     expect(getQueue).toHaveBeenCalled()
     expect(chromeMock.notifications.create).not.toHaveBeenCalled()
+  })
+
+  it('replays queued page saves through saveDocument', async () => {
+    getQueue.mockResolvedValueOnce([
+      { id: 'queued-page-1', type: 'page', payload: { url: 'https://example.com/page', title: 'Queued page' }, attempts: 0 },
+    ])
+
+    const alarmHandler = handlers.onAlarm[0]
+    await alarmHandler({ name: 'glassy_offline_sync' })
+
+    expect(saveDocument).toHaveBeenCalledWith({ url: 'https://example.com/page', title: 'Queued page' })
   })
 })

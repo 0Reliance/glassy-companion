@@ -18,7 +18,18 @@
  * @param {CaptureRule[]} rules
  */
 export function evaluateRules(url, rules) {
-  const parsedUrl = new URL(url)
+  let parsedUrl
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return {
+      preset: null,
+      destination: null,
+      tags: [],
+      publicCandidate: false,
+    }
+  }
+
   const results = {
     preset: null,
     destination: null,
@@ -27,15 +38,13 @@ export function evaluateRules(url, rules) {
   }
 
   for (const rule of rules) {
-    let match = false
+    const hasDomain = Boolean(rule.domain)
+    const hasPath = Boolean(rule.path)
+    if (!hasDomain && !hasPath) continue
 
-    if (rule.domain && parsedUrl.hostname.includes(rule.domain)) {
-      match = true
-    }
-
-    if (rule.path && parsedUrl.pathname.includes(rule.path)) {
-      match = true
-    }
+    const domainMatches = !hasDomain || parsedUrl.hostname === rule.domain || parsedUrl.hostname.endsWith(`.${rule.domain}`)
+    const pathMatches = !hasPath || parsedUrl.pathname.includes(rule.path)
+    const match = domainMatches && pathMatches
 
     if (match) {
       if (rule.preset) results.preset = rule.preset

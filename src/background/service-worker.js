@@ -4,7 +4,7 @@
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture } from '../lib/api.js'
-import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue, QueueFullError } from '../lib/offlineQueue.js'
+import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import {
@@ -14,6 +14,26 @@ import {
   CTX_QUICK_NOTE,
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
+
+function getHostname(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return 'this page'
+  }
+}
+
+function sameDocumentUrl(left, right) {
+  try {
+    const leftUrl = new URL(left)
+    const rightUrl = new URL(right)
+    leftUrl.hash = ''
+    rightUrl.hash = ''
+    return leftUrl.href === rightUrl.href
+  } catch {
+    return left === right
+  }
+}
 
 // ── Install / startup ─────────────────────────────────────────────────────────
 
@@ -74,7 +94,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     case CTX_SAVE_LINK:
       if (info.linkUrl) {
-        await backgroundSave('quick', { url: info.linkUrl }, tab)
+        await backgroundSave('quick', { url: info.linkUrl, title: info.linkText || info.linkUrl }, tab)
       }
       break
 
@@ -90,7 +110,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
       await backgroundSave('selection', {
         contentMarkdown: markdown,
-        title: `Note from ${new URL(tab.url).hostname}`,
+        title: `Note from ${getHostname(tab?.url)}`,
       }, tab)
       break
     }
@@ -151,8 +171,11 @@ async function backgroundSave(mode, payload, tab) {
     return
   }
 
+  const sourceUrl = payload.sourceUrl || payload.url || tab?.url
+  const canUseTabContent = tab?.id && sourceUrl && tab?.url && sameDocumentUrl(sourceUrl, tab.url)
+
   const captureItem = {
-    sourceUrl: payload.url || tab?.url,
+    sourceUrl,
     title: payload.title || tab?.title || 'Untitled',
     captureMode: mode,
     status: 'inbox',
@@ -160,7 +183,7 @@ async function backgroundSave(mode, payload, tab) {
     ...payload
   }
 
-  if (tab?.id) {
+  if (canUseTabContent) {
     try {
       const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
       if (metaRes?.meta) {
@@ -231,6 +254,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
       try {
         if (item.type === 'capture') await saveCapture(item.payload)
         else if (item.type === 'bookmark') await saveBookmark(item.payload)
+        else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
         else await saveNote(item.payload)
         await dequeue(item.id)
       } catch (err) {

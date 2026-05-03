@@ -1,7 +1,7 @@
 # Glassy Companion — Extension Internals
 
 **Version:** 2.1.0
-**Platform:** Chrome Extension (Manifest V3)
+**Platform:** Manifest V3 browser extension (Chromium shipping; Firefox-compatible server origin support)
 **Last Updated:** May 3, 2026
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
@@ -12,7 +12,7 @@ Technical specification of every subsystem in the Glassy Companion browser exten
 
 Glassy Companion has evolved into a multi-mode capture system that handles structured and instant knowledge intake.
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │                     BROWSER CONTEXT                              │
 │                                                                  │
@@ -44,7 +44,7 @@ Glassy Companion has evolved into a multi-mode capture system that handles struc
 
 ### File Tree
 
-```
+```text
 src/
 ├── background/
 │   ├── service-worker.js       # Coordination: menus, keyboard, relay, premium assembly
@@ -65,6 +65,7 @@ src/
     ├── Popup.jsx               # App entry
     ├── components/
     │   ├── SmartSavePanel.jsx  # Structured capture UI
+    │   ├── QuickActions.jsx    # Save Page + AI summary actions
     │   ├── BookmarkCard.jsx    # Quick save UI
     │   └── AppShell.jsx        # Premium layout with obsidian layering
     └── views/
@@ -78,17 +79,15 @@ src/
 
 Defined in `src/lib/types.js`.
 
-| Field | Type | Purpose |
-|---|---|---|
-| `sourceUrl` | string | Original capture URL |
-| `title` | string | Extracted or edited title |
-| `contentType` | enum | Preset (article, video, repo, product, research, bookmark) |
-| `captureMode` | enum | quick, smart, selection, highlight |
-| `contentMarkdown` | string | Premium formatted Markdown output |
-| `status` | enum | inbox, public_candidate, published |
-| `visibleTags` | string[] | User tags |
-| `systemTags` | string[] | Routing metadata (e.g., 'pinned') |
-| `note` | string | User-provided personal note |
+- `sourceUrl` (string): Original capture URL.
+- `title` (string): Extracted or edited title.
+- `contentType` (enum): Preset (article, video, repo, product, research, bookmark).
+- `captureMode` (enum): quick, smart, selection, highlight.
+- `contentMarkdown` (string): Premium formatted Markdown output.
+- `status` (enum): inbox, public_candidate, published.
+- `visibleTags` (string[]): User tags.
+- `systemTags` (string[]): Routing metadata (e.g., 'pinned').
+- `note` (string): User-provided personal note.
 
 ---
 
@@ -117,13 +116,22 @@ Defined in `src/lib/types.js`.
 - `POST /api/captures`: Ingests canonical `CaptureItem`.
 - `GET /api/capture-rules`: Synchronizes site-specific routing rules.
 - `PATCH /api/items/:id`: Manages lifecycle transitions (Archive, Pin, Promote).
+- `/api/ext/*`: Continues to serve auth, collections, tags, notes, documents, bookmark search, and AI summary helpers alongside the canonical capture flow.
 
 ---
 
-## 6. Testing
+## 6. Capture Reliability Notes
+
+- **Same-document guard:** link saves only request page metadata/content when the target URL matches the active tab, preventing cross-page contamination.
+- **Offline replay coverage:** queued `page` and `document` items replay through `saveDocument()` rather than falling back to note creation.
+- **Rule safety:** invalid URLs fail closed, and domain/path rule matching now requires the intended combination instead of broad substring matches.
+
+---
+
+## 7. Testing
 
 **Framework:** Vitest 2.1
 **Verification:** Playwright (Mock Chrome environment)
 
-Total Tests: **108**
+Total Tests: **114**
 Coverage: API, Auth, Cache, Offline Queue, Save Policy, Extractor, Formatter, Bridge.
