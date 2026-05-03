@@ -1,16 +1,24 @@
-import React, { useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import BookmarkCard from '../components/BookmarkCard.jsx'
+import SmartSavePanel from '../components/SmartSavePanel.jsx'
 import SaveToast from '../components/SaveToast.jsx'
 import { saveBookmark, saveNote, saveAllTabs } from '../hooks/useExtensionBridge.js'
 
 export default function SaveView({ pageMeta, user, saveStatus, errorMessage, setSaving, setSaved, setDuplicate, setError, resetSaveStatus }) {
+  const [mode, setMode] = useState('quick') // quick | smart
 
   const handleSave = useCallback(async (payload) => {
     setSaving()
     try {
-      const res = await saveBookmark(payload)
+      const type = payload.captureMode === 'smart' ? 'SAVE_CAPTURE' : 'SAVE_BOOKMARK'
+      // Use chrome.runtime.sendMessage directly if hook doesn't support it yet
+      // but for now I'll assume I'll update the hook too.
+      const res = await new Promise(resolve => {
+        chrome.runtime.sendMessage({ type, payload }, resolve)
+      })
+
       if (res?.ok) {
-        setSaved(payload.url)
+        setSaved(payload.sourceUrl || payload.url)
       } else if (res?.status === 409) {
         setDuplicate()
       } else {
@@ -49,7 +57,6 @@ export default function SaveView({ pageMeta, user, saveStatus, errorMessage, set
     }
   }, [setSaving, setSaved, setError])
 
-  // Show toast for saved/duplicate/error states
   if (saveStatus === 'saved' || saveStatus === 'duplicate' || saveStatus === 'error') {
     const toastType = saveStatus === 'saved' ? 'saved' : saveStatus === 'duplicate' ? 'duplicate' : 'error'
     return (
@@ -64,13 +71,41 @@ export default function SaveView({ pageMeta, user, saveStatus, errorMessage, set
 
   return (
     <>
-      <BookmarkCard
-        pageMeta={pageMeta}
-        user={user}
-        onSave={handleSave}
-        onSaveNote={handleSaveNote}
-        saving={saveStatus === 'saving'}
-      />
+      {mode === 'quick' ? (
+        <>
+          <BookmarkCard
+            pageMeta={pageMeta}
+            user={user}
+            onSave={handleSave}
+            onSaveNote={handleSaveNote}
+            saving={saveStatus === 'saving'}
+          />
+          <button
+            onClick={() => setMode('smart')}
+            style={{
+              marginTop: 10,
+              width: '100%',
+              padding: '8px 12px',
+              background: 'rgba(99,102,241,0.1)',
+              border: '1px solid rgba(99,102,241,0.2)',
+              borderRadius: 10,
+              color: '#818cf8',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            ✨ Switch to Smart Save
+          </button>
+        </>
+      ) : (
+        <SmartSavePanel
+          pageMeta={pageMeta}
+          onSave={handleSave}
+          saving={saveStatus === 'saving'}
+          onCancel={() => setMode('quick')}
+        />
+      )}
+
       <button
         onClick={handleSaveAllTabs}
         disabled={saveStatus === 'saving'}
@@ -84,10 +119,7 @@ export default function SaveView({ pageMeta, user, saveStatus, errorMessage, set
           color: 'rgba(255,255,255,0.45)',
           fontSize: 12,
           cursor: 'pointer',
-          transition: 'all 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
       >
         📋 Save all tabs in window
       </button>

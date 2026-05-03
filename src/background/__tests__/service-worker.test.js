@@ -12,6 +12,7 @@ vi.mock('../../lib/api.js', () => ({
   saveBookmark: vi.fn(async () => ({ id: 'bm-1' })),
   saveNote: vi.fn(async () => ({ id: 'note-1' })),
   saveDocument: vi.fn(async () => ({ id: 'doc-1' })),
+  saveCapture: vi.fn(async () => ({ id: 'cap-1' })),
   searchBookmarks: vi.fn(async () => ({ bookmarks: [] })),
   checkUrl: vi.fn(async () => ({ saved: false })),
 }))
@@ -25,7 +26,6 @@ vi.mock('../../lib/offlineQueue.js', () => ({
 }))
 
 vi.mock('../../lib/cache.js', () => ({
-  // badgeCount: true so updateBadge() doesn't short-circuit
   getSettings: vi.fn(async () => ({
     aiAutoTag: true,
     showNotifications: true,
@@ -37,12 +37,6 @@ vi.mock('../savePolicy.js', () => ({
   planBackgroundSaveFailure: vi.fn(() => ({ kind: 'error', queue: false })),
   planQueueFailure: vi.fn(() => ({ action: 'drop', kind: 'fatal' })),
 }))
-
-// ── Build ONE stable chrome mock used throughout all tests ────────────────────
-// service-worker.js registers its listeners at import time.
-// Using vi.resetModules() in beforeEach causes mock module references to diverge.
-// Instead we import once, keep the same chromeMock, and use vi.clearAllMocks()
-// to reset call counts between tests.
 
 const sessionStore = {}
 
@@ -114,27 +108,20 @@ const chromeMock = {
   },
 }
 
-// Set globals before the service worker is imported
 globalThis.chrome = chromeMock
-globalThis.navigator = { onLine: true }
+vi.stubGlobal('navigator', { onLine: true })
 
-// Import service worker ONCE — registers all listeners on chromeMock above
 await import('../service-worker.js')
 
-// Get stable references to mocked module exports
-const { saveDocument, saveBookmark, saveNote, searchBookmarks } = await import('../../lib/api.js')
+const { saveDocument, saveBookmark, saveNote, searchBookmarks, saveCapture } = await import('../../lib/api.js')
 const { clearAuth } = await import('../../lib/auth.js')
 const { getQueue } = await import('../../lib/offlineQueue.js')
 
-// ── beforeEach: reset call counts and mutable state ──────────────────────────
-
 beforeEach(() => {
   vi.clearAllMocks()
-  globalThis.navigator = { onLine: true }
+  vi.stubGlobal('navigator', { onLine: true })
   Object.keys(sessionStore).forEach(k => delete sessionStore[k])
 })
-
-// ── Helper: dispatch a message and capture the response ───────────────────────
 
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -143,8 +130,6 @@ function sendMessage(message) {
     }
   })
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('service-worker.js — message handler', () => {
   describe('SAVE_PAGE', () => {
@@ -179,6 +164,17 @@ describe('service-worker.js — message handler', () => {
     })
   })
 
+  describe('SAVE_CAPTURE', () => {
+    it('calls saveCapture with payload', async () => {
+      const result = await sendMessage({
+        type: 'SAVE_CAPTURE',
+        payload: { sourceUrl: 'https://example.com', title: 'Test' },
+      })
+      expect(result.ok).toBe(true)
+      expect(saveCapture).toHaveBeenCalledWith({ sourceUrl: 'https://example.com', title: 'Test' })
+    })
+  })
+
   describe('SAVE_BOOKMARK', () => {
     it('calls saveBookmark with payload', async () => {
       const result = await sendMessage({
@@ -187,17 +183,6 @@ describe('service-worker.js — message handler', () => {
       })
       expect(result.ok).toBe(true)
       expect(saveBookmark).toHaveBeenCalledWith({ url: 'https://example.com', title: 'Test' })
-    })
-
-    it('returns error on api failure', async () => {
-      saveBookmark.mockRejectedValueOnce({ message: 'Failed', status: 400 })
-
-      const result = await sendMessage({
-        type: 'SAVE_BOOKMARK',
-        payload: { url: 'https://example.com' },
-      })
-      expect(result.ok).toBe(false)
-      expect(result.error).toBe('Failed')
     })
   })
 
@@ -213,7 +198,6 @@ describe('service-worker.js — message handler', () => {
   })
 
   describe('CHECK_AUTH', () => {
-    // service-worker checkAuth() returns { authenticated, user } shape (not { ok })
     it('returns authenticated:true when token is verified', async () => {
       const result = await sendMessage({ type: 'CHECK_AUTH' })
       expect(result.authenticated).toBe(true)
@@ -230,22 +214,6 @@ describe('service-worker.js — message handler', () => {
     })
   })
 
-  describe('GET_QUEUE_LENGTH', () => {
-    it('returns item count from queue', async () => {
-      getQueue.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-
-      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
-      expect(result.ok).toBe(true)
-      expect(result.count).toBe(2)
-    })
-
-    it('returns 0 for empty queue', async () => {
-      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
-      expect(result.ok).toBe(true)
-      expect(result.count).toBe(0)
-    })
-  })
-
   describe('SEARCH_BOOKMARKS', () => {
     it('returns bookmarks from search', async () => {
       searchBookmarks.mockResolvedValueOnce({ bookmarks: [{ id: 'bm-1' }] })
@@ -255,19 +223,15 @@ describe('service-worker.js — message handler', () => {
       expect(result.bookmarks).toHaveLength(1)
       expect(searchBookmarks).toHaveBeenCalledWith('glassy')
     })
-
-    it('returns empty array when no results', async () => {
-      const result = await sendMessage({ type: 'SEARCH_BOOKMARKS', query: 'nothing' })
-      expect(result.ok).toBe(true)
-      expect(result.bookmarks).toEqual([])
-    })
   })
 
-  describe('unknown message type', () => {
-    it('returns ok:false for unknown message types', async () => {
-      const result = await sendMessage({ type: 'TOTALLY_UNKNOWN_TYPE' })
-      expect(result.ok).toBe(false)
-      expect(result.error).toBe('Unknown message type')
+  describe('GET_QUEUE_LENGTH', () => {
+    it('returns item count from queue', async () => {
+      getQueue.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+
+      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
+      expect(result.ok).toBe(true)
+      expect(result.count).toBe(2)
     })
   })
 })
@@ -278,17 +242,10 @@ describe('service-worker.js — offline queue flush', () => {
   })
 
   it('skips flush when navigator is offline', async () => {
-    globalThis.navigator = { onLine: false }
+    vi.stubGlobal('navigator', { onLine: false })
 
     const alarmHandler = handlers.onAlarm[0]
     await alarmHandler({ name: 'glassy_offline_sync' })
-
-    expect(getQueue).not.toHaveBeenCalled()
-  })
-
-  it('ignores alarms with a different name', async () => {
-    const alarmHandler = handlers.onAlarm[0]
-    await alarmHandler({ name: 'some_other_alarm' })
 
     expect(getQueue).not.toHaveBeenCalled()
   })

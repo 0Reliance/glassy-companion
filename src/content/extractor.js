@@ -6,9 +6,6 @@
  * 2. Capture current text selection
  * 3. Extract page body text for AI summary (lazy, only when requested)
  * 4. Respond to messages from the service worker / popup
- *
- * This script intentionally does NOT inject any visible UI.
- * All visual feedback is handled by the popup or service worker notifications.
  */
 
 // ── Meta extraction ──────────────────────────────────────────────────────────
@@ -34,6 +31,48 @@ function getFaviconUrl() {
   return `${location.origin}/favicon.ico`
 }
 
+function extractSchemaOrg() {
+  const schemas = []
+  // JSON-LD
+  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+    try {
+      const data = JSON.parse(script.innerText)
+      if (Array.isArray(data)) schemas.push(...data)
+      else schemas.push(data)
+    } catch {}
+  })
+  return schemas
+}
+
+function detectContentType(meta, schemas) {
+  const url = location.href.toLowerCase()
+  const domain = meta.domain?.toLowerCase() || ''
+
+  // 1. Domain/URL based detection
+  if (domain.includes('youtube.com') || domain.includes('vimeo.com')) return 'video'
+  if (domain.includes('github.com') || domain.includes('gitlab.com')) return 'repo'
+  if (domain.includes('arxiv.org')) return 'research'
+  if (domain.includes('substack.com')) return 'article'
+
+  // 2. Schema.org based detection
+  for (const s of schemas) {
+    const type = s['@type']
+    if (type === 'VideoObject') return 'video'
+    if (type === 'Product') return 'product'
+    if (type === 'Recipe') return 'recipe'
+    if (type === 'ScholarlyArticle') return 'research'
+    if (type === 'NewsArticle' || type === 'BlogPosting') return 'article'
+  }
+
+  // 3. OG type based
+  const ogType = getMeta('og:type').toLowerCase()
+  if (ogType.includes('video')) return 'video'
+  if (ogType.includes('article')) return 'article'
+  if (ogType.includes('product')) return 'product'
+
+  return 'bookmark'
+}
+
 function extractPageMeta() {
   const title =
     getMeta('og:title') ||
@@ -57,24 +96,33 @@ function extractPageMeta() {
   let domain = ''
   try { domain = new URL(location.href).hostname } catch {}
 
-  return {
+  const author = getMeta('author') || getMeta('article:author') || ''
+  const publishedAt = getMeta('article:published_time') || ''
+
+  const schemas = extractSchemaOrg()
+
+  const meta = {
     url: location.href,
+    canonicalUrl: document.querySelector('link[rel="canonical"]')?.href || location.href,
     title: title.trim().slice(0, 500),
     description: description.trim().slice(0, 1000),
     og_image: ogImage,
     favicon_url: favicon,
     domain,
+    author,
+    publishedAt,
+    siteName: getMeta('og:site_name') || domain,
   }
+
+  meta.contentType = detectContentType(meta, schemas)
+
+  return meta
 }
 
 function getSelectedText() {
   return window.getSelection()?.toString().trim().slice(0, 10000) || ''
 }
 
-/**
- * Returns the HTML of the current selection (preserves formatting).
- * Returns empty string if nothing is selected.
- */
 function getSelectionHtml() {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return ''
@@ -86,7 +134,6 @@ function getSelectionHtml() {
 }
 
 function getPageText() {
-  // Walk the DOM text nodes directly — avoids cloneNode(true) freeze on large docs
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
@@ -115,9 +162,6 @@ function getPageText() {
 
 // ── Message handler ──────────────────────────────────────────────────────────
 
-// P1-13: Validate that messages come from this extension only. Without this
-// check, any other extension on the same page could request page text/HTML,
-// bypassing the user's intention to share content only with Glassy Companion.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false
   switch (message.type) {

@@ -18,6 +18,9 @@ export const API_PATHS = {
   aiSummarize: '/api/ext/ai/summarize',
   // Search uses the Keep API surface which natively supports ?q= full-text search
   searchBookmarks: '/api/keep/bookmarks',
+  captures: '/api/captures',
+  captureRules: '/api/capture-rules',
+  items: '/api/items',
 }
 
 export const STORAGE_KEYS = {

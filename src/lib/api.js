@@ -3,6 +3,7 @@
  * Reads the token from chrome.storage.session on each call.
  */
 import { getToken, getBaseUrl, getActiveAccountId, getApiContext, clearAuth } from './auth.js'
+import { API_PATHS } from './constants.js'
 
 /**
  * Core fetch wrapper. Handles auth headers, JSON encoding,
@@ -120,131 +121,102 @@ export class ApiError extends Error {
 
 /** GET /api/ext/me — fetch current user with entitlements and Keep stats. */
 export function fetchMe() {
-  return apiFetch('/api/ext/me')
+  return apiFetch(API_PATHS.me)
 }
 
 /** GET /api/ext/ping — health check (no auth required). */
 export async function pingServer() {
   const baseUrl = await getBaseUrl()
-  const res = await fetch(`${baseUrl}/api/ext/ping`)
+  const res = await fetch(`${baseUrl}${API_PATHS.ping}`)
   return res.ok
 }
 
 /** GET /api/ext/collections — list user bookmark collections. */
 export function fetchCollections() {
-  return apiFetch('/api/ext/collections')
+  return apiFetch(API_PATHS.collections)
 }
 
 /** GET /api/ext/check-url?url= — check if URL already saved. */
 export function checkUrl(url) {
-  return apiFetch(`/api/ext/check-url?url=${encodeURIComponent(url)}`)
+  return apiFetch(`${API_PATHS.checkUrl}?url=${encodeURIComponent(url)}`)
 }
 
 /**
  * POST /api/ext/bookmarks — save a bookmark.
- * @param {object} payload
- * @param {string} payload.url
- * @param {string} [payload.title] - pre-extracted title (extension provides it)
- * @param {string} [payload.description]
- * @param {string} [payload.og_image]
- * @param {string} [payload.favicon_url]
- * @param {string} [payload.domain]
- * @param {string[]} [payload.tags]
- * @param {number|null} [payload.collection_id]
- * @param {boolean} [payload.ai_tag] - request AI auto-tagging
  */
 export function saveBookmark(payload) {
-  return apiFetch('/api/ext/bookmarks', { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.bookmarks, { method: 'POST', body: payload })
 }
 
 /**
  * POST /api/ext/notes — create a Glassy note from selected text.
- * @param {object} payload
- * @param {string} payload.content   - markdown content (will include source citation)
- * @param {string} [payload.title]
- * @param {string[]} [payload.tags]
- * @param {'markdown'} [payload.content_format]
  */
 export function saveNote(payload) {
-  return apiFetch('/api/ext/notes', { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.notes, { method: 'POST', body: payload })
 }
 
 /**
  * POST /api/ext/ai/summarize — AI-summarize page text.
- * @param {object} payload
- * @param {string} payload.text - page body text (max 5000 chars)
- * @param {string} [payload.url]
  */
 export function summarizePage(payload) {
-  return apiFetch('/api/ext/ai/summarize', { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.aiSummarize, { method: 'POST', body: payload })
 }
 
 /**
  * GET /api/keep/bookmarks?q=... — quick search bookmarks from extension popup.
- * Intentionally uses the Keep API surface which natively supports full-text search
- * with ?q=, collection filters, tags, and pagination.
- * @param {string} q - search query
- * @param {number} [limit] - max results (default 10)
  */
 export function searchBookmarks(q, limit = 10) {
   const params = new URLSearchParams({ q, limit: String(limit) })
-  return apiFetch(`/api/keep/bookmarks?${params}`)
+  return apiFetch(`${API_PATHS.searchBookmarks}?${params}`)
 }
 
 /**
  * PATCH /api/ext/bookmarks/:id — update a bookmark.
- * @param {number} id - bookmark ID
- * @param {object} updates - fields to update (title, description, tags, is_archived, is_starred, mark_read, notes)
  */
 export function updateBookmark(id, updates) {
-  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}`, { method: 'PATCH', body: updates })
+  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}`, { method: 'PATCH', body: updates })
 }
 
 /**
  * DELETE /api/ext/bookmarks/:id — delete a bookmark.
- * @param {number} id - bookmark ID
  */
 export function deleteBookmark(id) {
-  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 /**
  * GET /api/ext/bookmarks/:id/highlights — list highlights for a bookmark.
- * @param {number} id - bookmark ID
  */
 export function fetchHighlights(id) {
-  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}/highlights`)
+  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}/highlights`)
 }
 
 /**
  * POST /api/ext/bookmarks/:id/highlights — create a highlight.
- * @param {number} id - bookmark ID
- * @param {object} payload - { text, note?, color }
  */
 export function createHighlight(id, payload) {
-  return apiFetch(`/api/ext/bookmarks/${encodeURIComponent(id)}/highlights`, { method: 'POST', body: payload })
+  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}/highlights`, { method: 'POST', body: payload })
 }
 
 /**
  * DELETE /api/ext/highlights/:id — delete a highlight.
- * @param {number} id - highlight ID
  */
 export function deleteHighlight(id) {
-  return apiFetch(`/api/ext/highlights/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return apiFetch(`${API_PATHS.highlightsDelete.replace(':id', encodeURIComponent(id))}`, { method: 'DELETE' })
 }
 
 /**
  * GET /api/ext/tags — list all tags for autocomplete.
  */
 export function fetchTags() {
-  return apiFetch('/api/ext/tags')
+  return apiFetch(API_PATHS.tags)
 }
 
 /**
  * POST /api/ext/collections — create a new collection.
  */
 export function createCollection(name) {
-  return apiFetch('/api/ext/collections', {
+  return apiFetch(API_PATHS.collections, {
     method: 'POST',
     body: { name },
   })
@@ -252,11 +224,38 @@ export function createCollection(name) {
 
 /**
  * POST /api/ext/documents — save a full page as a readable document.
- * @param {object} payload
- * @param {string} payload.url         - source URL
- * @param {string} [payload.title]     - page title
- * @param {string} [payload.html]      - page HTML snippet (optional)
  */
 export function saveDocument(payload) {
-  return apiFetch('/api/ext/documents', { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.documents, { method: 'POST', body: payload })
+}
+
+// ── Next-Phase API ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/captures — save a canonical capture item.
+ * @param {import('./types.js').CaptureItem} payload
+ */
+export function saveCapture(payload) {
+  return apiFetch(API_PATHS.captures, { method: 'POST', body: payload })
+}
+
+/**
+ * GET /api/capture-rules — fetch routing and preset rules.
+ */
+export function fetchCaptureRules() {
+  return apiFetch(API_PATHS.captureRules)
+}
+
+/**
+ * PATCH /api/items/:id — update item lifecycle (status, archive, pin).
+ */
+export function updateItemLifecycle(id, updates) {
+  return apiFetch(`${API_PATHS.items}/${encodeURIComponent(id)}`, { method: 'PATCH', body: updates })
+}
+
+/**
+ * POST /api/items/:id/promote — promote an item to a public candidate.
+ */
+export function promoteItem(id) {
+  return apiFetch(`${API_PATHS.items}/${encodeURIComponent(id)}/promote`, { method: 'POST' })
 }
