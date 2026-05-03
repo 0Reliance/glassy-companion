@@ -1,13 +1,5 @@
 /**
  * Glassy Companion — Service Worker (Manifest V3)
- *
- * Handles:
- * - Context menu registration at install
- * - Context menu click → save bookmark / note
- * - Keyboard command: quick-save current tab without opening popup
- * - Messages from popup (relay API calls for auth token access)
- * - Offline queue flushing via chrome.alarms
- * - Badge count updates
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
@@ -89,8 +81,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     case CTX_SAVE_SELECTION: {
       const selectedText = info.selectionText?.trim()
       if (!selectedText) break
+
+      let markdown = selectedText
+      try {
+        const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION_MARKDOWN' })
+        if (res?.markdown) markdown = res.markdown
+      } catch {}
+
       await backgroundSave('selection', {
-        contentMarkdown: selectedText,
+        contentMarkdown: markdown,
         title: `Note from ${new URL(tab.url).hostname}`,
       }, tab)
       break
@@ -118,17 +117,39 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 // ── Background save ───────────────────────────────────────────────────────────
 
 /**
- * Save a capture in the background (no popup interaction).
- * Uses the new canonical capture item schema.
+ * Premium Content Presentation
  */
+function assemblePremiumMarkdown(item) {
+  const dateStr = new Date(item.capturedAt || Date.now()).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  })
+
+  let header = `# ${item.title}\n\n`
+  header += `**Source:** [${item.siteName || item.domain || 'Source'}](${item.sourceUrl})\n`
+  if (item.author) header += `**Author:** ${item.author}\n`
+  header += `**Captured on:** ${dateStr}\n\n`
+
+  if (item.note) {
+    header += `### Personal Note\n\n${item.note}\n\n---\n\n`
+  }
+
+  if (item.highlights?.length) {
+    header += `### Highlights\n\n`
+    item.highlights.forEach(h => {
+      header += `> ${h.text.replace(/\n/g, '\n> ')}\n\n`
+    })
+    header += `---\n\n`
+  }
+
+  return header + (item.contentMarkdown || '')
+}
+
 async function backgroundSave(mode, payload, tab) {
   const token = await getToken()
   if (!token) {
     showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
     return
   }
-
-  const settings = await getSettings()
 
   const captureItem = {
     sourceUrl: payload.url || tab?.url,
@@ -139,40 +160,46 @@ async function backgroundSave(mode, payload, tab) {
     ...payload
   }
 
-  // Enrich with metadata from content script
   if (tab?.id) {
     try {
-      const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-      if (response?.meta) {
+      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
+      if (metaRes?.meta) {
         Object.assign(captureItem, {
-          canonicalUrl: response.meta.canonicalUrl,
-          title: captureItem.title === 'Untitled' ? response.meta.title : captureItem.title,
-          description: response.meta.description,
-          coverImageUrl: response.meta.og_image,
-          favicon_url: response.meta.favicon_url,
-          siteName: response.meta.siteName,
-          author: response.meta.author,
-          publishedAt: response.meta.publishedAt,
-          contentType: response.meta.contentType,
+          canonicalUrl: metaRes.meta.canonicalUrl,
+          title: (captureItem.title === 'Untitled' || !captureItem.title) ? metaRes.meta.title : captureItem.title,
+          description: metaRes.meta.description,
+          coverImageUrl: metaRes.meta.og_image,
+          favicon_url: metaRes.meta.favicon_url,
+          siteName: metaRes.meta.siteName,
+          author: metaRes.meta.author,
+          publishedAt: metaRes.meta.publishedAt,
+          contentType: metaRes.meta.contentType,
         })
+      }
+
+      if (mode === 'quick') {
+        const contentRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+        if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
       }
     } catch {}
   }
 
   if (!captureItem.contentType) captureItem.contentType = 'bookmark'
 
+  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
+
   if (!navigator.onLine) {
     try {
       await enqueue('capture', captureItem)
-      showNotification('Glassy — Queued', 'You\'re offline. This will sync when you reconnect.', 'info')
+      showNotification('Glassy — Queued', 'You\'re offline.', 'info')
     } catch (err) {
-      showNotification('Glassy — Save Failed', err?.message || 'Could not queue this item.', 'error')
+      showNotification('Glassy — Save Failed', 'Could not queue this item.', 'error')
     }
     return
   }
 
   try {
-    const result = await saveCapture(captureItem)
+    await saveCapture(captureItem)
     showNotification('Glassy — Saved ✓', captureItem.title, 'success')
     await updateBadge(1)
   } catch (err) {
@@ -187,14 +214,12 @@ let _queueFlushing = false
 
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
-  if (!navigator.onLine) return
-  if (_queueFlushing) return
+  if (!navigator.onLine || _queueFlushing) return
   _queueFlushing = true
 
   try {
     const queue = await getQueue()
     if (queue.length === 0) return
-
     const token = await getToken()
     if (!token) return
 
@@ -203,15 +228,10 @@ chrome.alarms.onAlarm.addListener(async alarm => {
         await dequeue(item.id)
         continue
       }
-
       try {
-        if (item.type === 'capture') {
-          await saveCapture(item.payload)
-        } else if (item.type === 'bookmark') {
-          await saveBookmark(item.payload)
-        } else {
-          await saveNote(item.payload)
-        }
+        if (item.type === 'capture') await saveCapture(item.payload)
+        else if (item.type === 'bookmark') await saveBookmark(item.payload)
+        else await saveNote(item.payload)
         await dequeue(item.id)
       } catch (err) {
         const failurePlan = planQueueFailure(err)
@@ -224,7 +244,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   }
 })
 
-// ── Message handler (from popup) ──────────────────────────────────────────────
+// ── Message handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   handleMessage(message).then(sendResponse).catch(err => {
@@ -238,8 +258,20 @@ async function handleMessage(message) {
     case 'SAVE_PAGE':
       return savePageFromPopup(message.payload)
 
-    case 'SAVE_CAPTURE':
-      return saveCaptureFromPopup(message.payload)
+    case 'SAVE_CAPTURE': {
+      const item = message.payload
+      if (!item.contentMarkdown && item.captureMode !== 'selection') {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id) {
+             const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+             if (res?.markdown) item.contentMarkdown = res.markdown
+          }
+        } catch {}
+      }
+      item.contentMarkdown = assemblePremiumMarkdown(item)
+      return saveCaptureFromPopup(item)
+    }
 
     case 'SAVE_BOOKMARK':
       return saveBookmarkFromPopup(message.payload)
@@ -269,6 +301,12 @@ async function handleMessage(message) {
     case 'GET_QUEUE_LENGTH': {
       const q = await getQueue()
       return { ok: true, count: q.length }
+    }
+
+    case 'CAPTURE_HIGHLIGHT': {
+       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+       if (!tab?.id) return { ok: false, error: 'No active tab' }
+       return chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_HIGHLIGHT' })
     }
 
     default:
@@ -304,10 +342,9 @@ async function saveAllTabsFromPopup() {
     for (const tab of httpTabs) {
       try {
         const result = await saveBookmark({ url: tab.url, title: tab.title || tab.url })
-        if (result?.duplicate) { skipped++ } else { saved++ }
-      } catch {
-        skipped++
-      }
+        if (result?.duplicate) skipped++
+        else saved++
+      } catch { skipped++ }
     }
     if (saved > 0) await updateBadge(saved)
     return { ok: true, saved, skipped, total: httpTabs.length }
@@ -348,7 +385,6 @@ async function getActiveTabMeta() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab) return { ok: false, error: 'No active tab' }
-
     let meta = {
       url: tab.url,
       title: tab.title || '',
@@ -357,28 +393,16 @@ async function getActiveTabMeta() {
       og_image: '',
       domain: '',
     }
-
-    try {
-      const domain = new URL(tab.url).hostname
-      meta.domain = domain
-    } catch {}
-
+    try { meta.domain = new URL(tab.url).hostname } catch {}
     if (tab.id) {
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-        if (response?.meta) {
-          meta = { ...meta, ...response.meta }
-        }
-        if (response?.selectedText) {
-          meta.selectedText = response.selectedText
-        }
+        if (response?.meta) meta = { ...meta, ...response.meta }
+        if (response?.selectedText) meta.selectedText = response.selectedText
       } catch {}
     }
-
     return { ok: true, meta }
-  } catch (err) {
-    return { ok: false, error: err.message }
-  }
+  } catch (err) { return { ok: false, error: err.message } }
 }
 
 async function checkAuth() {
@@ -386,12 +410,9 @@ async function checkAuth() {
   return { authenticated: result.ok, user: result.user || null }
 }
 
-// ── Badge helpers ─────────────────────────────────────────────────────────────
-
 async function updateBadge(increment = 0) {
   const settings = await getSettings()
   if (!settings.badgeCount) return
-
   const current = await chrome.storage.session.get('glassy_badge_count')
   const count = (current.glassy_badge_count || 0) + increment
   await chrome.storage.session.set({ glassy_badge_count: count })
@@ -399,43 +420,30 @@ async function updateBadge(increment = 0) {
   await chrome.action.setBadgeBackgroundColor({ color: '#6366f1' })
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
-
 function showNotification(title, message, type = 'success') {
-  const iconMap = {
-    success: '/assets/icon-48.png',
-    error: '/assets/icon-48.png',
-    info: '/assets/icon-48.png',
-  }
+  const iconMap = { success: '/assets/icon-48.png', error: '/assets/icon-48.png', info: '/assets/icon-48.png' }
   chrome.notifications.create({
     type: 'basic',
     iconUrl: iconMap[type] || iconMap.info,
-    title,
-    message,
+    title, message,
     priority: type === 'error' ? 2 : 0,
   })
 }
 
-// ── Saved-page badge ──────────────────────────────────────────────────────────
-
 const savedUrlCache = new Map()
-
 async function checkSavedPageBadge(tabId, url) {
   if (!url || !/^https?:\/\//i.test(url)) {
     await chrome.action.setBadgeText({ text: '', tabId })
     return
   }
-
   const token = await getToken()
   if (!token) return
-
   if (savedUrlCache.has(url)) {
     const saved = savedUrlCache.get(url)
     await chrome.action.setBadgeText({ text: saved ? '✓' : '', tabId })
     if (saved) await chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId })
     return
   }
-
   try {
     const result = await checkUrl(url)
     const saved = result?.exists === true
@@ -450,7 +458,6 @@ async function checkSavedPageBadge(tabId, url) {
 }
 
 const _badgeCheckTimers = new Map()
-
 function debouncedCheckBadge(tabId, url) {
   if (_badgeCheckTimers.has(tabId)) clearTimeout(_badgeCheckTimers.get(tabId))
   _badgeCheckTimers.set(tabId, setTimeout(() => {

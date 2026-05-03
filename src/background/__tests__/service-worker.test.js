@@ -14,7 +14,7 @@ vi.mock('../../lib/api.js', () => ({
   saveDocument: vi.fn(async () => ({ id: 'doc-1' })),
   saveCapture: vi.fn(async () => ({ id: 'cap-1' })),
   searchBookmarks: vi.fn(async () => ({ bookmarks: [] })),
-  checkUrl: vi.fn(async () => ({ saved: false })),
+  checkUrl: vi.fn(async () => ({ exists: false })),
 }))
 
 vi.mock('../../lib/offlineQueue.js', () => ({
@@ -54,6 +54,7 @@ const handlers = {
 const chromeMock = {
   _handlers: handlers,
   runtime: {
+    id: 'test-ext-id',
     onInstalled: { addListener: vi.fn(fn => handlers.onInstalled.push(fn)) },
     onStartup: { addListener: vi.fn(fn => handlers.onStartup.push(fn)) },
     onMessage: { addListener: vi.fn(fn => handlers.onMessage.push(fn)) },
@@ -76,7 +77,8 @@ const chromeMock = {
       get: vi.fn(async (keys) => {
         if (typeof keys === 'string') return { [keys]: sessionStore[keys] }
         const r = {}
-        for (const k of (Array.isArray(keys) ? keys : Object.keys(keys))) r[k] = sessionStore[k]
+        const kArr = Array.isArray(keys) ? keys : Object.keys(keys)
+        for (const k of kArr) r[k] = sessionStore[k]
         return r
       }),
       set: vi.fn(async (obj) => Object.assign(sessionStore, obj)),
@@ -98,7 +100,7 @@ const chromeMock = {
   },
   tabs: {
     query: vi.fn(async () => [{ id: 1, url: 'https://example.com', title: 'Test Tab', favIconUrl: '' }]),
-    sendMessage: vi.fn(async () => ({ meta: { url: 'https://example.com', title: 'Test Tab' } })),
+    sendMessage: vi.fn(async () => ({ ok: true })),
     get: vi.fn(async () => ({ id: 1, url: 'https://example.com', title: 'Test Tab', favIconUrl: '' })),
     onActivated: { addListener: vi.fn(fn => handlers.onActivated.push(fn)) },
     onUpdated: { addListener: vi.fn(fn => handlers.onUpdated.push(fn)) },
@@ -168,10 +170,13 @@ describe('service-worker.js — message handler', () => {
     it('calls saveCapture with payload', async () => {
       const result = await sendMessage({
         type: 'SAVE_CAPTURE',
-        payload: { sourceUrl: 'https://example.com', title: 'Test' },
+        payload: { sourceUrl: 'https://example.com', title: 'Test', siteName: 'Example' },
       })
       expect(result.ok).toBe(true)
-      expect(saveCapture).toHaveBeenCalledWith({ sourceUrl: 'https://example.com', title: 'Test' })
+      expect(saveCapture).toHaveBeenCalled()
+      const call = saveCapture.mock.calls[0][0]
+      expect(call.title).toBe('Test')
+      expect(call.contentMarkdown).toContain('# Test')
     })
   })
 
@@ -246,6 +251,13 @@ describe('service-worker.js — offline queue flush', () => {
 
     const alarmHandler = handlers.onAlarm[0]
     await alarmHandler({ name: 'glassy_offline_sync' })
+
+    expect(getQueue).not.toHaveBeenCalled()
+  })
+
+  it('ignores alarms with a different name', async () => {
+    const alarmHandler = handlers.onAlarm[0]
+    await alarmHandler({ name: 'some_other_alarm' })
 
     expect(getQueue).not.toHaveBeenCalled()
   })
