@@ -40,13 +40,13 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel }) {
         <button onClick={onCancel} className="btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 4 }}>
         {Object.values(PRESETS).map(p => (
           <button
             key={p.id}
             onClick={() => setContentType(p.id)}
             style={{
-              padding: '6px 10px',
+              padding: '5px 8px',
               borderRadius: 8,
               border: '1px solid',
               borderColor: contentType === p.id ? '#6366f1' : 'rgba(255,255,255,0.08)',
@@ -55,6 +55,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel }) {
               fontSize: 11,
               whiteSpace: 'nowrap',
               cursor: 'pointer',
+              transition: 'all 0.15s',
             }}
           >
             {p.icon} {p.label}
