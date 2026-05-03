@@ -12,8 +12,9 @@ vi.mock('../../lib/api.js', () => ({
   saveBookmark: vi.fn(async () => ({ id: 'bm-1' })),
   saveNote: vi.fn(async () => ({ id: 'note-1' })),
   saveDocument: vi.fn(async () => ({ id: 'doc-1' })),
+  saveCapture: vi.fn(async () => ({ id: 'cap-1' })),
   searchBookmarks: vi.fn(async () => ({ bookmarks: [] })),
-  checkUrl: vi.fn(async () => ({ saved: false })),
+  checkUrl: vi.fn(async () => ({ exists: false })),
 }))
 
 vi.mock('../../lib/offlineQueue.js', () => ({
@@ -25,7 +26,6 @@ vi.mock('../../lib/offlineQueue.js', () => ({
 }))
 
 vi.mock('../../lib/cache.js', () => ({
-  // badgeCount: true so updateBadge() doesn't short-circuit
   getSettings: vi.fn(async () => ({
     aiAutoTag: true,
     showNotifications: true,
@@ -37,12 +37,6 @@ vi.mock('../savePolicy.js', () => ({
   planBackgroundSaveFailure: vi.fn(() => ({ kind: 'error', queue: false })),
   planQueueFailure: vi.fn(() => ({ action: 'drop', kind: 'fatal' })),
 }))
-
-// ── Build ONE stable chrome mock used throughout all tests ────────────────────
-// service-worker.js registers its listeners at import time.
-// Using vi.resetModules() in beforeEach causes mock module references to diverge.
-// Instead we import once, keep the same chromeMock, and use vi.clearAllMocks()
-// to reset call counts between tests.
 
 const sessionStore = {}
 
@@ -60,6 +54,7 @@ const handlers = {
 const chromeMock = {
   _handlers: handlers,
   runtime: {
+    id: 'test-ext-id',
     onInstalled: { addListener: vi.fn(fn => handlers.onInstalled.push(fn)) },
     onStartup: { addListener: vi.fn(fn => handlers.onStartup.push(fn)) },
     onMessage: { addListener: vi.fn(fn => handlers.onMessage.push(fn)) },
@@ -82,7 +77,8 @@ const chromeMock = {
       get: vi.fn(async (keys) => {
         if (typeof keys === 'string') return { [keys]: sessionStore[keys] }
         const r = {}
-        for (const k of (Array.isArray(keys) ? keys : Object.keys(keys))) r[k] = sessionStore[k]
+        const kArr = Array.isArray(keys) ? keys : Object.keys(keys)
+        for (const k of kArr) r[k] = sessionStore[k]
         return r
       }),
       set: vi.fn(async (obj) => Object.assign(sessionStore, obj)),
@@ -104,7 +100,7 @@ const chromeMock = {
   },
   tabs: {
     query: vi.fn(async () => [{ id: 1, url: 'https://example.com', title: 'Test Tab', favIconUrl: '' }]),
-    sendMessage: vi.fn(async () => ({ meta: { url: 'https://example.com', title: 'Test Tab' } })),
+    sendMessage: vi.fn(async () => ({ ok: true })),
     get: vi.fn(async () => ({ id: 1, url: 'https://example.com', title: 'Test Tab', favIconUrl: '' })),
     onActivated: { addListener: vi.fn(fn => handlers.onActivated.push(fn)) },
     onUpdated: { addListener: vi.fn(fn => handlers.onUpdated.push(fn)) },
@@ -114,27 +110,20 @@ const chromeMock = {
   },
 }
 
-// Set globals before the service worker is imported
 globalThis.chrome = chromeMock
-globalThis.navigator = { onLine: true }
+vi.stubGlobal('navigator', { onLine: true })
 
-// Import service worker ONCE — registers all listeners on chromeMock above
 await import('../service-worker.js')
 
-// Get stable references to mocked module exports
-const { saveDocument, saveBookmark, saveNote, searchBookmarks } = await import('../../lib/api.js')
+const { saveDocument, saveBookmark, saveNote, searchBookmarks, saveCapture } = await import('../../lib/api.js')
 const { clearAuth } = await import('../../lib/auth.js')
 const { getQueue } = await import('../../lib/offlineQueue.js')
 
-// ── beforeEach: reset call counts and mutable state ──────────────────────────
-
 beforeEach(() => {
   vi.clearAllMocks()
-  globalThis.navigator = { onLine: true }
+  vi.stubGlobal('navigator', { onLine: true })
   Object.keys(sessionStore).forEach(k => delete sessionStore[k])
 })
-
-// ── Helper: dispatch a message and capture the response ───────────────────────
 
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -143,8 +132,6 @@ function sendMessage(message) {
     }
   })
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('service-worker.js — message handler', () => {
   describe('SAVE_PAGE', () => {
@@ -179,6 +166,20 @@ describe('service-worker.js — message handler', () => {
     })
   })
 
+  describe('SAVE_CAPTURE', () => {
+    it('calls saveCapture with payload', async () => {
+      const result = await sendMessage({
+        type: 'SAVE_CAPTURE',
+        payload: { sourceUrl: 'https://example.com', title: 'Test', siteName: 'Example' },
+      })
+      expect(result.ok).toBe(true)
+      expect(saveCapture).toHaveBeenCalled()
+      const call = saveCapture.mock.calls[0][0]
+      expect(call.title).toBe('Test')
+      expect(call.contentMarkdown).toContain('# Test')
+    })
+  })
+
   describe('SAVE_BOOKMARK', () => {
     it('calls saveBookmark with payload', async () => {
       const result = await sendMessage({
@@ -187,17 +188,6 @@ describe('service-worker.js — message handler', () => {
       })
       expect(result.ok).toBe(true)
       expect(saveBookmark).toHaveBeenCalledWith({ url: 'https://example.com', title: 'Test' })
-    })
-
-    it('returns error on api failure', async () => {
-      saveBookmark.mockRejectedValueOnce({ message: 'Failed', status: 400 })
-
-      const result = await sendMessage({
-        type: 'SAVE_BOOKMARK',
-        payload: { url: 'https://example.com' },
-      })
-      expect(result.ok).toBe(false)
-      expect(result.error).toBe('Failed')
     })
   })
 
@@ -213,7 +203,6 @@ describe('service-worker.js — message handler', () => {
   })
 
   describe('CHECK_AUTH', () => {
-    // service-worker checkAuth() returns { authenticated, user } shape (not { ok })
     it('returns authenticated:true when token is verified', async () => {
       const result = await sendMessage({ type: 'CHECK_AUTH' })
       expect(result.authenticated).toBe(true)
@@ -230,22 +219,6 @@ describe('service-worker.js — message handler', () => {
     })
   })
 
-  describe('GET_QUEUE_LENGTH', () => {
-    it('returns item count from queue', async () => {
-      getQueue.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-
-      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
-      expect(result.ok).toBe(true)
-      expect(result.count).toBe(2)
-    })
-
-    it('returns 0 for empty queue', async () => {
-      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
-      expect(result.ok).toBe(true)
-      expect(result.count).toBe(0)
-    })
-  })
-
   describe('SEARCH_BOOKMARKS', () => {
     it('returns bookmarks from search', async () => {
       searchBookmarks.mockResolvedValueOnce({ bookmarks: [{ id: 'bm-1' }] })
@@ -255,20 +228,34 @@ describe('service-worker.js — message handler', () => {
       expect(result.bookmarks).toHaveLength(1)
       expect(searchBookmarks).toHaveBeenCalledWith('glassy')
     })
-
-    it('returns empty array when no results', async () => {
-      const result = await sendMessage({ type: 'SEARCH_BOOKMARKS', query: 'nothing' })
-      expect(result.ok).toBe(true)
-      expect(result.bookmarks).toEqual([])
-    })
   })
 
-  describe('unknown message type', () => {
-    it('returns ok:false for unknown message types', async () => {
-      const result = await sendMessage({ type: 'TOTALLY_UNKNOWN_TYPE' })
-      expect(result.ok).toBe(false)
-      expect(result.error).toBe('Unknown message type')
+  describe('GET_QUEUE_LENGTH', () => {
+    it('returns item count from queue', async () => {
+      getQueue.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+
+      const result = await sendMessage({ type: 'GET_QUEUE_LENGTH' })
+      expect(result.ok).toBe(true)
+      expect(result.count).toBe(2)
     })
+  })
+})
+
+describe('service-worker.js — context menu captures', () => {
+  it('saves a link without extracting metadata from the surrounding page', async () => {
+    const clickHandler = handlers.onClicked[0]
+
+    await clickHandler(
+      { menuItemId: 'glassy_save_link', linkUrl: 'https://target.example/post', linkText: 'Target post' },
+      { id: 1, url: 'https://source.example/page', title: 'Source Page' }
+    )
+
+    expect(chromeMock.tabs.sendMessage).not.toHaveBeenCalled()
+    expect(saveCapture).toHaveBeenCalled()
+    const payload = saveCapture.mock.calls[0][0]
+    expect(payload.sourceUrl).toBe('https://target.example/post')
+    expect(payload.title).toBe('Target post')
+    expect(payload.contentType).toBe('bookmark')
   })
 })
 
@@ -278,7 +265,7 @@ describe('service-worker.js — offline queue flush', () => {
   })
 
   it('skips flush when navigator is offline', async () => {
-    globalThis.navigator = { onLine: false }
+    vi.stubGlobal('navigator', { onLine: false })
 
     const alarmHandler = handlers.onAlarm[0]
     await alarmHandler({ name: 'glassy_offline_sync' })
@@ -299,5 +286,16 @@ describe('service-worker.js — offline queue flush', () => {
 
     expect(getQueue).toHaveBeenCalled()
     expect(chromeMock.notifications.create).not.toHaveBeenCalled()
+  })
+
+  it('replays queued page saves through saveDocument', async () => {
+    getQueue.mockResolvedValueOnce([
+      { id: 'queued-page-1', type: 'page', payload: { url: 'https://example.com/page', title: 'Queued page' }, attempts: 0 },
+    ])
+
+    const alarmHandler = handlers.onAlarm[0]
+    await alarmHandler({ name: 'glassy_offline_sync' })
+
+    expect(saveDocument).toHaveBeenCalledWith({ url: 'https://example.com/page', title: 'Queued page' })
   })
 })

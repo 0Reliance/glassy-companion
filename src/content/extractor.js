@@ -1,15 +1,7 @@
 /**
  * Content script — runs on every page at document_idle.
- *
- * Responsibilities:
- * 1. Extract page metadata (OG tags, title, favicon, description)
- * 2. Capture current text selection
- * 3. Extract page body text for AI summary (lazy, only when requested)
- * 4. Respond to messages from the service worker / popup
- *
- * This script intentionally does NOT inject any visible UI.
- * All visual feedback is handled by the popup or service worker notifications.
  */
+import { nodeToMarkdown } from './formatter.js'
 
 // ── Meta extraction ──────────────────────────────────────────────────────────
 
@@ -34,47 +26,106 @@ function getFaviconUrl() {
   return `${location.origin}/favicon.ico`
 }
 
+function extractSchemaOrg() {
+  const schemas = []
+  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+    try {
+      const data = JSON.parse(script.innerText)
+      if (Array.isArray(data)) schemas.push(...data)
+      else schemas.push(data)
+    } catch {}
+  })
+  return schemas
+}
+
+function detectContentType(meta, schemas) {
+  const domain = meta.domain?.toLowerCase() || ''
+  if (domain.includes('youtube.com') || domain.includes('vimeo.com')) return 'video'
+  if (domain.includes('github.com') || domain.includes('gitlab.com')) return 'repo'
+  if (domain.includes('arxiv.org')) return 'research'
+  if (domain.includes('substack.com')) return 'article'
+
+  for (const s of schemas) {
+    const type = s['@type']
+    if (type === 'VideoObject') return 'video'
+    if (type === 'Product') return 'product'
+    if (type === 'ScholarlyArticle') return 'research'
+    if (type === 'NewsArticle' || type === 'BlogPosting') return 'article'
+  }
+
+  const ogType = getMeta('og:type').toLowerCase()
+  if (ogType.includes('video')) return 'video'
+  if (ogType.includes('article')) return 'article'
+  if (ogType.includes('product')) return 'product'
+
+  return 'bookmark'
+}
+
 function extractPageMeta() {
-  const title =
-    getMeta('og:title') ||
-    getMeta('twitter:title') ||
-    document.title ||
-    ''
-
-  const description =
-    getMeta('og:description') ||
-    getMeta('twitter:description') ||
-    getMeta('description') ||
-    ''
-
-  const ogImage =
-    getMeta('og:image') ||
-    getMeta('twitter:image') ||
-    ''
-
+  const title = getMeta('og:title') || getMeta('twitter:title') || document.title || ''
+  const description = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || ''
+  const ogImage = getMeta('og:image') || getMeta('twitter:image') || ''
   const favicon = getFaviconUrl()
 
   let domain = ''
   try { domain = new URL(location.href).hostname } catch {}
 
-  return {
+  const author = getMeta('author') || getMeta('article:author') || ''
+  const publishedAt = getMeta('article:published_time') || ''
+  const schemas = extractSchemaOrg()
+
+  const meta = {
     url: location.href,
+    canonicalUrl: document.querySelector('link[rel="canonical"]')?.href || location.href,
     title: title.trim().slice(0, 500),
     description: description.trim().slice(0, 1000),
     og_image: ogImage,
     favicon_url: favicon,
     domain,
+    author,
+    publishedAt,
+    siteName: getMeta('og:site_name') || domain,
   }
+
+  meta.contentType = detectContentType(meta, schemas)
+  return meta
 }
 
-function getSelectedText() {
-  return window.getSelection()?.toString().trim().slice(0, 10000) || ''
+// ── Content extraction ───────────────────────────────────────────────────────
+
+function findMainContent() {
+  const article = document.querySelector('article')
+  if (article) return article
+
+  const containers = document.querySelectorAll('main, .content, .article, #content, .post')
+  for (const c of containers) {
+    if (c.textContent.length > 500) return c
+  }
+
+  return document.body
 }
 
-/**
- * Returns the HTML of the current selection (preserves formatting).
- * Returns empty string if nothing is selected.
- */
+function getStructuredContent() {
+  const main = findMainContent()
+  const clone = main.cloneNode(true)
+  const noise = clone.querySelectorAll('script, style, nav, header, footer, aside, .ads, .social-share')
+  noise.forEach(n => n.remove())
+  return nodeToMarkdown(clone)
+}
+
+function getSelectionMarkdown() {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return ''
+  let markdown = ''
+  for (let i = 0; i < sel.rangeCount; i++) {
+    const container = document.createElement('div')
+    container.appendChild(sel.getRangeAt(i).cloneContents())
+    markdown += nodeToMarkdown(container)
+  }
+  return markdown.trim()
+}
+
+// Added for test compatibility
 function getSelectionHtml() {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return ''
@@ -86,7 +137,6 @@ function getSelectionHtml() {
 }
 
 function getPageText() {
-  // Walk the DOM text nodes directly — avoids cloneNode(true) freeze on large docs
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
@@ -113,42 +163,80 @@ function getPageText() {
   return chunks.join(' ').slice(0, 5000)
 }
 
+// ── Highlights ───────────────────────────────────────────────────────────────
+
+function getSelector(node) {
+  if (!node) return ''
+  if (node.id) return `#${node.id}`
+  let path = []
+  let curr = node
+  while (curr && curr.parentElement) {
+    let index = Array.from(curr.parentElement.children).indexOf(curr) + 1
+    path.unshift(`${curr.tagName.toLowerCase()}:nth-child(${index})`)
+    curr = curr.parentElement
+  }
+  return path.join(' > ')
+}
+
+function captureHighlight() {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return null
+  const range = sel.getRangeAt(0)
+  return {
+    id: crypto.randomUUID(),
+    text: sel.toString().trim(),
+    selector: getSelector(range.startContainer.parentElement),
+    pageTitle: document.title,
+    sourceUrl: location.href,
+    createdAt: new Date().toISOString()
+  }
+}
+
 // ── Message handler ──────────────────────────────────────────────────────────
 
-// P1-13: Validate that messages come from this extension only. Without this
-// check, any other extension on the same page could request page text/HTML,
-// bypassing the user's intention to share content only with Glassy Companion.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false
+
   switch (message.type) {
     case 'GET_PAGE_META':
       sendResponse({
         meta: extractPageMeta(),
-        selectedText: getSelectedText(),
+        selectedText: window.getSelection()?.toString().trim().slice(0, 1000)
       })
-      return true
+      break
 
+    case 'GET_STRUCTURED_CONTENT':
+      sendResponse({ markdown: getStructuredContent() })
+      break
+
+    case 'GET_SELECTION_MARKDOWN':
+      sendResponse({ markdown: getSelectionMarkdown() })
+      break
+
+    case 'CAPTURE_HIGHLIGHT':
+      sendResponse({ highlight: captureHighlight() })
+      break
+
+    // Compatibility cases
     case 'GET_PAGE_TEXT':
       sendResponse({ text: getPageText() })
-      return true
-
+      break
     case 'GET_SELECTED_TEXT':
-      sendResponse({ text: getSelectedText() })
-      return true
-
+      sendResponse({ text: window.getSelection()?.toString().trim().slice(0, 10000) || '' })
+      break
     case 'GET_SELECTION_HTML':
       sendResponse({ html: getSelectionHtml() })
-      return true
-
+      break
     case 'GET_PAGE_HTML':
       sendResponse({
         url: location.href,
         title: document.title,
-        excerpt: getPageText().slice(0, 500),
+        excerpt: (document.body?.innerText || '').slice(0, 500)
       })
-      return true
+      break
 
     default:
       return false
   }
+  return true
 })

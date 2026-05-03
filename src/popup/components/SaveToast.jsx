@@ -1,69 +1,40 @@
-import React, { useState, useEffect } from 'react'
-import { getBaseUrl } from '../../lib/auth.js'
-
-const ICONS = { saved: '🎉', duplicate: '🔁', error: '❌' }
-const TITLES = { saved: 'Saved!', duplicate: 'Already saved', error: 'Save failed' }
-const COLORS = {
-  saved:     { bg: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.25)',   text: '#86efac' },
-  duplicate: { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  text: '#fcd34d' },
-  error:     { bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.25)',   text: '#fca5a5' },
-}
+import React from 'react'
 
 export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother }) {
-  const [baseUrl, setBaseUrlState] = useState('')
-  const color = COLORS[type] || COLORS.error
-
-  useEffect(() => { getBaseUrl().then(setBaseUrlState) }, [])
-  useEffect(() => {
-    if (type === 'saved') {
-      const t = setTimeout(onDismiss, 3000)
-      return () => clearTimeout(t)
-    }
-  }, [type, onDismiss])
-
-  function openKeep() {
-    chrome.tabs.create({ url: `${baseUrl}/#/keep` })
-    window.close()
-  }
+  const isError = type === 'error'
+  const isDuplicate = type === 'duplicate'
 
   return (
-    <div
-      className="animate-in"
-      style={{
-        background: color.bg, border: `1px solid ${color.border}`,
-        borderRadius: 14, padding: '20px 18px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        textAlign: 'center',
-      }}
-    >
-      <div style={{ fontSize: 36 }}>{ICONS[type]}</div>
-      <div>
-        <div style={{ fontWeight: 700, fontSize: 15, color: color.text, marginBottom: 4 }}>
-          {TITLES[type]}
-        </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
-          {type === 'saved'     && 'Bookmark saved to your Glassy library.'}
-          {type === 'duplicate' && 'This URL is already in your library.'}
-          {type === 'error'     && (errorMessage || 'Something went wrong. Try again.')}
-        </div>
+    <div className="animate-in" style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '40px 20px', textAlign: 'center', gap: 16
+    }}>
+      <div className="luminous" style={{
+        width: 60, height: 60, borderRadius: '50%',
+        background: isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 32, border: '1px solid',
+        borderColor: isError ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)',
+        boxShadow: isError ? '0 0 20px rgba(239,68,68,0.2)' : '0 0 20px rgba(34,197,94,0.2)'
+      }}>
+        {isError ? '✕' : isDuplicate ? '📋' : '✓'}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-        <button
-          onClick={onSaveAnother}
-          style={{
-            flex: 1, padding: '8px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
-            color: 'rgba(255,255,255,0.65)', fontWeight: 500,
-          }}
-        >
-          {type === 'error' ? 'Retry' : 'Back'}
+      <div>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
+          {isError ? 'Save Failed' : isDuplicate ? 'Already in Keep' : 'Saved Successfully'}
+        </h3>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+          {isError ? (errorMessage || 'Something went wrong.') :
+           isDuplicate ? 'This page was already saved to your workspace.' :
+           'Your item has been safely stored in Glassy.'}
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 8 }}>
+        <button className="btn-accent" style={{ flex: 1 }} onClick={onSaveAnother}>
+          Dismiss
         </button>
-        {type !== 'error' && (
-          <button className="btn-accent" style={{ flex: 1, padding: 8, fontSize: 12 }} onClick={openKeep}>
-            View library
-          </button>
-        )}
       </div>
     </div>
   )

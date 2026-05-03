@@ -1,18 +1,10 @@
 /**
  * Glassy Companion — Service Worker (Manifest V3)
- *
- * Handles:
- * - Context menu registration at install
- * - Context menu click → save bookmark / note
- * - Keyboard command: quick-save current tab without opening popup
- * - Messages from popup (relay API calls for auth token access)
- * - Offline queue flushing via chrome.alarms
- * - Badge count updates
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl } from '../lib/api.js'
-import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue, QueueFullError } from '../lib/offlineQueue.js'
+import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture } from '../lib/api.js'
+import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import {
@@ -22,6 +14,26 @@ import {
   CTX_QUICK_NOTE,
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
+
+function getHostname(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return 'this page'
+  }
+}
+
+function sameDocumentUrl(left, right) {
+  try {
+    const leftUrl = new URL(left)
+    const rightUrl = new URL(right)
+    leftUrl.hash = ''
+    rightUrl.hash = ''
+    return leftUrl.href === rightUrl.href
+  } catch {
+    return left === right
+  }
+}
 
 // ── Install / startup ─────────────────────────────────────────────────────────
 
@@ -48,19 +60,19 @@ function registerContextMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: CTX_SAVE_PAGE,
-      title: 'Save page to Glassy Keep',
+      title: 'Save page to Glassy',
       contexts: ['page', 'frame'],
     })
 
     chrome.contextMenus.create({
       id: CTX_SAVE_LINK,
-      title: 'Save link to Glassy Keep',
+      title: 'Save link to Glassy',
       contexts: ['link'],
     })
 
     chrome.contextMenus.create({
       id: CTX_SAVE_SELECTION,
-      title: 'Save selection as Glassy Note',
+      title: 'Save selection to Glassy',
       contexts: ['selection'],
     })
 
@@ -77,44 +89,34 @@ function registerContextMenus() {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   switch (info.menuItemId) {
     case CTX_SAVE_PAGE:
-      await backgroundSave('bookmark', { url: tab.url }, tab)
+      await backgroundSave('quick', { url: tab.url }, tab)
       break
 
     case CTX_SAVE_LINK:
       if (info.linkUrl) {
-        await backgroundSave('bookmark', { url: info.linkUrl }, tab)
+        await backgroundSave('quick', { url: info.linkUrl, title: info.linkText || info.linkUrl }, tab)
       }
       break
 
     case CTX_SAVE_SELECTION: {
       const selectedText = info.selectionText?.trim()
       if (!selectedText) break
-      // Try to get rich HTML from content script; fall back to plain text
-      let content = `${selectedText}\n\n*Saved from: [${tab.title}](${tab.url})*`
-      let contentFormat = 'markdown'
+
+      let markdown = selectedText
       try {
-        const htmlRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION_HTML' })
-        if (htmlRes?.html) {
-          content = htmlRes.html
-          contentFormat = 'html'
-        }
-      } catch {
-        // Content script unavailable — use plain text fallback
-      }
-      await backgroundSave('note', {
-        content,
-        content_format: contentFormat,
-        title: `Note from ${new URL(tab.url).hostname}`,
-        tags: [],
+        const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION_MARKDOWN' })
+        if (res?.markdown) markdown = res.markdown
+      } catch {}
+
+      await backgroundSave('selection', {
+        contentMarkdown: markdown,
+        title: `Note from ${getHostname(tab?.url)}`,
       }, tab)
       break
     }
 
     case CTX_QUICK_NOTE:
-      // Open popup in note mode
-      await chrome.action.openPopup?.()
-        .catch(() => {})
-      // Set a flag so popup opens to note view
+      await chrome.action.openPopup?.().catch(() => {})
       await chrome.storage.session.set({ glassy_open_view: 'note' })
       break
   }
@@ -124,11 +126,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'quick-save') {
-    // Quick-save current page silently (no popup)
-    await backgroundSave('bookmark', { url: tab.url }, tab)
+    await backgroundSave('quick', { url: tab.url }, tab)
   }
   if (command === 'quick-note') {
-    // Open popup to note view
     await chrome.storage.session.set({ glassy_open_view: 'note' })
     await chrome.action.openPopup?.().catch(() => {})
   }
@@ -137,98 +137,97 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 // ── Background save ───────────────────────────────────────────────────────────
 
 /**
- * Save a bookmark or note in the background (no popup interaction).
- * Shows a notification with the result.
- * If offline, adds to queue.
+ * Premium Content Presentation
  */
-async function backgroundSave(type, payload, tab) {
+function assemblePremiumMarkdown(item) {
+  const dateStr = new Date(item.capturedAt || Date.now()).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  })
+
+  let header = `# ${item.title}\n\n`
+  header += `**Source:** [${item.siteName || item.domain || 'Source'}](${item.sourceUrl})\n`
+  if (item.author) header += `**Author:** ${item.author}\n`
+  header += `**Captured on:** ${dateStr}\n\n`
+
+  if (item.note) {
+    header += `### Personal Note\n\n${item.note}\n\n---\n\n`
+  }
+
+  if (item.highlights?.length) {
+    header += `### Highlights\n\n`
+    item.highlights.forEach(h => {
+      header += `> ${h.text.replace(/\n/g, '\n> ')}\n\n`
+    })
+    header += `---\n\n`
+  }
+
+  return header + (item.contentMarkdown || '')
+}
+
+async function backgroundSave(mode, payload, tab) {
   const token = await getToken()
   if (!token) {
     showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
     return
   }
 
-  const settings = await getSettings()
-  const savePayload = type === 'bookmark'
-    ? { ...payload, ai_tag: settings.aiAutoTag }
-    : payload
+  const sourceUrl = payload.sourceUrl || payload.url || tab?.url
+  const canUseTabContent = tab?.id && sourceUrl && tab?.url && sameDocumentUrl(sourceUrl, tab.url)
 
-  // For bookmarks, extract metadata from the content script first
-  if (type === 'bookmark' && tab?.id && !savePayload.title) {
-    try {
-      const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-      if (response?.meta) {
-        Object.assign(savePayload, response.meta)
-      }
-    } catch {
-      // Content script not ready or restricted page — continue with just URL
-    }
+  const captureItem = {
+    sourceUrl,
+    title: payload.title || tab?.title || 'Untitled',
+    captureMode: mode,
+    status: 'inbox',
+    capturedAt: new Date().toISOString(),
+    ...payload
   }
+
+  if (canUseTabContent) {
+    try {
+      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
+      if (metaRes?.meta) {
+        Object.assign(captureItem, {
+          canonicalUrl: metaRes.meta.canonicalUrl,
+          title: (captureItem.title === 'Untitled' || !captureItem.title) ? metaRes.meta.title : captureItem.title,
+          description: metaRes.meta.description,
+          coverImageUrl: metaRes.meta.og_image,
+          favicon_url: metaRes.meta.favicon_url,
+          siteName: metaRes.meta.siteName,
+          author: metaRes.meta.author,
+          publishedAt: metaRes.meta.publishedAt,
+          contentType: metaRes.meta.contentType,
+        })
+      }
+
+      if (mode === 'quick') {
+        const contentRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+        if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
+      }
+    } catch {}
+  }
+
+  if (!captureItem.contentType) captureItem.contentType = 'bookmark'
+
+  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
 
   if (!navigator.onLine) {
     try {
-      await enqueue(type, savePayload)
-      showNotification('Glassy — Queued', 'You\'re offline. This will sync when you reconnect.', 'info')
+      await enqueue('capture', captureItem)
+      showNotification('Glassy — Queued', 'You\'re offline.', 'info')
     } catch (err) {
-      if (err instanceof QueueFullError) {
-        showNotification('Glassy — Queue Full', 'Offline queue is full. Reconnect to sync pending saves.', 'error')
-      } else {
-        showNotification('Glassy — Save Failed', err?.message || 'Could not queue this item.', 'error')
-      }
+      showNotification('Glassy — Save Failed', 'Could not queue this item.', 'error')
     }
     return
   }
 
   try {
-    const result = type === 'bookmark'
-      ? await saveBookmark(savePayload)
-      : await saveNote(savePayload)
-
-    if (result?.duplicate) {
-      showNotification('Glassy — Already Saved', `"${savePayload.title || savePayload.url}" is already in your Keep.`, 'info')
-    } else {
-      showNotification(
-        type === 'bookmark' ? 'Glassy — Saved to Keep ✓' : 'Glassy — Note Saved ✓',
-        savePayload.title || savePayload.url || 'Saved successfully',
-        'success'
-      )
-      await updateBadge(1)
-      // Update saved-page cache for instant badge
-      if (type === 'bookmark' && savePayload.url) {
-        savedUrlCache.set(savePayload.url, true)
-      }
-    }
+    await saveCapture(captureItem)
+    showNotification('Glassy — Saved ✓', captureItem.title, 'success')
+    await updateBadge(1)
   } catch (err) {
     const failurePlan = planBackgroundSaveFailure(err)
-
-    if (failurePlan.queue) {
-      try {
-        await enqueue(type, savePayload)
-      } catch (queueErr) {
-        if (queueErr instanceof QueueFullError) {
-          showNotification('Glassy — Queue Full', 'Offline queue is full. Reconnect to sync pending saves.', 'error')
-          return
-        }
-        // Fall through to original failure notification
-      }
-    }
-
-    switch (failurePlan.kind) {
-      case 'duplicate':
-        showNotification('Glassy — Already Saved', `"${savePayload.title || savePayload.url}" is already in your Keep.`, 'info')
-        break
-      case 'auth':
-        showNotification('Session Expired', 'Save queued. Open the extension popup to log in again.', 'error')
-        break
-      case 'entitlement':
-        showNotification('Glassy Keep Required', 'Purchase Glassy Keep in the dashboard store ($15).', 'error')
-        break
-      case 'retryable':
-        showNotification('Glassy — Queued', 'Save failed — will retry automatically.', 'info')
-        break
-      default:
-        showNotification('Glassy — Save Failed', err?.message || 'Could not save this item.', 'error')
-    }
+    if (failurePlan.queue) await enqueue('capture', captureItem)
   }
 }
 
@@ -238,96 +237,65 @@ let _queueFlushing = false
 
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
-  if (!navigator.onLine) return
-  if (_queueFlushing) return
+  if (!navigator.onLine || _queueFlushing) return
   _queueFlushing = true
 
   try {
-  const queue = await getQueue()
-  if (queue.length === 0) { _queueFlushing = false; return }
+    const queue = await getQueue()
+    if (queue.length === 0) return
+    const token = await getToken()
+    if (!token) return
 
-  const token = await getToken()
-  if (!token) { _queueFlushing = false; return }
-
-  let synced = 0
-  let duplicates = 0
-  let droppedForEntitlement = 0
-  let droppedAsFatal = 0
-  for (const item of queue) {
-    if (item.attempts >= 5) {
-      // Give up after 5 attempts
-      await dequeue(item.id)
-      continue
-    }
-
-    try {
-      if (item.type === 'bookmark') {
-        await saveBookmark(item.payload)
-      } else if (item.type === 'page') {
-        await saveDocument(item.payload)
-      } else {
-        await saveNote(item.payload)
-      }
-      await dequeue(item.id)
-      synced++
-    } catch (err) {
-      const failurePlan = planQueueFailure(err)
-
-      if (failurePlan.action === 'pause') {
-        showNotification('Session Expired', 'Queued saves are paused until you log in again.', 'error')
-        break
-      }
-
-      if (failurePlan.action === 'retry') {
-        await incrementAttempts(item.id)
+    for (const item of queue) {
+      if (item.attempts >= 5) {
+        await dequeue(item.id)
         continue
       }
-
-      await dequeue(item.id)
-
-      if (failurePlan.kind === 'duplicate') {
-        duplicates++
-      } else if (failurePlan.kind === 'entitlement') {
-        droppedForEntitlement++
-      } else {
-        droppedAsFatal++
+      try {
+        if (item.type === 'capture') await saveCapture(item.payload)
+        else if (item.type === 'bookmark') await saveBookmark(item.payload)
+        else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
+        else await saveNote(item.payload)
+        await dequeue(item.id)
+      } catch (err) {
+        const failurePlan = planQueueFailure(err)
+        if (failurePlan.action === 'retry') await incrementAttempts(item.id)
+        else await dequeue(item.id)
       }
     }
-  }
-
-  if (synced > 0) {
-    showNotification('Glassy — Synced', `${synced} queued item${synced === 1 ? '' : 's'} saved.`, 'success')
-  }
-
-  if (duplicates > 0) {
-    showNotification('Glassy — Up To Date', `${duplicates} queued item${duplicates === 1 ? '' : 's'} already existed in Keep.`, 'info')
-  }
-
-  if (droppedForEntitlement > 0) {
-    showNotification('Glassy Keep Required', `${droppedForEntitlement} queued item${droppedForEntitlement === 1 ? '' : 's'} could not be saved without Glassy Keep.`, 'error')
-  }
-
-  if (droppedAsFatal > 0) {
-    showNotification('Glassy — Save Failed', `${droppedAsFatal} queued item${droppedAsFatal === 1 ? '' : 's'} could not be recovered automatically.`, 'error')
-  }
   } finally {
     _queueFlushing = false
   }
 })
 
-// ── Message handler (from popup) ──────────────────────────────────────────────
+// ── Message handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   handleMessage(message).then(sendResponse).catch(err => {
     sendResponse({ ok: false, error: err.message })
   })
-  return true // Keep channel open for async response
+  return true
 })
 
 async function handleMessage(message) {
   switch (message.type) {
     case 'SAVE_PAGE':
       return savePageFromPopup(message.payload)
+
+    case 'SAVE_CAPTURE': {
+      const item = message.payload
+      if (!item.contentMarkdown && item.captureMode !== 'selection') {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id) {
+             const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+             if (res?.markdown) item.contentMarkdown = res.markdown
+          }
+        } catch {}
+      }
+      item.contentMarkdown = assemblePremiumMarkdown(item)
+      return saveCaptureFromPopup(item)
+    }
 
     case 'SAVE_BOOKMARK':
       return saveBookmarkFromPopup(message.payload)
@@ -359,8 +327,24 @@ async function handleMessage(message) {
       return { ok: true, count: q.length }
     }
 
+    case 'CAPTURE_HIGHLIGHT': {
+       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+       if (!tab?.id) return { ok: false, error: 'No active tab' }
+       return chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_HIGHLIGHT' })
+    }
+
     default:
       return { ok: false, error: 'Unknown message type' }
+  }
+}
+
+async function saveCaptureFromPopup(payload) {
+  try {
+    const result = await saveCapture(payload)
+    await updateBadge(1)
+    return { ok: true, data: result }
+  } catch (err) {
+    return { ok: false, error: err.message, status: err.status }
   }
 }
 
@@ -382,10 +366,9 @@ async function saveAllTabsFromPopup() {
     for (const tab of httpTabs) {
       try {
         const result = await saveBookmark({ url: tab.url, title: tab.title || tab.url })
-        if (result?.duplicate) { skipped++ } else { saved++ }
-      } catch {
-        skipped++
-      }
+        if (result?.duplicate) skipped++
+        else saved++
+      } catch { skipped++ }
     }
     if (saved > 0) await updateBadge(saved)
     return { ok: true, saved, skipped, total: httpTabs.length }
@@ -426,7 +409,6 @@ async function getActiveTabMeta() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab) return { ok: false, error: 'No active tab' }
-
     let meta = {
       url: tab.url,
       title: tab.title || '',
@@ -435,45 +417,26 @@ async function getActiveTabMeta() {
       og_image: '',
       domain: '',
     }
-
-    try {
-      const domain = new URL(tab.url).hostname
-      meta.domain = domain
-    } catch {}
-
-    // Try to get richer metadata from content script
+    try { meta.domain = new URL(tab.url).hostname } catch {}
     if (tab.id) {
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-        if (response?.meta) {
-          meta = { ...meta, ...response.meta }
-        }
-        if (response?.selectedText) {
-          meta.selectedText = response.selectedText
-        }
-      } catch {
-        // Content script may not be available on restricted pages (chrome://, etc.)
-      }
+        if (response?.meta) meta = { ...meta, ...response.meta }
+        if (response?.selectedText) meta.selectedText = response.selectedText
+      } catch {}
     }
-
     return { ok: true, meta }
-  } catch (err) {
-    return { ok: false, error: err.message }
-  }
+  } catch (err) { return { ok: false, error: err.message } }
 }
 
 async function checkAuth() {
   const result = await verifyToken()
-  // Popup expects { authenticated, user } shape
   return { authenticated: result.ok, user: result.user || null }
 }
-
-// ── Badge helpers ─────────────────────────────────────────────────────────────
 
 async function updateBadge(increment = 0) {
   const settings = await getSettings()
   if (!settings.badgeCount) return
-
   const current = await chrome.storage.session.get('glassy_badge_count')
   const count = (current.glassy_badge_count || 0) + increment
   await chrome.storage.session.set({ glassy_badge_count: count })
@@ -481,64 +444,44 @@ async function updateBadge(increment = 0) {
   await chrome.action.setBadgeBackgroundColor({ color: '#6366f1' })
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
-
 function showNotification(title, message, type = 'success') {
-  const iconMap = {
-    success: '/assets/icon-48.png',
-    error: '/assets/icon-48.png',
-    info: '/assets/icon-48.png',
-  }
+  const iconMap = { success: '/assets/icon-48.png', error: '/assets/icon-48.png', info: '/assets/icon-48.png' }
   chrome.notifications.create({
     type: 'basic',
     iconUrl: iconMap[type] || iconMap.info,
-    title,
-    message,
+    title, message,
     priority: type === 'error' ? 2 : 0,
   })
 }
 
-// ── Saved-page badge ──────────────────────────────────────────────────────────
-
-// Cache of recently checked URLs → boolean (in-memory, cleared on restart)
 const savedUrlCache = new Map()
-
 async function checkSavedPageBadge(tabId, url) {
   if (!url || !/^https?:\/\//i.test(url)) {
     await chrome.action.setBadgeText({ text: '', tabId })
     return
   }
-
   const token = await getToken()
   if (!token) return
-
-  // Check memory cache first
   if (savedUrlCache.has(url)) {
     const saved = savedUrlCache.get(url)
     await chrome.action.setBadgeText({ text: saved ? '✓' : '', tabId })
     if (saved) await chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId })
     return
   }
-
   try {
     const result = await checkUrl(url)
     const saved = result?.exists === true
     savedUrlCache.set(url, saved)
-    // Evict old entries
     if (savedUrlCache.size > 500) {
       const first = savedUrlCache.keys().next().value
       savedUrlCache.delete(first)
     }
     await chrome.action.setBadgeText({ text: saved ? '✓' : '', tabId })
     if (saved) await chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId })
-  } catch {
-    // Silently fail — don't disrupt UX
-  }
+  } catch {}
 }
 
-// Debounce badge checks per tab to avoid flooding API on rapid tab switching
 const _badgeCheckTimers = new Map()
-
 function debouncedCheckBadge(tabId, url) {
   if (_badgeCheckTimers.has(tabId)) clearTimeout(_badgeCheckTimers.get(tabId))
   _badgeCheckTimers.set(tabId, setTimeout(() => {

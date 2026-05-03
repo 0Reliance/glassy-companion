@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.1.0] — 2026-05-03
+
+### Added
+- **Canonical capture integration** — the extension now treats structured saves as first-class `CaptureItem` payloads against the dashboard's canonical capture surface: `POST /api/captures`, `GET /api/capture-rules`, `PATCH /api/items/:id`, and `POST /api/items/:id/promote`.
+- **Routing regression coverage** — added tests for context-menu link saves and offline page replay to lock in the new capture/document behavior.
+- **Formatter + rule engine coverage** — new tests cover absolute URL formatting in markdown output and stricter domain/path rule evaluation.
+
+### Changed
+- **Release metadata aligned to 2.1.0** — `manifest.json`, `package.json`, docs, and release-facing UI now report the same version.
+- **Rule evaluation is stricter and safer** — domain rules now match exact domains/subdomains instead of lookalike suffixes, path rules combine correctly with domain rules, and invalid URLs return an empty routing result instead of throwing.
+- **HTML formatting resolves live URLs** — markdown conversion now uses resolved `node.href` / `node.src` values so relative links and images are preserved as absolute URLs in captures.
+
+### Fixed
+- **Queued page/document saves now replay through `saveDocument()`** — offline page saves no longer fall through the queue flusher as notes.
+- **Link context-menu saves no longer scrape the surrounding page** — background capture now checks whether the target URL matches the active tab before requesting page metadata/content, preventing link saves from inheriting the wrong title or body.
+
+### Verification
+- `npm test -- --run` → **114 passed**
+- `npm run build` → success
+
 ## [2.0.5] — 2026-04-28
 
 ### Added
