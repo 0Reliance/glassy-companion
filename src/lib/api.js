@@ -69,6 +69,25 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
       await new Promise(r => setTimeout(r, 1000 * (_retryCount + 1)))
       return apiFetch(path, options, _retryCount + 1)
     }
+    // Retry on 429 once, honoring Retry-After header (seconds or HTTP-date).
+    // Cap the wait so a hostile/buggy server can't pin the popup indefinitely.
+    if (res.status === 429 && _retryCount < 1) {
+      const retryAfter = res.headers.get('Retry-After')
+      let waitMs = 2000
+      if (retryAfter) {
+        const asInt = parseInt(retryAfter, 10)
+        if (!Number.isNaN(asInt)) {
+          waitMs = Math.min(asInt * 1000, 10_000)
+        } else {
+          const asDate = Date.parse(retryAfter)
+          if (!Number.isNaN(asDate)) {
+            waitMs = Math.min(Math.max(asDate - Date.now(), 0), 10_000)
+          }
+        }
+      }
+      await new Promise(r => setTimeout(r, waitMs))
+      return apiFetch(path, options, _retryCount + 1)
+    }
     let errMsg = `Request failed (${res.status})`
     let errBody = null
     try {
