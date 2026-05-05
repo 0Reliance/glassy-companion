@@ -6,6 +6,7 @@ node_modules/
 dist/
 dist-firefox/
 *.zip
+*.xpi
 
 # Environment
 .env

@@ -1,10 +1,9 @@
 /**
  * scripts/zip.js — Package the built extension into a distributable zip.
  *
- * Usage: node scripts/zip.js
- *        npm run zip  (runs `vite build` first via package.json prezip hook)
- *
- * Output: glassy-companion-v{version}.zip  (placed in the project root)
+ * Usage: node scripts/zip.js [--target=chrome|firefox]
+ *        npm run zip            → Chrome (.zip from dist/)
+ *        npm run zip:firefox    → Firefox (.xpi from dist-firefox/)
  */
 
 import { createWriteStream, existsSync, readdirSync, statSync, readFileSync } from 'fs'
@@ -13,16 +12,29 @@ import { createGzip } from 'zlib'
 
 const __dirname = new URL('.', import.meta.url).pathname
 
-// Read version from manifest
-const manifestPath = resolve(__dirname, '../manifest.json')
+// Parse --target flag
+const targetArg = process.argv.find(a => a.startsWith('--target='))
+const target    = targetArg ? targetArg.split('=')[1] : 'chrome'
+if (target !== 'chrome' && target !== 'firefox') {
+  console.error(`[zip] Unknown target "${target}". Use chrome or firefox.`)
+  process.exit(1)
+}
+
+// Read version from the matching manifest
+const manifestFile = target === 'firefox' ? '../manifest.firefox.json' : '../manifest.json'
+const manifestPath = resolve(__dirname, manifestFile)
 const manifest     = JSON.parse(readFileSync(manifestPath, 'utf8'))
 const version      = manifest.version
-const distDir      = resolve(__dirname, '../dist')
-const outFile      = resolve(__dirname, `../glassy-companion-v${version}.zip`)
+const distDirName  = target === 'firefox' ? 'dist-firefox' : 'dist'
+const distDir      = resolve(__dirname, '..', distDirName)
+const ext          = target === 'firefox' ? 'xpi' : 'zip'
+const suffix       = target === 'firefox' ? '-firefox' : ''
+const outFile      = resolve(__dirname, `../glassy-companion-v${version}${suffix}.${ext}`)
 
 // Verify dist exists
 if (!existsSync(distDir)) {
-  console.error('[zip] dist/ not found. Run `npm run build` first.')
+  const buildCmd = target === 'firefox' ? 'npm run build:firefox' : 'npm run build'
+  console.error(`[zip] ${distDirName}/ not found. Run \`${buildCmd}\` first.`)
   process.exit(1)
 }
 
@@ -33,7 +45,8 @@ if (!existsSync(distDir)) {
 
 const entries = collectFiles(distDir)
 
-console.log(`[zip] Packaging ${entries.length} files → glassy-companion-v${version}.zip`)
+const outName = `glassy-companion-v${version}${suffix}.${ext}`
+console.log(`[zip] Packaging ${entries.length} files → ${outName}`)
 
 const chunks      = []
 const centralDir  = []
@@ -59,7 +72,7 @@ import { writeFileSync } from 'fs'
 writeFileSync(outFile, zip)
 
 const kb = (zip.length / 1024).toFixed(1)
-console.log(`[zip] ✓ Created glassy-companion-v${version}.zip (${kb} KB, ${entries.length} files)`)
+console.log(`[zip] ✓ Created ${outName} (${kb} KB, ${entries.length} files)`)
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

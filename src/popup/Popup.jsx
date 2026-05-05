@@ -12,7 +12,7 @@ import useAppState from './hooks/useAppState.js'
 
 export default function Popup() {
   const {
-    view, user, pageMeta, saveStatus, errorMessage,
+    view, user, pageMeta, ruleDefaults, saveStatus, errorMessage,
     navigate, handleLoginSuccess,
     setSaving, setSaved, setDuplicate, setError, resetSaveStatus,
     setUser, setPageMeta,
@@ -67,6 +67,7 @@ export default function Popup() {
             <SaveView
               pageMeta={pageMeta}
               user={user}
+              ruleDefaults={ruleDefaults}
               saveStatus={saveStatus}
               errorMessage={errorMessage}
               setSaving={setSaving}

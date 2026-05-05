@@ -41,9 +41,10 @@
 
 ### Browser Support
 
-- **Supported today:** Chrome, Edge, Brave, Arc, Opera, and other Chromium-based browsers.
-- **Server compatibility groundwork:** Glassy accepts both `chrome-extension://` and `moz-extension://` origins for extension capture routes.
-- **Firefox packaging:** not yet published as an official release artifact.
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v*.zip`.
+- **Firefox 121+**: install from `glassy-companion-v*-firefox.xpi` (signed via AMO, or load temporarily via `about:debugging`).
+
+> Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID and `strict_min_version: 121.0`.
 
 ---
 
@@ -63,9 +64,12 @@
 
 ```bash
 npm install
-npm run dev     # Watch mode
-npm run build   # Production build
-npm test        # Run unit tests
+npm run dev              # Watch mode (Chrome)
+npm run build            # Production build → dist/
+npm run build:firefox    # Firefox build → dist-firefox/
+npm run zip              # Package Chrome → glassy-companion-v*.zip
+npm run zip:firefox      # Package Firefox → glassy-companion-v*-firefox.xpi
+npm test                 # Run unit tests (128 tests)
 ```
 
 ---

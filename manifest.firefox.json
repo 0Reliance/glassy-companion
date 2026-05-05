@@ -3,6 +3,12 @@
   "name": "Glassy Companion",
   "version": "2.2.0",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "companion@glassy.fyi",
+      "strict_min_version": "121.0"
+    }
+  },
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -19,7 +25,7 @@
     "https://glassy.stanz.info/*"
   ],
   "background": {
-    "service_worker": "src/background/service-worker.js",
+    "scripts": ["src/background/service-worker.js"],
     "type": "module"
   },
   "action": {

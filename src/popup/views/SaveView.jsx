@@ -4,20 +4,23 @@ import SmartSavePanel from '../components/SmartSavePanel.jsx'
 import SaveToast from '../components/SaveToast.jsx'
 import { saveBookmark, saveNote, saveAllTabs } from '../hooks/useExtensionBridge.js'
 
-export default function SaveView({ pageMeta, user, saveStatus, errorMessage, setSaving, setSaved, setDuplicate, setError, resetSaveStatus }) {
+export default function SaveView({ pageMeta, user, ruleDefaults, saveStatus, errorMessage, setSaving, setSaved, setDuplicate, setError, resetSaveStatus }) {
   const [mode, setMode] = useState('quick') // quick | smart
 
   const handleSave = useCallback(async (payload) => {
     setSaving()
     try {
-      const type = payload.captureMode === 'smart' ? 'SAVE_CAPTURE' : 'SAVE_BOOKMARK'
-      // Use chrome.runtime.sendMessage directly if hook doesn't support it yet
-      // but for now I'll assume I'll update the hook too.
+      // Both quick and smart modes go through the unified capture pipeline.
+      // Legacy SAVE_BOOKMARK is reserved for non-capture flows (e.g. external
+      // integrations); the popup never calls it directly anymore.
+      const type = payload.captureMode ? 'SAVE_CAPTURE' : 'SAVE_BOOKMARK'
       const res = await new Promise(resolve => {
         chrome.runtime.sendMessage({ type, payload }, resolve)
       })
 
-      if (res?.ok) {
+      if (res?.ok && res?.data?.duplicate) {
+        setDuplicate()
+      } else if (res?.ok) {
         setSaved(payload.sourceUrl || payload.url)
       } else if (res?.status === 409) {
         setDuplicate()
@@ -108,6 +111,7 @@ export default function SaveView({ pageMeta, user, saveStatus, errorMessage, set
       ) : (
         <SmartSavePanel
           pageMeta={pageMeta}
+          defaults={ruleDefaults}
           onSave={handleSave}
           saving={saveStatus === 'saving'}
           onCancel={() => setMode('quick')}

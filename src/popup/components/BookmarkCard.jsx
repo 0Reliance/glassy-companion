@@ -44,16 +44,23 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
     if (!pageMeta?.url) return
     chrome.storage.local.remove(BOOKMARK_DRAFT_KEY)
     onSave({
-      url: pageMeta.url,
+      sourceUrl: pageMeta.url,
+      canonicalUrl: pageMeta.canonicalUrl,
       title: title || pageMeta?.title || pageMeta?.url,
       description: pageMeta?.description || '',
-      og_image: pageMeta?.og_image || '',
+      coverImageUrl: pageMeta?.og_image || '',
       favicon_url: pageMeta?.favicon_url || '',
-      domain: pageMeta?.domain || '',
-      notes: notes || '',
-      collection_id: collectionId,
-      tags: tags,
-      ai_tag: aiTag,
+      siteName: pageMeta?.siteName || pageMeta?.domain || '',
+      author: pageMeta?.author || '',
+      publishedAt: pageMeta?.publishedAt || null,
+      contentType: pageMeta?.contentType || 'bookmark',
+      captureMode: 'quick',
+      status: 'inbox',
+      note: notes || '',
+      projectIds: collectionId ? [collectionId] : [],
+      visibleTags: tags,
+      systemTags: [],
+      aiAutoTag: aiTag,
     })
   }, [pageMeta, title, notes, collectionId, tags, aiTag, onSave])
 

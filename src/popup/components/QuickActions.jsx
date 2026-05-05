@@ -6,11 +6,13 @@ import SummaryCard from './SummaryCard.jsx'
 export default function QuickActions({ pageMeta, onSaveNote }) {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryText, setSummaryText] = useState('')
+  const [summaryError, setSummaryError] = useState('')
   const [pageStatus, setPageStatus] = useState('idle')
 
   async function handleSummarize() {
     if (!pageMeta?.url || summaryLoading) return
     setSummaryLoading(true)
+    setSummaryError('')
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       let pageText = ''
@@ -18,11 +20,19 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
         const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' })
         pageText = res?.text || ''
       } catch {}
-      if (!pageText) return
+      if (!pageText) {
+        setSummaryError("Can't read this page (try a regular http(s) page).")
+        return
+      }
       const result = await summarizePage({ url: pageMeta.url, text: pageText, title: pageMeta.title })
-      setSummaryText(result?.summary || result?.text || (typeof result === 'string' ? result : ''))
-    } catch {
-      setSummaryText('')
+      const summary = result?.summary || result?.text || (typeof result === 'string' ? result : '')
+      if (!summary) {
+        setSummaryError('No summary returned.')
+      } else {
+        setSummaryText(summary)
+      }
+    } catch (err) {
+      setSummaryError(err?.message || 'Summary failed.')
     } finally {
       setSummaryLoading(false)
     }
@@ -130,6 +140,25 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           onSaveAsNote={onSaveNote}
           onDismiss={() => setSummaryText('')}
         />
+      )}
+
+      {summaryError && !summaryText && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 8, padding: '8px 10px',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 8, fontSize: 11, color: '#fca5a5',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          }}
+        >
+          <span>{summaryError}</span>
+          <button
+            onClick={() => setSummaryError('')}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
+            aria-label="Dismiss"
+          >×</button>
+        </div>
       )}
     </div>
   )

@@ -5,6 +5,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.0] — 2026-05-05
+
+### Added
+- **Firefox support** — `manifest.firefox.json` adds `browser_specific_settings.gecko` (`id: companion@glassy.fyi`, `strict_min_version: 121.0`) and switches to the `background.scripts` array form required by CRXJS's Firefox path. No source-code changes were needed: every `chrome.*` API used is available and promise-returning in Firefox MV3. `vite.config.js` selects the Firefox manifest when `--mode firefox`, emits to `dist-firefox/`. `web-ext lint` reports **0 errors** against the built artifact.
+- **Capture rules pre-population** — `useAppState` now fetches `/api/capture-rules` on popup open and evaluates them against the active page URL. If any rule matches, its `contentType`, `projectId`, `tags`, and `publicCandidate` are passed as defaults to `SmartSavePanel`, automatically seeding the form before the user interacts with it.
+- **AI auto-tag toggle in SmartSavePanel** — a new checkbox ("AI auto-tag") lets users enable or disable Glassy's server-side tag inference per-save. Defaults to `true` and is included in the capture payload as `aiAutoTag`.
+- **Highlight context menu item** — a "Highlight selection in Glassy" entry now appears in the right-click context menu for any text selection. Triggering it ensures the page is saved (or finds the existing capture on 409), then calls `POST /api/ext/bookmarks/:id/highlights` with the selected text.
+- **Richer Markdown formatter** — `src/content/formatter.js` handles tables (with header detection + column padding), fenced code blocks with language auto-detection, `<figure>`/`<figcaption>`/`<picture>`, GitHub-style task-list checkboxes, `<mark>` (`==…==`), `<kbd>`, `<del>`/`<s>`/`<strike>` (`~~`), `<sup>`, `<sub>`, `<h5>`/`<h6>`, and ordered lists that honour the `start` attribute.
+- **Comprehensive error UX in QuickActions** — the AI summary action now surfaces three distinct error messages ("Can't read this page (try a regular http(s) page).", "No summary returned.", and the raw error message for unexpected failures) with a dismissible error toast.
+
+### Changed
+- **Route unification: quick and smart saves both use `SAVE_CAPTURE`** — `SaveView.handleSave` now always dispatches `SAVE_CAPTURE` when the payload has a `captureMode`, routing through the canonical `POST /api/captures` surface. The legacy `SAVE_BOOKMARK` dispatch is retained only for bare bookmark payloads without a captureMode.
+- **`BookmarkCard` emits the full canonical `CaptureItem` shape** — quick saves now send `sourceUrl`, `canonicalUrl`, `coverImageUrl`, `favicon_url`, `siteName`, `author`, `publishedAt`, `contentType`, `captureMode: 'quick'`, `status: 'inbox'`, `aiAutoTag`, and `visibleTags`/`systemTags` instead of the legacy bookmark-only fields.
+- **`backgroundSave` failure path is fully branched** — the service worker now handles `auth` (queue + "Sign in again" notification), `duplicate` (silent), `entitlement` ("Upgrade required"), `gone` ("Account unavailable"), and a generic fallback with the raw error message. Previously all failures produced a single generic notification.
+- **`ApiError` carries the parsed response body** — `ApiError` now accepts a `body` parameter and stores it as `this.body`. `apiFetch` parses the error body once and passes it through, allowing callers (e.g. `saveHighlightFromContext`) to read the existing `id` out of a 409 response without a second fetch.
+- **Badge skipped on duplicate saves** — `saveCaptureFromPopup` (and `saveBookmarkFromPopup`) now gate `updateBadge(1)` on `!result?.duplicate`, so seeing the "Already Saved" toast no longer increments the badge.
+- **`savedUrlCache` cleared on LOGOUT** — prevents a re-login on a different account from showing the previous user's saved-state checkmarks on tab badges.
+
+### Fixed
+- **Duplicate `formatMarkdown` export removed** — the formatter rewrite accidentally left two identical `export function formatMarkdown` blocks; the duplicate was removed, resolving the `SyntaxError: Identifier 'formatMarkdown' has already been declared` test failure.
+- **`SaveView` surfaces duplicate flag from server** — when `saveCaptureFromPopup` returns `{data: {duplicate: true}}` the popup now calls `setDuplicate()` so the "Already Saved" toast is shown correctly.
+
+### Tests
+- **10 new formatter unit tests** covering table rendering, code-fence language tags, figure/figcaption, task-list checkboxes, mark/kbd/del/sup/sub, and h5/h6.
+- **`assemblePremiumMarkdown` shape test** — verifies author, source link, and personal-note sections are rendered in the SAVE_CAPTURE contentMarkdown.
+- **SAVE_CAPTURE 409 → duplicate** — asserts that the result carries `{data: {duplicate: true}}` and that the badge update is skipped.
+- **Rules engine additions** — tag-merging across multiple matching rules (dedup), `publicCandidate` propagation, and path-only rule matching.
+
+### Verification
+- `npm test -- --run` → **128 passed** (0 failed, 0 skipped)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `npm run zip` → `glassy-companion-v2.2.0.zip` (271 KB)
+- `npm run zip:firefox` → `glassy-companion-v2.2.0-firefox.xpi` (271 KB)
+- `web-ext lint --source-dir=dist-firefox --self-hosted` → **0 errors**, 2 React-internal `innerHTML` warnings, 1 notice
+
+---
+
 ## [2.1.0] — 2026-05-03
 
 ### Added
@@ -35,7 +73,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`activeAccountId` race on JWT expiry** — `apiFetch` previously ran `getToken()` and `getApiContext()` in parallel via `Promise.all`. `getToken()` may call `clearAuth()` when it detects an expired JWT, which removes `activeAccountId` from session storage; the parallel read could therefore see a stale `activeAccountId` and send the next request with the wrong account header. Sequenced the calls so `getToken()` completes (and any `clearAuth()` runs) before `getApiContext()` reads the active account.
 
 ### Removed
-- **`build:firefox` script** — unused; Firefox build pathway was never wired into release tooling. `vite build --mode firefox` is still available manually if needed.
+- **`build:firefox` script** — removed in v2.0.5; fully re-added in v2.2.0 with Firefox manifest, CRXJS `browser: 'firefox'` config, and separate `dist-firefox/` output.
 
 ---
 

@@ -3,7 +3,7 @@
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture } from '../lib/api.js'
+import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
@@ -11,6 +11,7 @@ import {
   CTX_SAVE_PAGE,
   CTX_SAVE_LINK,
   CTX_SAVE_SELECTION,
+  CTX_SAVE_HIGHLIGHT,
   CTX_QUICK_NOTE,
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
@@ -77,6 +78,12 @@ function registerContextMenus() {
     })
 
     chrome.contextMenus.create({
+      id: CTX_SAVE_HIGHLIGHT,
+      title: 'Highlight selection in Glassy',
+      contexts: ['selection'],
+    })
+
+    chrome.contextMenus.create({
       id: CTX_QUICK_NOTE,
       title: 'New Glassy Note',
       contexts: ['page', 'frame'],
@@ -112,6 +119,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         contentMarkdown: markdown,
         title: `Note from ${getHostname(tab?.url)}`,
       }, tab)
+      break
+    }
+
+    case CTX_SAVE_HIGHLIGHT: {
+      if (!info.selectionText?.trim()) break
+      await saveHighlightFromContext(tab)
       break
     }
 
@@ -222,18 +235,115 @@ async function backgroundSave(mode, payload, tab) {
   }
 
   try {
-    await saveCapture(captureItem)
-    showNotification('Glassy — Saved ✓', captureItem.title, 'success')
-    await updateBadge(1)
+    const result = await saveCapture(captureItem)
+    if (result?.duplicate) {
+      showNotification('Glassy — Already saved', captureItem.title, 'info')
+    } else {
+      showNotification('Glassy — Saved ✓', captureItem.title, 'success')
+      await updateBadge(1)
+    }
   } catch (err) {
     const failurePlan = planBackgroundSaveFailure(err)
-    if (failurePlan.queue) await enqueue('capture', captureItem)
+    if (failurePlan.queue) {
+      try {
+        await enqueue('capture', captureItem)
+        const queuedReason = failurePlan.kind === 'auth'
+          ? 'Sign in again to sync your queued saves.'
+          : 'Save will retry automatically.'
+        showNotification('Glassy — Queued', queuedReason, 'info')
+      } catch (queueErr) {
+        const message = queueErr?.code === 'QUEUE_FULL'
+          ? 'Offline queue is full — reconnect to sync.'
+          : 'Could not queue this item.'
+        showNotification('Glassy — Queue Full', message, 'error')
+      }
+      return
+    }
+
+    // Non-queueable failure — surface a clear reason per classification.
+    switch (failurePlan.kind) {
+      case 'duplicate':
+        showNotification('Glassy — Already saved', captureItem.title, 'info')
+        break
+      case 'entitlement':
+        showNotification('Glassy — Upgrade required', 'Glassy Keep is required for this save.', 'error')
+        break
+      case 'gone':
+        showNotification('Glassy — Account unavailable', 'This account is no longer active.', 'error')
+        break
+      default:
+        showNotification('Glassy — Save failed', err?.message || 'Try again from the popup.', 'error')
+    }
   }
 }
 
 // ── Offline queue flush ───────────────────────────────────────────────────────
 
 let _queueFlushing = false
+
+// Highlight context-menu helper.
+//
+// Highlights are a child resource of a bookmark (POST
+// /api/ext/bookmarks/:id/highlights). To save a highlight from a context-menu
+// click we need to ensure the page exists as a capture first, then attach the
+// selected text to it. We piggy-back on saveCapture which is idempotent for
+// the same canonical URL — on duplicate it returns `{ duplicate, id }` so we
+// can still attach the highlight without creating a second bookmark.
+async function saveHighlightFromContext(tab) {
+  if (!tab?.id) return
+  const token = await getToken()
+  if (!token) {
+    showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
+    return
+  }
+
+  let highlight = null
+  try {
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_HIGHLIGHT' })
+    highlight = res?.highlight
+  } catch {}
+  if (!highlight?.text) return
+
+  // Step 1: ensure a capture exists for this page.
+  let captureId = null
+  try {
+    const captureItem = {
+      sourceUrl: tab.url,
+      title: tab.title || 'Untitled',
+      captureMode: 'highlight',
+      status: 'inbox',
+      capturedAt: new Date().toISOString(),
+      contentType: 'bookmark',
+    }
+    captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
+    const result = await saveCapture(captureItem)
+    captureId = result?.id
+  } catch (err) {
+    if (err?.status === 409 && err?.body?.id) {
+      captureId = err.body.id
+    } else {
+      showNotification('Glassy — Highlight failed', err?.message || 'Could not save the page.', 'error')
+      return
+    }
+  }
+
+  if (!captureId) {
+    showNotification('Glassy — Highlight failed', 'Could not locate bookmark.', 'error')
+    return
+  }
+
+  // Step 2: attach the highlight to the bookmark.
+  try {
+    await createHighlight(captureId, {
+      text: highlight.text,
+      note: '',
+      color: 'yellow',
+    })
+    showNotification('Glassy — Highlighted ✓', highlight.text.slice(0, 80), 'success')
+  } catch (err) {
+    showNotification('Glassy — Highlight failed', err?.message || 'Could not save highlight.', 'error')
+  }
+}
 
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
@@ -320,6 +430,9 @@ async function handleMessage(message) {
       await clearQueue()
       await chrome.storage.session.remove('glassy_badge_count')
       await chrome.action.setBadgeText({ text: '' })
+      // Drop saved-URL checkmark cache so a re-login on a different account
+      // doesn't show the previous user's saved-state on tab badges.
+      savedUrlCache.clear()
       return { ok: true }
 
     case 'GET_QUEUE_LENGTH': {
@@ -341,7 +454,7 @@ async function handleMessage(message) {
 async function saveCaptureFromPopup(payload) {
   try {
     const result = await saveCapture(payload)
-    await updateBadge(1)
+    if (!result?.duplicate) await updateBadge(1)
     return { ok: true, data: result }
   } catch (err) {
     return { ok: false, error: err.message, status: err.status }

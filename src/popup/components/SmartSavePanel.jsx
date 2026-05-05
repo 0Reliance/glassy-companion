@@ -3,14 +3,15 @@ import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import { PRESETS } from '../../lib/presets.js'
 
-export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel }) {
-  const [title, setTitle] = useState(pageMeta?.title || '')
-  const [contentType, setContentType] = useState(pageMeta?.contentType || 'bookmark')
-  const [destination, setDestination] = useState(null)
-  const [tags, setTags] = useState([])
-  const [note, setNote] = useState('')
-  const [isPublic, setIsPublic] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
+export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, defaults }) {
+  const [title, setTitle] = useState(defaults?.title || pageMeta?.title || '')
+  const [contentType, setContentType] = useState(defaults?.contentType || pageMeta?.contentType || 'bookmark')
+  const [destination, setDestination] = useState(defaults?.projectId || null)
+  const [tags, setTags] = useState(defaults?.tags || [])
+  const [note, setNote] = useState(defaults?.note || '')
+  const [isPublic, setIsPublic] = useState(defaults?.isPublic || false)
+  const [isPinned, setIsPinned] = useState(defaults?.isPinned || false)
+  const [aiAutoTag, setAiAutoTag] = useState(defaults?.aiAutoTag !== false)
 
   const handleSave = useCallback(() => {
     onSave({
@@ -29,8 +30,9 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel }) {
       publishedAt: pageMeta.publishedAt,
       coverImageUrl: pageMeta.og_image,
       favicon_url: pageMeta.favicon_url,
+      aiAutoTag,
     })
-  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, onSave])
+  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, onSave])
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 0' }}>
@@ -114,6 +116,18 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel }) {
             style={{ width: 14, height: 14, borderRadius: 4, accentColor: 'var(--accent)' }}
           />
           Pin to Today
+        </label>
+        <label
+          title="Let Glassy suggest tags from page content after saving"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}
+        >
+          <input
+            type="checkbox"
+            checked={aiAutoTag}
+            onChange={e => setAiAutoTag(e.target.checked)}
+            style={{ width: 14, height: 14, borderRadius: 4, accentColor: 'var(--accent)' }}
+          />
+          AI auto-tag
         </label>
       </div>
 

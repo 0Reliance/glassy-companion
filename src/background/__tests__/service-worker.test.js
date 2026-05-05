@@ -178,6 +178,38 @@ describe('service-worker.js — message handler', () => {
       expect(call.title).toBe('Test')
       expect(call.contentMarkdown).toContain('# Test')
     })
+
+    it('assemblePremiumMarkdown includes author, source link, and personal note', async () => {
+      await sendMessage({
+        type: 'SAVE_CAPTURE',
+        payload: {
+          sourceUrl: 'https://blog.example/post-1',
+          title: 'My Article',
+          siteName: 'Example Blog',
+          author: 'Jane Doe',
+          note: 'Worth revisiting',
+        },
+      })
+      const { contentMarkdown } = saveCapture.mock.calls[0][0]
+      expect(contentMarkdown).toContain('# My Article')
+      expect(contentMarkdown).toContain('**Author:** Jane Doe')
+      expect(contentMarkdown).toContain('**Source:**')
+      expect(contentMarkdown).toContain('### Personal Note')
+      expect(contentMarkdown).toContain('Worth revisiting')
+    })
+
+    it('returns duplicate flag and skips badge update when server returns 409 duplicate', async () => {
+      saveCapture.mockResolvedValueOnce({ duplicate: true, id: 'existing-cap-1' })
+
+      const result = await sendMessage({
+        type: 'SAVE_CAPTURE',
+        payload: { sourceUrl: 'https://example.com', title: 'Already saved' },
+      })
+      expect(result.ok).toBe(true)
+      expect(result.data.duplicate).toBe(true)
+      expect(result.data.id).toBe('existing-cap-1')
+      expect(chromeMock.action.setBadgeText).not.toHaveBeenCalled()
+    })
   })
 
   describe('SAVE_BOOKMARK', () => {

@@ -70,11 +70,12 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
       return apiFetch(path, options, _retryCount + 1)
     }
     let errMsg = `Request failed (${res.status})`
+    let errBody = null
     try {
-      const errData = await res.json()
-      errMsg = errData.error || errData.message || errMsg
+      errBody = await res.json()
+      errMsg = errBody.error || errBody.message || errMsg
     } catch {}
-    throw new ApiError(res.status, errMsg)
+    throw new ApiError(res.status, errMsg, errBody)
   }
 
   // 204 No Content
@@ -111,9 +112,10 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
 }
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, body = null) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
