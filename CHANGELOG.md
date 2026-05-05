@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.1] — 2026-05-05
+
+### Fixed
+- **429 retry handling** — API calls now retry once after HTTP 429 responses, honoring `Retry-After` values expressed as seconds or HTTP dates and capping the wait at 10 seconds. This keeps background saves and popup actions aligned with the server's rate-limit backoff contract instead of failing immediately during short bursts.
+
+### Release
+- Chrome and Firefox package metadata now report v2.2.1, including `manifest.json`, `manifest.firefox.json`, `package.json`, and `package-lock.json`.
+
+### Verification
+- `npm test` → **128 passed**
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `npm run zip` → `glassy-companion-v2.2.1.zip` (271 KB)
+- `npm run zip:firefox` → `glassy-companion-v2.2.1-firefox.xpi` (271 KB)
+- `web-ext lint --source-dir=dist-firefox --self-hosted` → **0 errors**, 3 warnings
+
 ## [2.2.0] — 2026-05-05
 
 ### Added

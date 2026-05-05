@@ -1,8 +1,8 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.1.0
-**Platform:** Manifest V3 browser extension (Chromium shipping; Firefox-compatible server origin support)
-**Last Updated:** May 3, 2026
+**Version:** 2.2.1
+**Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
+**Last Updated:** May 5, 2026
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
 
@@ -10,7 +10,7 @@ Technical specification of every subsystem in the Glassy Companion browser exten
 
 ## 1. Architecture Overview
 
-Glassy Companion has evolved into a multi-mode capture system that handles structured and instant knowledge intake.
+Glassy Companion has evolved into a multi-mode capture system that handles structured and instant knowledge intake across Chromium and Firefox builds.
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
