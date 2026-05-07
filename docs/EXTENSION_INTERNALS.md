@@ -1,8 +1,8 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.2.1
+**Version:** 2.2.2
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** May 5, 2026
+**Last Updated:** May 7, 2026
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
 
