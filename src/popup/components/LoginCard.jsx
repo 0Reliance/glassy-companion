@@ -27,25 +27,19 @@ export default function LoginCard({ onLoginSuccess }) {
   }
 
   return (
-    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Logo lockup */}
-      <div style={{ textAlign: 'center', paddingTop: 8 }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 14, margin: '0 auto 10px',
-          background: 'linear-gradient(135deg, #6366f1, #7c3aed)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, boxShadow: '0 0 24px rgba(99,102,241,0.35)',
-        }}>✦</div>
-        <div style={{ fontWeight: 700, fontSize: 16, color: 'rgba(255,255,255,0.92)' }}>
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 4 }}>
+      {/* Heading — header already shows the brand chip, so keep this lean. */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontWeight: 700, fontSize: 16, color: 'rgba(255,255,255,0.92)', letterSpacing: '-0.01em' }}>
           Sign in to Glassy
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
-          Save bookmarks anywhere, instantly
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>
+          Save bookmarks, notes, and pages from anywhere.
         </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
           <label htmlFor="companion-email" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Email
@@ -94,6 +88,13 @@ export default function LoginCard({ onLoginSuccess }) {
           {loading ? <span className="spinner" /> : null}
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <div style={{
+          textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.35)',
+          marginTop: 2,
+        }}>
+          You'll stay signed in on this device.
+        </div>
       </form>
 
       {/* Footer link */}

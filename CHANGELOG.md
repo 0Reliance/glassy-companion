@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.2] — 2026-05-07
+
+### Fixed
+- **"Have to log in every time"** — the JWT token and active-account selection now live in `chrome.storage.local` instead of `chrome.storage.session`. Chrome's session storage is wiped on every browser restart, which forced users to re-authenticate on every cold start; with this change the session persists until the JWT's own `exp` claim elapses or the user explicitly signs out. A one-shot migration in `getToken()` promotes any legacy session-stored token to local storage so existing users aren't logged out by the upgrade. Both stores are still cleared on `clearAuth()` for belt-and-braces hygiene.
+
+### Changed
+- **Login screen polish** — removed the redundant in-card brand badge (the header chip already shows the Glassy lockup), tightened the heading copy, increased form spacing, and added a "You'll stay signed in on this device." subtext under the Sign in button so the persistence behaviour is visible to users.
+
+### Verification
+- `npm test` → **129 passed**, including new `auth.test.js` cases asserting local-storage persistence and the legacy-token migration.
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+
+---
+
 ## [2.2.1] — 2026-05-05
 
 ### Fixed

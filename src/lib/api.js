@@ -1,6 +1,6 @@
 /**
  * Glassy API client — authenticated fetch wrapper for extension API routes.
- * Reads the token from chrome.storage.session on each call.
+ * Reads the token from chrome.storage.local on each call (auth.js owns the key).
  */
 import { getToken, getBaseUrl, getActiveAccountId, getApiContext, clearAuth } from './auth.js'
 import { API_PATHS } from './constants.js'

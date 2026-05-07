@@ -1,6 +1,10 @@
 /**
- * Auth helpers — JWT management via chrome.storage.session (cleared on browser close)
- * and user profile cache via chrome.storage.local (persisted).
+ * Auth helpers — JWT + active-account state in chrome.storage.local so the
+ * session survives browser restarts (matches user expectation: "stay signed in").
+ * The JWT's own `exp` claim is enforced by `getToken()` so a stale token is
+ * still rejected, and `clearAuth()` wipes everything on explicit logout.
+ *
+ * User profile cache also lives in chrome.storage.local.
  */
 import { STORAGE_KEYS, DEFAULT_BASE_URL, API_PATHS } from './constants.js'
 
@@ -32,8 +36,24 @@ function isTokenExpired(token) {
 
 /** Retrieve the stored JWT token, or null if not logged in or expired. */
 export async function getToken() {
-  const result = await chrome.storage.session.get(STORAGE_KEYS.token)
-  const token = result[STORAGE_KEYS.token] || null
+  const result = await chrome.storage.local.get(STORAGE_KEYS.token)
+  let token = result[STORAGE_KEYS.token] || null
+  if (!token) {
+    // Migration: legacy builds (≤ v2.2.x) stored the token in session storage,
+    // which Chrome clears on browser restart. Promote it to local once so users
+    // who upgrade aren't logged out, then drop the session copy.
+    try {
+      const legacy = await chrome.storage.session.get(STORAGE_KEYS.token)
+      const legacyToken = legacy?.[STORAGE_KEYS.token]
+      if (legacyToken) {
+        await chrome.storage.local.set({ [STORAGE_KEYS.token]: legacyToken })
+        await chrome.storage.session.remove(STORAGE_KEYS.token)
+        token = legacyToken
+      }
+    } catch {
+      // Session storage may be unavailable in some contexts (tests); ignore.
+    }
+  }
   if (token && isTokenExpired(token)) {
     await clearAuth()
     return null
@@ -41,19 +61,23 @@ export async function getToken() {
   return token
 }
 
-/** Persist the JWT token in session storage (cleared on browser close). */
+/** Persist the JWT token in local storage so it survives browser restarts. */
 export async function setToken(token) {
-  await chrome.storage.session.set({ [STORAGE_KEYS.token]: token })
+  await chrome.storage.local.set({ [STORAGE_KEYS.token]: token })
 }
 
 /** Clear auth state — token, cached user, and active account selection. */
 export async function clearAuth() {
-  await chrome.storage.session.remove(STORAGE_KEYS.token)
-  await chrome.storage.session.remove(STORAGE_KEYS.activeAccountId)
-  await chrome.storage.local.remove(STORAGE_KEYS.user)
-  // P2-15: legacy cleanup — older builds stored activeAccountId in local; remove
-  // it on logout so a stale value can never resurrect after the user signs out.
+  await chrome.storage.local.remove(STORAGE_KEYS.token)
   await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
+  await chrome.storage.local.remove(STORAGE_KEYS.user)
+  // Belt-and-braces: also drop any legacy session-scoped copies from older builds.
+  try {
+    await chrome.storage.session.remove(STORAGE_KEYS.token)
+    await chrome.storage.session.remove(STORAGE_KEYS.activeAccountId)
+  } catch {
+    // Session storage may be unavailable in some contexts; ignore.
+  }
 }
 
 /** Retrieve cached user profile, or null. */
@@ -68,20 +92,19 @@ export async function setCachedUser(user) {
 }
 
 /** Retrieve the active account ID, or null (uses primary account via server fallback). */
-// P2-15: session-scoped so the account choice tracks the JWT's lifetime — a
-// stale activeAccountId surviving a browser restart could route saves into the
-// wrong account when the token also expired.
+// Stored in local storage alongside the JWT so the account selection survives
+// browser restarts — matches the persisted login lifetime.
 export async function getActiveAccountId() {
-  const result = await chrome.storage.session.get(STORAGE_KEYS.activeAccountId)
+  const result = await chrome.storage.local.get(STORAGE_KEYS.activeAccountId)
   return result[STORAGE_KEYS.activeAccountId] || null
 }
 
 /** Set the active account ID for multi-account support. */
 export async function setActiveAccountId(accountId) {
   if (accountId) {
-    await chrome.storage.session.set({ [STORAGE_KEYS.activeAccountId]: accountId })
+    await chrome.storage.local.set({ [STORAGE_KEYS.activeAccountId]: accountId })
   } else {
-    await chrome.storage.session.remove(STORAGE_KEYS.activeAccountId)
+    await chrome.storage.local.remove(STORAGE_KEYS.activeAccountId)
   }
 }
 
@@ -93,14 +116,13 @@ export async function getBaseUrl() {
 
 /** Batch-read baseUrl + activeAccountId in a single storage call. */
 export async function getApiContext() {
-  // baseUrl is persistent (local); activeAccountId is session-scoped (P2-15).
-  const [localResult, sessionResult] = await Promise.all([
-    chrome.storage.local.get(STORAGE_KEYS.baseUrl),
-    chrome.storage.session.get(STORAGE_KEYS.activeAccountId),
+  const result = await chrome.storage.local.get([
+    STORAGE_KEYS.baseUrl,
+    STORAGE_KEYS.activeAccountId,
   ])
   return {
-    baseUrl: localResult[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL,
-    activeAccountId: sessionResult[STORAGE_KEYS.activeAccountId] || null,
+    baseUrl: result[STORAGE_KEYS.baseUrl] || DEFAULT_BASE_URL,
+    activeAccountId: result[STORAGE_KEYS.activeAccountId] || null,
   }
 }
 

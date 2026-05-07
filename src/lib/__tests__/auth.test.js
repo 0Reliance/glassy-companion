@@ -74,33 +74,44 @@ describe('auth.js', () => {
 
     it('returns token when valid (exp in future)', async () => {
       const jwt = makeJwt({ sub: 'u1', exp: FUTURE_EXP })
-      sessionStorage._store['glassy_token'] = jwt
+      localStorage_._store['glassy_token'] = jwt
       const token = await getToken()
       expect(token).toBe(jwt)
     })
 
     it('returns null and clears auth when token is expired', async () => {
       const jwt = makeJwt({ sub: 'u1', exp: PAST_EXP })
-      sessionStorage._store['glassy_token'] = jwt
+      localStorage_._store['glassy_token'] = jwt
       localStorage_._store['glassy_user'] = { id: 'u1' }
 
       const token = await getToken()
 
       expect(token).toBeNull()
-      expect(sessionStorage.remove).toHaveBeenCalledWith('glassy_token')
+      expect(localStorage_.remove).toHaveBeenCalledWith('glassy_token')
       expect(localStorage_.remove).toHaveBeenCalledWith('glassy_user')
     })
 
     it('returns token when JWT has no exp claim (treated as valid)', async () => {
       const jwt = makeJwt({ sub: 'u1' }) // no exp
-      sessionStorage._store['glassy_token'] = jwt
+      localStorage_._store['glassy_token'] = jwt
       const token = await getToken()
       expect(token).toBe(jwt)
     })
 
+    it('migrates a legacy token from session storage to local storage', async () => {
+      const jwt = makeJwt({ sub: 'u1', exp: FUTURE_EXP })
+      sessionStorage._store['glassy_token'] = jwt
+
+      const token = await getToken()
+
+      expect(token).toBe(jwt)
+      expect(localStorage_.set).toHaveBeenCalledWith({ glassy_token: jwt })
+      expect(sessionStorage.remove).toHaveBeenCalledWith('glassy_token')
+    })
+
     it('returns null when JWT payload is malformed', async () => {
       // Manually corrupt the token payload
-      sessionStorage._store['glassy_token'] = 'bad.!!!.sig'
+      localStorage_._store['glassy_token'] = 'bad.!!!.sig'
       const token = await getToken()
       // malformed JWT → decodeJwtPayload returns null → exp check skipped → token returned as-is
       // (no exp means not expired)
@@ -110,20 +121,24 @@ describe('auth.js', () => {
   })
 
   describe('setToken / clearAuth', () => {
-    it('setToken stores token in session storage', async () => {
+    it('setToken persists token in local storage so it survives browser restarts', async () => {
       await setToken('mytoken')
-      expect(sessionStorage.set).toHaveBeenCalledWith({ glassy_token: 'mytoken' })
+      expect(localStorage_.set).toHaveBeenCalledWith({ glassy_token: 'mytoken' })
     })
 
-    it('clearAuth removes token and user', async () => {
-      sessionStorage._store['glassy_token'] = 'tok'
+    it('clearAuth removes token, account, and user from local storage', async () => {
+      localStorage_._store['glassy_token'] = 'tok'
       localStorage_._store['glassy_user'] = { id: 1 }
+      localStorage_._store['glassy_active_account_id'] = 'acc1'
 
       await clearAuth()
 
-      expect(sessionStorage.remove).toHaveBeenCalledWith('glassy_token')
-      expect(localStorage_.remove).toHaveBeenCalledWith('glassy_user')
+      expect(localStorage_.remove).toHaveBeenCalledWith('glassy_token')
       expect(localStorage_.remove).toHaveBeenCalledWith('glassy_active_account_id')
+      expect(localStorage_.remove).toHaveBeenCalledWith('glassy_user')
+      // Legacy session-storage entries are also swept for upgraders.
+      expect(sessionStorage.remove).toHaveBeenCalledWith('glassy_token')
+      expect(sessionStorage.remove).toHaveBeenCalledWith('glassy_active_account_id')
     })
   })
 
@@ -211,7 +226,7 @@ describe('auth.js', () => {
       const result = await login('a@b.com', 'password123')
 
       expect(result).toEqual({ ok: true, user, token: 'tok123' })
-      expect(sessionStorage.set).toHaveBeenCalledWith({ glassy_token: 'tok123' })
+      expect(localStorage_.set).toHaveBeenCalledWith({ glassy_token: 'tok123' })
       expect(localStorage_.set).toHaveBeenCalledWith({ glassy_user: user })
     })
 
