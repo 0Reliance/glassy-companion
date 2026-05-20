@@ -8,6 +8,15 @@
 
 ---
 
+## Admin and Planning
+
+- Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
+- Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
+- Repo-local release/distribution state: this README
+- Current repo-level open item: Firefox Add-ons submission/signing remains outstanding.
+
+---
+
 ## Features
 
 | Feature | Description |
