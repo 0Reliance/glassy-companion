@@ -6,16 +6,17 @@ import SaveView from './views/SaveView.jsx'
 import NoteView from './views/NoteView.jsx'
 import SearchView from './views/SearchView.jsx'
 import SettingsView from './views/SettingsView.jsx'
+import Skeleton from './components/Skeleton.jsx'
 import useAppState from './hooks/useAppState.js'
 
 // ── Root Popup component ──────────────────────────────────────────────────────
 
 export default function Popup() {
   const {
-    view, user, pageMeta, ruleDefaults, saveStatus, errorMessage,
+    view, user, pageMeta, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId,
     navigate, handleLoginSuccess,
     setSaving, setSaved, setDuplicate, setError, resetSaveStatus,
-    setUser, setPageMeta,
+    setUser, setPageMeta, setLastCaptureId,
   } = useAppState()
 
   const [showSettings, setShowSettings] = useState(false)
@@ -68,13 +69,16 @@ export default function Popup() {
               pageMeta={pageMeta}
               user={user}
               ruleDefaults={ruleDefaults}
+              alreadySaved={alreadySaved}
               saveStatus={saveStatus}
               errorMessage={errorMessage}
+              lastCaptureId={lastCaptureId}
               setSaving={setSaving}
               setSaved={setSaved}
               setDuplicate={setDuplicate}
               setError={setError}
               resetSaveStatus={resetSaveStatus}
+              setLastCaptureId={setLastCaptureId}
             />
           )}
 
@@ -93,9 +97,8 @@ export default function Popup() {
 
 function LoadingView() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: 10 }}>
-      <div className="spinner" style={{ width: 22, height: 22 }} />
-      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading…</span>
+    <div style={{ padding: '12px 14px 14px' }}>
+      <Skeleton variant="save" />
     </div>
   )
 }

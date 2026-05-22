@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           popup: resolve(__dirname, 'src/popup/index.html'),
+          sidepanel: resolve(__dirname, 'src/sidepanel/index.html'),
         },
       },
       outDir,

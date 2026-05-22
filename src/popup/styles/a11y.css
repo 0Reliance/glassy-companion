@@ -1,0 +1,100 @@
+/**
+ * Glassy Companion — Accessibility Styles
+ *
+ * Screen reader utilities, focus indicators, keyboard navigation helpers,
+ * and reduced-motion preferences.
+ */
+
+/* ── Focus Indicators ──────────────────────────────────────────────────── */
+
+.glass-input:focus-visible,
+.glass-card:focus-visible,
+.btn-accent:focus-visible,
+.btn-ghost:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Keyboard navigation — visible focus ring for all interactive elements */
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+input[type="checkbox"]:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 1px;
+}
+
+/* ── Screen Reader Only ────────────────────────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Skip Link ─────────────────────────────────────────────────────────── */
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── Reduced Motion ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .animate-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .luminous {
+    animation: none;
+  }
+}
+
+/* ── High Contrast Mode ────────────────────────────────────────────────── */
+
+@media (prefers-contrast: high) {
+  :root {
+    --glass-surface: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.6);
+  }
+  .glass-input {
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ── Focus Trap ────────────────────────────────────────────────────────── */
+
+/* When a modal/overlay is open, prevent background scrolling */
+.popup-root[data-modal-open="true"] {
+  overflow: hidden;
+}

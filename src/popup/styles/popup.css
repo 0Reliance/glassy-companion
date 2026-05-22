@@ -137,6 +137,61 @@ body {
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
+/* ── Skeleton Loading ──────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Tag Pills ──────────────────────────────────────────────────────────── */
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a5b4fc;
+  white-space: nowrap;
+}
+
+.tag-pill .remove {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.tag-pill .remove:hover {
+  opacity: 1;
+}
+
+.tag-pill .count {
+  font-size: 9px;
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+/* ── Keyboard Shortcut Hints ────────────────────────────────────────────── */
+
+kbd.key-hint {
+  display: inline-block;
+  padding: 1px 5px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: inherit;
+  color: rgba(255,255,255,0.35);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar { width: 4px; }

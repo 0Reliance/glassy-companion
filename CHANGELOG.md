@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.0] — 2026-05-22
+
+### Added
+- **Visual Element Picker** — Click the 🎯 "Element" button in QuickActions to enter element-selection mode on the page. Hovering highlights page elements with a purple glow; clicking captures the element as rich Markdown. Press Escape to cancel.
+- **Screenshot Capture** — 📸 "Screenshot" button in QuickActions captures the visible viewport as a PNG image and attaches it to the capture.
+- **Site-Specific Interpreters** — YouTube (video metadata from Schema.org), GitHub (repo stars, language, license, description), product pages (price, brand, rating), and scholarly articles (abstract, DOI) are now automatically detected and enriched with structured metadata.
+- **Side Panel Mode** (Chrome only) — Press `Ctrl+Shift+P` or use the right-click context menu to open Glassy as a persistent side panel that stays open while browsing. Falls back to the popup on Firefox.
+- **Content Preview** — "Preview Content" button in Smart Save renders the extracted page Markdown as rich formatted HTML with word count and reading time estimates. Toggle between Rendered and Raw (editable) modes before saving.
+- **Duplicate Pre-Flight Check** — Pages already saved to Glassy show a green "Already saved" banner on popup open, with the option to save again (update).
+- **Undo Save** — After saving, an "Undo" button appears in the success toast for 8 seconds, allowing instant deletion of the last capture.
+- **Tag Intelligence** — Local tag frequency tracking ranks autocomplete suggestions by usage count. Keyword extraction fallback for AI auto-tag when server-side inference is unavailable.
+- **Skeleton Loading UI** — Shimmer placeholders replace the spinner during data loading.
+- **Accessibility Styles** — Focus indicators, skip-link, `prefers-reduced-motion`, `prefers-contrast`, and screen-reader-only utilities.
+- **Screenshot Preset** — 📸 content type available in Smart Save preset grid.
+
+### Changed
+- `extractPageMeta()` is now async to support site-specific interpreters.
+- BookmarkCard and SmartSavePanel are more keyboard-navigable with visible focus rings.
+- QuickActions layout expanded from 2 columns to 4 (Save Page, Screenshot, Element, AI Summary).
+
+### Verification
+- `npm test` → **129 passed** (11 test files)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `web-ext lint --source-dir=dist-firefox --self-hosted` → **0 errors**, 8 warnings (3 pre-existing React innerHTML, 4 sidePanel API not in Firefox — expected, 1 data_collection_permissions advisory)
+
+---
+
 ## [2.2.2] — 2026-05-07
 
 ### Fixed

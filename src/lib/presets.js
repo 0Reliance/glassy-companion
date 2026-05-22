@@ -50,6 +50,12 @@ export const PRESETS = {
     icon: '💬',
     saveMode: 'highlight',
   },
+  screenshot: {
+    id: 'screenshot',
+    label: 'Screenshot',
+    icon: '📸',
+    saveMode: 'screenshot',
+  },
 }
 
 export function getPreset(id) {

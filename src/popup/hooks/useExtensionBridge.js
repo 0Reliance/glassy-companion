@@ -42,3 +42,11 @@ export function logout() {
 export function getQueueLength() {
   return sendMessage({ type: 'GET_QUEUE_LENGTH' })
 }
+
+export function checkDuplicateUrl(url) {
+  return sendMessage({ type: 'CHECK_DUPLICATE_URL', url })
+}
+
+export function deleteCapture(id) {
+  return sendMessage({ type: 'DELETE_CAPTURE', id })
+}

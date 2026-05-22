@@ -3,11 +3,13 @@ import { summarizePage } from '../../lib/api.js'
 import { enqueue } from '../../lib/offlineQueue.js'
 import SummaryCard from './SummaryCard.jsx'
 
-export default function QuickActions({ pageMeta, onSaveNote }) {
+export default function QuickActions({ pageMeta, onSaveNote, onCaptureElement }) {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [summaryError, setSummaryError] = useState('')
   const [pageStatus, setPageStatus] = useState('idle')
+  const [screenshotStatus, setScreenshotStatus] = useState('idle')
+  const [elementPickerActive, setElementPickerActive] = useState(false)
 
   async function handleSummarize() {
     if (!pageMeta?.url || summaryLoading) return
@@ -83,11 +85,54 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
     }
   }
 
+  async function handleCaptureScreenshot() {
+    if (screenshotStatus !== 'idle') return
+    setScreenshotStatus('capturing')
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_SCREENSHOT' })
+      if (res?.dataUrl) {
+        if (onCaptureElement) {
+          onCaptureElement({ type: 'screenshot', dataUrl: res.dataUrl, title: pageMeta?.title || tab?.title || 'Screenshot' })
+        }
+        setScreenshotStatus('done')
+        setTimeout(() => setScreenshotStatus('idle'), 2000)
+      } else {
+        setScreenshotStatus('error')
+        setTimeout(() => setScreenshotStatus('idle'), 3000)
+      }
+    } catch (err) {
+      setScreenshotStatus('error')
+      setTimeout(() => setScreenshotStatus('idle'), 3000)
+    }
+  }
+
+  async function handleElementPicker() {
+    if (elementPickerActive) return
+    setElementPickerActive(true)
+    try {
+      // Close the popup so the user can interact with the page.
+      window.close()
+      // Small delay to let popup close, then activate picker via service worker.
+      await new Promise(r => setTimeout(r, 400))
+      chrome.runtime.sendMessage({ type: 'ACTIVATE_ELEMENT_PICKER' }).catch(() => {})
+      // Result will be stored in chrome.storage.local by the content script
+      // and available when the user re-opens the popup.
+    } catch {
+      // silently fail — user can re-open the popup
+    }
+  }
+
   const pageLabel = pageStatus === 'saving' ? 'Saving...'
     : pageStatus === 'saved' ? 'Saved!'
     : pageStatus === 'queued' ? 'Queued offline'
     : pageStatus === 'error' ? 'Failed'
     : 'Save Page'
+
+  const screenshotLabel = screenshotStatus === 'capturing' ? 'Wait...'
+    : screenshotStatus === 'done' ? 'Captured!'
+    : screenshotStatus === 'error' ? 'Failed'
+    : 'Screenshot'
 
   return (
     <div>
@@ -98,7 +143,7 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           onClick={handleSavePage}
           disabled={pageStatus === 'saving' || pageStatus === 'saved'}
           style={{
-            flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column',
+            flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 6, cursor: pageStatus === 'saving' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
             border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.2s'
           }}
@@ -115,10 +160,49 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
         <button
           type="button"
           className="glass-card"
+          onClick={handleCaptureScreenshot}
+          disabled={screenshotStatus !== 'idle'}
+          style={{
+            flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 6, cursor: screenshotStatus !== 'idle' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
+        >
+          {screenshotStatus === 'capturing'
+            ? <span className="spinner" style={{ width: 14, height: 14 }} />
+            : <span style={{ fontSize: 16 }}>{screenshotStatus === 'done' ? '✓' : screenshotStatus === 'error' ? '!' : '📸'}</span>}
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+            {screenshotLabel}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="glass-card"
+          onClick={handleElementPicker}
+          disabled={elementPickerActive}
+          style={{
+            flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 6, cursor: elementPickerActive ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
+          title="Click an element on the page to capture it as Markdown"
+        >
+          <span style={{ fontSize: 16 }}>🎯</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+            Element
+          </span>
+        </button>
+        <button
+          type="button"
+          className="glass-card"
           onClick={handleSummarize}
           disabled={summaryLoading || !!summaryText}
           style={{
-            flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column',
+            flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 6, cursor: summaryLoading ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
             border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.2s'
           }}

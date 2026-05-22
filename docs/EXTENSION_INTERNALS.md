@@ -1,8 +1,10 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.2.2
+**Version:** 2.3.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** May 7, 2026
+**Last Updated:** May 22, 2026
+
+> **v2.3.0 adds:** Visual element picker, screenshot capture, site-specific interpreters (YouTube, GitHub, product, article), side panel (Chrome only, Ctrl+Shift+P), content preview with rendered/raw toggle, tag intelligence with frequency tracking, undo save, duplicate pre-flight check, skeleton loading UI, and a11y styles. See [CHANGELOG.md](../CHANGELOG.md) for details.
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
 

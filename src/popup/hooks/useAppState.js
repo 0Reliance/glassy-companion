@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { checkAuth, getActiveTabMeta } from './useExtensionBridge.js'
+import { checkAuth, getActiveTabMeta, checkDuplicateUrl } from './useExtensionBridge.js'
 import { fetchCaptureRules } from '../../lib/api.js'
 import { evaluateRules } from '../../lib/rules.js'
 
@@ -14,8 +14,10 @@ export default function useAppState() {
   const [user, setUser] = useState(null)
   const [pageMeta, setPageMeta] = useState(null)
   const [ruleDefaults, setRuleDefaults] = useState(null)
-  const [saveStatus, setSaveStatus] = useState('idle') // idle | saving | saved | duplicate | error
+  const [alreadySaved, setAlreadySaved] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [lastCaptureId, setLastCaptureId] = useState(null)
   const initRef = useRef(false)
 
   // Check startup hash and session-stored route hint for direct-to-tab routing.
@@ -61,6 +63,12 @@ export default function useAppState() {
         const metaRes = await getActiveTabMeta()
         if (metaRes?.meta) {
           setPageMeta(metaRes.meta)
+          // Pre-flight duplicate check — show "Already saved" badge.
+          if (metaRes.meta.url) {
+            checkDuplicateUrl(metaRes.meta.url).then(res => {
+              if (res?.saved) setAlreadySaved(true)
+            }).catch(() => {})
+          }
           // Best-effort: pull capture rules and pre-populate SmartSave defaults.
           // Failures are silent — the panel still works without rule guidance.
           try {
@@ -123,8 +131,10 @@ export default function useAppState() {
     user,
     pageMeta,
     ruleDefaults,
+    alreadySaved,
     saveStatus,
     errorMessage,
+    lastCaptureId,
     navigate,
     handleLoginSuccess,
     setSaving,
@@ -134,5 +144,7 @@ export default function useAppState() {
     resetSaveStatus,
     setUser,
     setPageMeta,
+    setLastCaptureId,
+    setAlreadySaved,
   }
 }

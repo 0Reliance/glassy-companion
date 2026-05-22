@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
   "browser_specific_settings": {
     "gecko": {
@@ -69,6 +69,13 @@
         "mac": "Command+Shift+N"
       },
       "description": "Quick note — open note composer"
+    },
+    "toggle-side-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Toggle the Glassy side panel"
     }
   },
   "icons": {

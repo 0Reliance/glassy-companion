@@ -2,6 +2,7 @@
  * Content script — runs on every page at document_idle.
  */
 import { nodeToMarkdown } from './formatter.js'
+import { runInterpreter } from './interpreters/registry.js'
 
 // ── Meta extraction ──────────────────────────────────────────────────────────
 
@@ -61,9 +62,9 @@ function detectContentType(meta, schemas) {
   return 'bookmark'
 }
 
-function extractPageMeta() {
-  const title = getMeta('og:title') || getMeta('twitter:title') || document.title || ''
-  const description = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || ''
+async function extractPageMeta() {
+  const title_ = getMeta('og:title') || getMeta('twitter:title') || document.title || ''
+  const description_ = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || ''
   const ogImage = getMeta('og:image') || getMeta('twitter:image') || ''
   const favicon = getFaviconUrl()
 
@@ -77,8 +78,8 @@ function extractPageMeta() {
   const meta = {
     url: location.href,
     canonicalUrl: document.querySelector('link[rel="canonical"]')?.href || location.href,
-    title: title.trim().slice(0, 500),
-    description: description.trim().slice(0, 1000),
+    title: title_.trim().slice(0, 500),
+    description: description_.trim().slice(0, 1000),
     og_image: ogImage,
     favicon_url: favicon,
     domain,
@@ -88,6 +89,20 @@ function extractPageMeta() {
   }
 
   meta.contentType = detectContentType(meta, schemas)
+
+  // Run site-specific interpreter for enriched metadata.
+  try {
+    const enriched = await runInterpreter(location.href, document)
+    if (enriched?.enriched) {
+      // Override/extend with interpreter metadata.
+      Object.assign(meta, enriched.metadata)
+      if (enriched.contentType) meta.contentType = enriched.contentType
+      meta.interpreterSite = enriched.site
+    }
+  } catch {
+    // interpreter failed — generic meta is still usable
+  }
+
   return meta
 }
 
@@ -199,11 +214,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   switch (message.type) {
     case 'GET_PAGE_META':
-      sendResponse({
-        meta: extractPageMeta(),
-        selectedText: window.getSelection()?.toString().trim().slice(0, 1000)
+      extractPageMeta().then(meta => {
+        sendResponse({
+          meta,
+          selectedText: window.getSelection()?.toString().trim().slice(0, 1000)
+        })
       })
-      break
+      return true // async
 
     case 'GET_STRUCTURED_CONTENT':
       sendResponse({ markdown: getStructuredContent() })
@@ -234,6 +251,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         excerpt: (document.body?.innerText || '').slice(0, 500)
       })
       break
+
+      case 'ACTIVATE_ELEMENT_PICKER': {
+      // Activate the element picker. The popup has already closed.
+      // Results are stored in chrome.storage.local for the next popup open.
+      import('./elementPicker.js').then(mod => {
+        mod.activateElementPicker()
+      }).catch(() => {})
+      sendResponse({ ok: true })
+      break
+    }
+
+    case 'DEACTIVATE_ELEMENT_PICKER':
+      import('./elementPicker.js').then(mod => {
+        mod.deactivateElementPicker()
+        sendResponse({ ok: true })
+      }).catch(() => sendResponse({ ok: false }))
+      return true
+
+    case 'CAPTURE_SCREENSHOT': {
+      // Request viewport screenshot via the background service worker.
+      // The content script can't call tabs.captureVisibleTab directly;
+      // we relay to the service worker which has that permission.
+      chrome.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT_INTERNAL' }).then(dataUrl => {
+        sendResponse({ dataUrl })
+      }).catch(err => {
+        sendResponse({ error: err.message })
+      })
+      return true
+    }
 
     default:
       return false

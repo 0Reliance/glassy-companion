@@ -3,7 +3,7 @@
  */
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
-import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight } from '../lib/api.js'
+import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight, deleteBookmark } from '../lib/api.js'
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
@@ -88,6 +88,15 @@ function registerContextMenus() {
       title: 'New Glassy Note',
       contexts: ['page', 'frame'],
     })
+
+    // Side panel — Chrome only (API not available in Firefox).
+    if (typeof chrome.sidePanel !== 'undefined') {
+      chrome.contextMenus.create({
+        id: 'glassy_open_sidepanel',
+        title: 'Open Glassy Side Panel',
+        contexts: ['page', 'frame'],
+      })
+    }
   })
 }
 
@@ -132,6 +141,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await chrome.action.openPopup?.().catch(() => {})
       await chrome.storage.session.set({ glassy_open_view: 'note' })
       break
+
+    case 'glassy_open_sidepanel':
+      if (typeof chrome.sidePanel !== 'undefined') {
+        try {
+          await chrome.sidePanel.open({ windowId: tab.windowId })
+          await chrome.storage.session.set({ glassy_sidepanel_open: true })
+        } catch {
+          await chrome.action.openPopup?.().catch(() => {})
+        }
+      }
+      break
   }
 })
 
@@ -144,6 +164,27 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'quick-note') {
     await chrome.storage.session.set({ glassy_open_view: 'note' })
     await chrome.action.openPopup?.().catch(() => {})
+  }
+  if (command === 'toggle-side-panel') {
+    // Toggle the side panel open/closed.
+    // chrome.sidePanel.open() with a windowId opens it; we toggle by
+    // checking if it's already open from stored state.
+    const windowId = tab?.windowId
+    if (!windowId) return
+    try {
+      const { glassy_sidepanel_open } = await chrome.storage.session.get('glassy_sidepanel_open')
+      if (glassy_sidepanel_open) {
+        await chrome.sidePanel.setOptions({ enabled: false })
+        await chrome.storage.session.set({ glassy_sidepanel_open: false })
+      } else {
+        await chrome.sidePanel.setOptions({ enabled: true, path: 'src/sidepanel/index.html' })
+        await chrome.sidePanel.open({ windowId })
+        await chrome.storage.session.set({ glassy_sidepanel_open: true })
+      }
+    } catch {
+      // sidePanel API may not be available (Firefox, older Chrome)
+      await chrome.action.openPopup?.().catch(() => {})
+    }
   }
 })
 
@@ -444,6 +485,52 @@ async function handleMessage(message) {
        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
        if (!tab?.id) return { ok: false, error: 'No active tab' }
        return chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_HIGHLIGHT' })
+    }
+
+    // Relay: popup → service worker → content script → activate element picker.
+    case 'ACTIVATE_ELEMENT_PICKER': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id) return { ok: false, error: 'No active tab' }
+      return chrome.tabs.sendMessage(tab.id, { type: 'ACTIVATE_ELEMENT_PICKER' })
+    }
+
+    // Relay: popup → service worker → content script → deactivate picker.
+    case 'DEACTIVATE_ELEMENT_PICKER': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id) return { ok: false }
+      return chrome.tabs.sendMessage(tab.id, { type: 'DEACTIVATE_ELEMENT_PICKER' })
+    }
+
+    // Screenshot: service worker captures the visible tab.
+    case 'CAPTURE_SCREENSHOT_INTERNAL': {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id) throw new Error('No active tab')
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+        return { dataUrl }
+      } catch (err) {
+        return { error: err.message }
+      }
+    }
+
+    case 'CHECK_DUPLICATE_URL': {
+      try {
+        const result = await checkUrl(message.url)
+        // Server returns { exists: true/false, id?: string }
+        return { ok: true, saved: !!result?.exists, id: result?.id }
+      } catch {
+        return { ok: false, saved: false }
+      }
+    }
+
+    case 'DELETE_CAPTURE': {
+      if (!message.id) return { ok: false, error: 'Missing capture ID' }
+      try {
+        await deleteBookmark(message.id)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: err.message }
+      }
     }
 
     default:

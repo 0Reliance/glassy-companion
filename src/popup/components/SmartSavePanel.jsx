@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
+import ContentPreview from './ContentPreview.jsx'
 import { PRESETS } from '../../lib/presets.js'
 
 export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, defaults }) {
@@ -12,6 +13,9 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
   const [isPublic, setIsPublic] = useState(defaults?.isPublic || false)
   const [isPinned, setIsPinned] = useState(defaults?.isPinned || false)
   const [aiAutoTag, setAiAutoTag] = useState(defaults?.aiAutoTag !== false)
+  const [contentMarkdown, setContentMarkdown] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   const handleSave = useCallback(() => {
     onSave({
@@ -31,8 +35,26 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       coverImageUrl: pageMeta.og_image,
       favicon_url: pageMeta.favicon_url,
       aiAutoTag,
+      contentMarkdown: contentMarkdown || undefined,
     })
-  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, onSave])
+  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, contentMarkdown, onSave])
+
+  const handleLoadPreview = useCallback(async () => {
+    if (showPreview) { setShowPreview(false); return }
+    setPreviewLoading(true)
+    setShowPreview(true)
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+      if (res?.markdown) {
+        setContentMarkdown(res.markdown)
+      }
+    } catch {
+      // silently fail — preview unavailable for this page
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [showPreview])
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 0' }}>
@@ -131,7 +153,32 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
         </label>
       </div>
 
-      <button className="btn-accent" onClick={handleSave} disabled={saving} style={{ marginTop: 4 }}>
+      {/* Content preview */}
+      <button
+        type="button"
+        onClick={handleLoadPreview}
+        className="btn-ghost"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '8px 12px', fontSize: 11, width: '100%',
+        }}
+      >
+        {previewLoading
+          ? <><span className="spinner" style={{ width: 12, height: 12 }} />Loading…</>
+          : showPreview
+            ? <>📖 Hide Preview</>
+            : <>📖 Preview Content</>}
+      </button>
+
+      {showPreview && (
+        <ContentPreview
+          markdown={contentMarkdown}
+          onMarkdownChange={setContentMarkdown}
+          title={title}
+        />
+      )}
+
+      <button className="btn-accent" onClick={handleSave} disabled={saving} style={{ marginTop: showPreview ? 0 : 4 }}>
         {saving ? <span className="spinner" /> : '✨'}
         {saving ? 'Saving…' : 'Save to Glassy'}
       </button>

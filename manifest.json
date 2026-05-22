@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
   "permissions": [
     "activeTab",
@@ -10,7 +10,8 @@
     "notifications",
     "alarms",
     "tabs",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
   "optional_permissions": [],
   "host_permissions": [
@@ -31,6 +32,9 @@
       "128": "assets/icon-128.png"
     },
     "default_title": "Save to Glassy"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
   },
   "content_scripts": [
     {
@@ -63,6 +67,13 @@
         "mac": "Command+Shift+N"
       },
       "description": "Quick note — open note composer"
+    },
+    "toggle-side-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Toggle the Glassy side panel"
     }
   },
   "icons": {
