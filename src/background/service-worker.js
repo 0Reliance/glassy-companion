@@ -166,17 +166,14 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     await chrome.action.openPopup?.().catch(() => {})
   }
   if (command === 'toggle-side-panel') {
-    // Toggle the side panel open/closed.
-    // chrome.sidePanel.open() with a windowId opens it; we toggle by
-    // checking if it's already open from stored state.
+    // Toggle the side panel open. There is no programmatic "close" API for
+    // side panels in Chrome, so we only open it — the user closes it via the
+    // browser UI. We track open state to avoid redundant opens.
     const windowId = tab?.windowId
     if (!windowId) return
     try {
       const { glassy_sidepanel_open } = await chrome.storage.session.get('glassy_sidepanel_open')
-      if (glassy_sidepanel_open) {
-        await chrome.sidePanel.setOptions({ enabled: false })
-        await chrome.storage.session.set({ glassy_sidepanel_open: false })
-      } else {
+      if (!glassy_sidepanel_open) {
         await chrome.sidePanel.setOptions({ enabled: true, path: 'src/sidepanel/index.html' })
         await chrome.sidePanel.open({ windowId })
         await chrome.storage.session.set({ glassy_sidepanel_open: true })

@@ -3,7 +3,7 @@ import { summarizePage } from '../../lib/api.js'
 import { enqueue } from '../../lib/offlineQueue.js'
 import SummaryCard from './SummaryCard.jsx'
 
-export default function QuickActions({ pageMeta, onSaveNote, onCaptureElement }) {
+export default function QuickActions({ pageMeta, onSaveNote }) {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [summaryError, setSummaryError] = useState('')
@@ -44,14 +44,19 @@ export default function QuickActions({ pageMeta, onSaveNote, onCaptureElement })
     if (!pageMeta?.url || pageStatus === 'saving' || pageStatus === 'saved') return
     setPageStatus('saving')
 
-    const payload = {
-      url: pageMeta.url,
-      title: pageMeta.title || pageMeta.url,
-    }
-
+    // Use the unified capture pipeline (SAVE_CAPTURE) instead of the legacy
+    // SAVE_PAGE → saveDocument path. The service worker handles content
+    // extraction and premium Markdown assembly for 'quick' captures.
     if (!navigator.onLine) {
       try {
-        await enqueue('page', payload)
+        await enqueue('capture', {
+          sourceUrl: pageMeta.url,
+          title: pageMeta.title || pageMeta.url,
+          captureMode: 'quick',
+          status: 'inbox',
+          contentType: pageMeta.contentType || 'bookmark',
+          capturedAt: new Date().toISOString(),
+        })
         setPageStatus('queued')
       } catch {
         setPageStatus('error')
@@ -61,19 +66,21 @@ export default function QuickActions({ pageMeta, onSaveNote, onCaptureElement })
     }
 
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      let content = ''
-      try {
-        const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_TEXT' })
-        content = res?.text || ''
-      } catch {}
-
       const response = await chrome.runtime.sendMessage({
-        type: 'SAVE_PAGE',
+        type: 'SAVE_CAPTURE',
         payload: {
-          url: payload.url || tab?.url,
-          title: payload.title || tab?.title || '',
-          ...(content ? { content } : {}),
+          sourceUrl: pageMeta.url,
+          canonicalUrl: pageMeta.canonicalUrl,
+          title: pageMeta.title || pageMeta.url,
+          description: pageMeta.description || '',
+          coverImageUrl: pageMeta.og_image || '',
+          favicon_url: pageMeta.favicon_url || '',
+          siteName: pageMeta.siteName || pageMeta.domain || '',
+          author: pageMeta.author || '',
+          publishedAt: pageMeta.publishedAt || null,
+          contentType: pageMeta.contentType || 'bookmark',
+          captureMode: 'quick',
+          status: 'inbox',
         },
       })
       const nextStatus = response?.ok ? 'saved' : 'error'
@@ -92,9 +99,15 @@ export default function QuickActions({ pageMeta, onSaveNote, onCaptureElement })
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       const res = await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_SCREENSHOT' })
       if (res?.dataUrl) {
-        if (onCaptureElement) {
-          onCaptureElement({ type: 'screenshot', dataUrl: res.dataUrl, title: pageMeta?.title || tab?.title || 'Screenshot' })
-        }
+        // Store screenshot result for the popup to pick up on next open.
+        // The user may want to attach it to a Smart Save or use it standalone.
+        chrome.storage.local.set({
+          glassy_pending_screenshot: {
+            dataUrl: res.dataUrl,
+            title: pageMeta?.title || tab?.title || 'Screenshot',
+            capturedAt: Date.now(),
+          }
+        }).catch(() => {})
         setScreenshotStatus('done')
         setTimeout(() => setScreenshotStatus('idle'), 2000)
       } else {

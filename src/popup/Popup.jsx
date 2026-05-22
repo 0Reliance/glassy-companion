@@ -14,8 +14,9 @@ import useAppState from './hooks/useAppState.js'
 export default function Popup() {
   const {
     view, user, pageMeta, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId,
+    pendingElement, pendingScreenshot,
     navigate, handleLoginSuccess,
-    setSaving, setSaved, setDuplicate, setError, resetSaveStatus,
+    setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending,
     setUser, setPageMeta, setLastCaptureId,
   } = useAppState()
 
@@ -73,11 +74,14 @@ export default function Popup() {
               saveStatus={saveStatus}
               errorMessage={errorMessage}
               lastCaptureId={lastCaptureId}
+              pendingElement={pendingElement}
+              pendingScreenshot={pendingScreenshot}
               setSaving={setSaving}
               setSaved={setSaved}
               setDuplicate={setDuplicate}
               setError={setError}
               resetSaveStatus={resetSaveStatus}
+              clearPending={clearPending}
               setLastCaptureId={setLastCaptureId}
             />
           )}

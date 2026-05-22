@@ -18,6 +18,8 @@ export default function useAppState() {
   const [saveStatus, setSaveStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [lastCaptureId, setLastCaptureId] = useState(null)
+  const [pendingElement, setPendingElement] = useState(null)
+  const [pendingScreenshot, setPendingScreenshot] = useState(null)
   const initRef = useRef(false)
 
   // Check startup hash and session-stored route hint for direct-to-tab routing.
@@ -87,6 +89,26 @@ export default function useAppState() {
             }
           } catch {}
         }
+
+        // Consume any pending capture results from the element picker or screenshot.
+        // These are stored by the content script / QuickActions during prior popup
+        // sessions and picked up here on next open. Clean them up after reading.
+        try {
+          const pending = await chrome.storage.local.get([
+            'glassy_pending_element',
+            'glassy_pending_screenshot',
+          ])
+          if (pending.glassy_pending_element) {
+            setPendingElement(pending.glassy_pending_element)
+          }
+          if (pending.glassy_pending_screenshot) {
+            setPendingScreenshot(pending.glassy_pending_screenshot)
+          }
+          await chrome.storage.local.remove([
+            'glassy_pending_element',
+            'glassy_pending_screenshot',
+          ])
+        } catch {}
       } catch (err) {
         console.error('[Popup] init error', err)
         setView('login')
@@ -126,6 +148,11 @@ export default function useAppState() {
     setErrorMessage('')
   }, [])
 
+  const clearPending = useCallback(() => {
+    setPendingElement(null)
+    setPendingScreenshot(null)
+  }, [])
+
   return {
     view,
     user,
@@ -135,6 +162,8 @@ export default function useAppState() {
     saveStatus,
     errorMessage,
     lastCaptureId,
+    pendingElement,
+    pendingScreenshot,
     navigate,
     handleLoginSuccess,
     setSaving,
@@ -142,6 +171,7 @@ export default function useAppState() {
     setDuplicate,
     setError,
     resetSaveStatus,
+    clearPending,
     setUser,
     setPageMeta,
     setLastCaptureId,

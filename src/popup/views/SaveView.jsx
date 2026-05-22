@@ -4,7 +4,7 @@ import SmartSavePanel from '../components/SmartSavePanel.jsx'
 import SaveToast from '../components/SaveToast.jsx'
 import { saveBookmark, saveNote, saveAllTabs } from '../hooks/useExtensionBridge.js'
 
-export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, setLastCaptureId }) {
+export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId }) {
   const [mode, setMode] = useState('quick') // quick | smart
 
   const handleSave = useCallback(async (payload) => {
@@ -100,6 +100,44 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
           <span>This page is already in your Keep. Saving again will update it.</span>
         </div>
       )}
+
+      {/* Pending capture banner — element picker / screenshot from prior popup session */}
+      {(pendingElement || pendingScreenshot) && saveStatus === 'idle' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 10px', marginBottom: 8,
+          background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+          borderRadius: 8, fontSize: 11, color: '#a5b4fc',
+        }}>
+          <span>{pendingElement ? '🎯' : '📸'}</span>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {pendingElement
+              ? `Captured element: "${pendingElement.textPreview}"`
+              : `Screenshot ready: ${pendingScreenshot.title}`}
+          </span>
+          <button
+            onClick={() => { setMode('smart'); clearPending?.() }}
+            style={{
+              padding: '3px 8px', borderRadius: 6,
+              background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)',
+              color: '#c4b5fd', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Use in Smart Save
+          </button>
+          <button
+            onClick={() => clearPending?.()}
+            style={{
+              padding: '3px 6px', borderRadius: 6,
+              background: 'transparent', border: 'none',
+              color: 'rgba(255,255,255,0.3)', fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {mode === 'quick' ? (
         <>
           <BookmarkCard
@@ -130,9 +168,12 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         <SmartSavePanel
           pageMeta={pageMeta}
           defaults={ruleDefaults}
+          pendingElement={pendingElement}
+          pendingScreenshot={pendingScreenshot}
           onSave={handleSave}
           saving={saveStatus === 'saving'}
-          onCancel={() => setMode('quick')}
+          onCancel={() => { setMode('quick'); clearPending?.() }}
+          onClearPending={() => clearPending?.()}
         />
       )}
 

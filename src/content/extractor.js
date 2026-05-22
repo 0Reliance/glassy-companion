@@ -273,8 +273,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Request viewport screenshot via the background service worker.
       // The content script can't call tabs.captureVisibleTab directly;
       // we relay to the service worker which has that permission.
-      chrome.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT_INTERNAL' }).then(dataUrl => {
-        sendResponse({ dataUrl })
+      chrome.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT_INTERNAL' }).then(result => {
+        sendResponse(result) // service worker already returns { dataUrl } shape
       }).catch(err => {
         sendResponse({ error: err.message })
       })
