@@ -7,6 +7,7 @@ import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCa
 import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
+import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
 import {
   CTX_SAVE_PAGE,
   CTX_SAVE_LINK,
@@ -33,6 +34,123 @@ function sameDocumentUrl(left, right) {
     return leftUrl.href === rightUrl.href
   } catch {
     return left === right
+  }
+}
+
+// ── Offscreen Document Management (MV3 Service Worker Keep-Alive) ──────────────
+
+let _offscreenReady = false
+
+/**
+ * Ensure the offscreen document exists. Chrome MV3 allows one offscreen doc
+ * per extension. We create it on first save and keep it alive.
+ */
+async function ensureOffscreen() {
+  if (_offscreenReady) return
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'src/offscreen/index.html',
+      reasons: ['WORKERS'],
+      justification: 'Process captures outside service worker to avoid the 30-second MV3 kill window',
+    })
+    _offscreenReady = true
+  } catch (err) {
+    // Already exists or unsupported (Firefox < 120)
+    if (err.message?.includes('Only one')) {
+      _offscreenReady = true
+    } else {
+      throw err
+    }
+  }
+}
+
+/**
+ * Delegate capture processing to the offscreen document.
+ * The service worker stays alive; heavy work runs in the persistent offscreen page.
+ */
+async function delegateCapture(payload, tab) {
+  try {
+    await ensureOffscreen()
+  } catch {
+    // Offscreen API not available — fall back to in-SW processing (legacy path)
+    return processCaptureInServiceWorker(payload, tab)
+  }
+
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      type: 'OFFSCREEN_PROCESS_CAPTURE',
+      payload: { tabId: tab?.id, tabUrl: tab?.url, item: payload }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Offscreen doc failed — fall back to in-SW processing
+        return resolve(processCaptureInServiceWorker(payload, tab))
+      }
+      resolve(response || { ok: false, error: 'No response from offscreen' })
+    })
+  })
+}
+
+/** Legacy in-SW capture processing for browsers without offscreen support. */
+async function processCaptureInServiceWorker(payload, tab) {
+  // ...existing capture logic moved from backgroundSave...
+  const token = await getToken()
+  if (!token) {
+    return { ok: false, error: 'Not logged in' }
+  }
+
+  const captureItem = { ...payload }
+
+  const sourceUrl = captureItem.sourceUrl || captureItem.url
+  const canUseTabContent = tab?.id && sourceUrl && tab?.url && sameDocumentUrl(sourceUrl, tab.url)
+  if (canUseTabContent) {
+    try {
+      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
+      if (metaRes?.meta) {
+        Object.assign(captureItem, {
+          canonicalUrl: metaRes.meta.canonicalUrl,
+          title: captureItem.title === 'Untitled' || !captureItem.title
+            ? metaRes.meta.title : captureItem.title,
+          description: metaRes.meta.description,
+          coverImageUrl: metaRes.meta.og_image,
+          favicon_url: metaRes.meta.favicon_url,
+          siteName: metaRes.meta.siteName,
+          author: metaRes.meta.author,
+          publishedAt: metaRes.meta.publishedAt,
+          contentType: metaRes.meta.contentType,
+        })
+      }
+      if (captureItem.captureMode === 'quick') {
+        const contentRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+        if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
+      }
+    } catch {}
+  }
+
+  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
+
+  if (!navigator.onLine) {
+    try {
+      const queued = await enqueue('capture', captureItem)
+      return { ok: true, queued: true, itemId: queued.id }
+    } catch (err) {
+      return { ok: false, error: err.message, code: err.code }
+    }
+  }
+
+  try {
+    const result = await saveCapture(captureItem)
+    return { ok: true, data: result, duplicate: !!result?.duplicate }
+  } catch (err) {
+    const plan = planBackgroundSaveFailure(err)
+    if (plan.queue) {
+      try {
+        const queued = await enqueue('capture', captureItem)
+        return { ok: true, queued: true, itemId: queued.id, reason: plan.kind }
+      } catch (queueErr) {
+        return { ok: false, error: queueErr.message, code: queueErr.code }
+      }
+    }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
   }
 }
 
@@ -187,34 +305,6 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 // ── Background save ───────────────────────────────────────────────────────────
 
-/**
- * Premium Content Presentation
- */
-function assemblePremiumMarkdown(item) {
-  const dateStr = new Date(item.capturedAt || Date.now()).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  })
-
-  let header = `# ${item.title}\n\n`
-  header += `**Source:** [${item.siteName || item.domain || 'Source'}](${item.sourceUrl})\n`
-  if (item.author) header += `**Author:** ${item.author}\n`
-  header += `**Captured on:** ${dateStr}\n\n`
-
-  if (item.note) {
-    header += `### Personal Note\n\n${item.note}\n\n---\n\n`
-  }
-
-  if (item.highlights?.length) {
-    header += `### Highlights\n\n`
-    item.highlights.forEach(h => {
-      header += `> ${h.text.replace(/\n/g, '\n> ')}\n\n`
-    })
-    header += `---\n\n`
-  }
-
-  return header + (item.contentMarkdown || '')
-}
-
 async function backgroundSave(mode, payload, tab) {
   const token = await getToken()
   if (!token) {
@@ -223,7 +313,6 @@ async function backgroundSave(mode, payload, tab) {
   }
 
   const sourceUrl = payload.sourceUrl || payload.url || tab?.url
-  const canUseTabContent = tab?.id && sourceUrl && tab?.url && sameDocumentUrl(sourceUrl, tab.url)
 
   const captureItem = {
     sourceUrl,
@@ -234,53 +323,11 @@ async function backgroundSave(mode, payload, tab) {
     ...payload
   }
 
-  if (canUseTabContent) {
-    try {
-      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-      if (metaRes?.meta) {
-        Object.assign(captureItem, {
-          canonicalUrl: metaRes.meta.canonicalUrl,
-          title: (captureItem.title === 'Untitled' || !captureItem.title) ? metaRes.meta.title : captureItem.title,
-          description: metaRes.meta.description,
-          coverImageUrl: metaRes.meta.og_image,
-          favicon_url: metaRes.meta.favicon_url,
-          siteName: metaRes.meta.siteName,
-          author: metaRes.meta.author,
-          publishedAt: metaRes.meta.publishedAt,
-          contentType: metaRes.meta.contentType,
-        })
-      }
+  // Delegate to offscreen document (or fall back to in-SW processing)
+  const result = await delegateCapture(captureItem, tab)
 
-      if (mode === 'quick') {
-        const contentRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
-        if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
-      }
-    } catch {}
-  }
-
-  if (!captureItem.contentType) captureItem.contentType = 'bookmark'
-
-  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
-
-  if (!navigator.onLine) {
-    try {
-      await enqueue('capture', captureItem)
-      showNotification('Glassy — Queued', 'You\'re offline.', 'info')
-    } catch (err) {
-      showNotification('Glassy — Save Failed', 'Could not queue this item.', 'error')
-    }
-    return
-  }
-
-  try {
-    const result = await saveCapture(captureItem)
-    if (result?.duplicate) {
-      showNotification('Glassy — Already saved', captureItem.title, 'info')
-    } else {
-      showNotification('Glassy — Saved ✓', captureItem.title, 'success')
-      await updateBadge(1)
-    }
-  } catch (err) {
+  if (!result?.ok) {
+    const err = result
     const failurePlan = planBackgroundSaveFailure(err)
     if (failurePlan.queue) {
       try {
@@ -298,7 +345,6 @@ async function backgroundSave(mode, payload, tab) {
       return
     }
 
-    // Non-queueable failure — surface a clear reason per classification.
     switch (failurePlan.kind) {
       case 'duplicate':
         showNotification('Glassy — Already saved', captureItem.title, 'info')
@@ -312,6 +358,16 @@ async function backgroundSave(mode, payload, tab) {
       default:
         showNotification('Glassy — Save failed', err?.message || 'Try again from the popup.', 'error')
     }
+    return
+  }
+
+  if (result?.duplicate) {
+    showNotification('Glassy — Already saved', captureItem.title, 'info')
+  } else if (result?.queued) {
+    showNotification('Glassy — Queued', 'You\'re offline or the server is busy. Save will retry.', 'info')
+  } else {
+    showNotification('Glassy — Saved ✓', captureItem.title, 'success')
+    if (!result?.duplicate) await updateBadge(1)
   }
 }
 
@@ -394,17 +450,44 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     const token = await getToken()
     if (!token) return
 
+    // Delegate queue flush to offscreen document for reliability under MV3.
+    // If offscreen is unavailable, fall back to in-SW processing.
+    let useOffscreen = false
+    try {
+      await ensureOffscreen()
+      useOffscreen = true
+    } catch {
+      useOffscreen = false
+    }
+
     for (const item of queue) {
       if (item.attempts >= 5) {
         await dequeue(item.id)
         continue
       }
       try {
-        if (item.type === 'capture') await saveCapture(item.payload)
-        else if (item.type === 'bookmark') await saveBookmark(item.payload)
-        else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
-        else await saveNote(item.payload)
-        await dequeue(item.id)
+        if (useOffscreen) {
+          const res = await chrome.runtime.sendMessage({
+            type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+            item,
+          })
+          if (res?.ok && res?.synced) {
+            await dequeue(item.id)
+          } else if (res?.ok && res?.dropped) {
+            await dequeue(item.id)
+          } else if (res?.retry) {
+            await incrementAttempts(item.id)
+          } else {
+            await incrementAttempts(item.id)
+          }
+        } else {
+          // Legacy in-SW path
+          if (item.type === 'capture') await saveCapture(item.payload)
+          else if (item.type === 'bookmark') await saveBookmark(item.payload)
+          else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
+          else await saveNote(item.payload)
+          await dequeue(item.id)
+        }
       } catch (err) {
         const failurePlan = planQueueFailure(err)
         if (failurePlan.action === 'retry') await incrementAttempts(item.id)

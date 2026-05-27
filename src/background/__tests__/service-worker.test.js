@@ -33,6 +33,22 @@ vi.mock('../../lib/cache.js', () => ({
   })),
 }))
 
+vi.mock('../../lib/premiumMarkdown.js', () => ({
+  assemblePremiumMarkdown: vi.fn((item) => {
+    let md = `# ${item.title}\n\n`
+    md += `**Source:** [${item.siteName || item.domain || 'Source'}](${item.sourceUrl})\n`
+    if (item.author) md += `**Author:** ${item.author}\n`
+    md += `**Captured on:** ${new Date().toLocaleDateString()}\n\n`
+    if (item.note) md += `### Personal Note\n\n${item.note}\n\n---\n\n`
+    if (item.highlights?.length) {
+      md += `### Highlights\n\n`
+      item.highlights.forEach(h => { md += `> ${h.text}\n\n` })
+      md += `---\n\n`
+    }
+    return md + (item.contentMarkdown || '')
+  }),
+}))
+
 vi.mock('../savePolicy.js', () => ({
   planBackgroundSaveFailure: vi.fn(() => ({ kind: 'error', queue: false })),
   planQueueFailure: vi.fn(() => ({ action: 'drop', kind: 'fatal' })),
@@ -58,6 +74,30 @@ const chromeMock = {
     onInstalled: { addListener: vi.fn(fn => handlers.onInstalled.push(fn)) },
     onStartup: { addListener: vi.fn(fn => handlers.onStartup.push(fn)) },
     onMessage: { addListener: vi.fn(fn => handlers.onMessage.push(fn)) },
+    sendMessage: vi.fn(async (msg, callback) => {
+      // Mock offscreen document responses — must call callback (Chrome MV3 pattern)
+      if (msg?.type === 'OFFSCREEN_PROCESS_CAPTURE') {
+        const { saveCapture } = await vi.importMock('../../lib/api.js')
+        const item = { ...msg.payload?.item }
+        if (!item.contentType) item.contentType = 'bookmark'
+        const result = await saveCapture(item)
+        if (callback) callback(result)
+        return result
+      }
+      if (msg?.type === 'OFFSCREEN_FLUSH_QUEUE_ITEM') {
+        const { saveDocument, saveBookmark, saveNote } = await vi.importMock('../../lib/api.js')
+        const item = msg.item
+        let result
+        if (item.type === 'capture') result = await saveDocument(item.payload)
+        else if (item.type === 'bookmark') result = await saveBookmark(item.payload)
+        else if (item.type === 'page' || item.type === 'document') result = await saveDocument(item.payload)
+        else result = await saveNote(item.payload)
+        if (callback) callback({ ok: true, synced: true, data: result })
+        return { ok: true, synced: true, data: result }
+      }
+      if (callback) callback({ ok: true })
+      return { ok: true }
+    }),
   },
   alarms: {
     get: vi.fn(async () => null),
@@ -107,6 +147,9 @@ const chromeMock = {
   },
   notifications: {
     create: vi.fn(),
+  },
+  offscreen: {
+    createDocument: vi.fn(async () => {}),
   },
 }
 

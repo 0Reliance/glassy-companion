@@ -19,6 +19,9 @@
     "https://glassy.fyi/*",
     "https://glassy.stanz.info/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; img-src 'self' https://* data: blob:; connect-src 'self' https://*; style-src 'self' 'unsafe-inline'"
+  },
   "background": {
     "service_worker": "src/background/service-worker.js",
     "type": "module"
@@ -35,6 +38,10 @@
   },
   "side_panel": {
     "default_path": "src/sidepanel/index.html"
+  },
+  "offscreen": {
+    "reason": ["WORKERS"],
+    "url": "src/offscreen/index.html"
   },
   "content_scripts": [
     {

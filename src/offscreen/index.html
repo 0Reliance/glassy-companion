@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Glassy Offscreen</title>
+  </head>
+  <body>
+    <!--
+      Offscreen document for Glassy Companion — runs capture processing
+      outside the service worker to avoid the 30-second MV3 kill window.
+      No visible UI. Communicates with service worker via chrome.runtime messages.
+    -->
+    <script type="module" src="./offscreen.js"></script>
+  </body>
+</html>

@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
         input: {
           popup: resolve(__dirname, 'src/popup/index.html'),
           sidepanel: resolve(__dirname, 'src/sidepanel/index.html'),
+          offscreen: resolve(__dirname, 'src/offscreen/index.html'),
         },
       },
       outDir,
