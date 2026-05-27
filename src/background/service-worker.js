@@ -8,6 +8,7 @@ import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../li
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
+import { getHostname } from '../lib/urlUtils.js'
 import {
   CTX_SAVE_PAGE,
   CTX_SAVE_LINK,
@@ -16,26 +17,7 @@ import {
   CTX_QUICK_NOTE,
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
-
-function getHostname(url) {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return 'this page'
-  }
-}
-
-function sameDocumentUrl(left, right) {
-  try {
-    const leftUrl = new URL(left)
-    const rightUrl = new URL(right)
-    leftUrl.hash = ''
-    rightUrl.hash = ''
-    return leftUrl.href === rightUrl.href
-  } catch {
-    return left === right
-  }
-}
+import { buildCaptureItem } from '../lib/capturePipeline.js'
 
 // ── Offscreen Document Management (MV3 Service Worker Keep-Alive) ──────────────
 
@@ -76,7 +58,7 @@ async function delegateCapture(payload, tab) {
     return processCaptureInServiceWorker(payload, tab)
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     chrome.runtime.sendMessage({
       type: 'OFFSCREEN_PROCESS_CAPTURE',
       payload: { tabId: tab?.id, tabUrl: tab?.url, item: payload }
@@ -90,44 +72,18 @@ async function delegateCapture(payload, tab) {
   })
 }
 
-/** Legacy in-SW capture processing for browsers without offscreen support. */
+/** Fallback capture processing inside the service worker (Firefox / no offscreen). */
 async function processCaptureInServiceWorker(payload, tab) {
-  // ...existing capture logic moved from backgroundSave...
   const token = await getToken()
-  if (!token) {
-    return { ok: false, error: 'Not logged in' }
-  }
+  if (!token) return { ok: false, error: 'Not logged in' }
 
-  const captureItem = { ...payload }
+  const captureItem = await buildCaptureItem({
+    item: payload,
+    tabId: tab?.id,
+    tabUrl: tab?.url,
+  })
 
-  const sourceUrl = captureItem.sourceUrl || captureItem.url
-  const canUseTabContent = tab?.id && sourceUrl && tab?.url && sameDocumentUrl(sourceUrl, tab.url)
-  if (canUseTabContent) {
-    try {
-      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
-      if (metaRes?.meta) {
-        Object.assign(captureItem, {
-          canonicalUrl: metaRes.meta.canonicalUrl,
-          title: captureItem.title === 'Untitled' || !captureItem.title
-            ? metaRes.meta.title : captureItem.title,
-          description: metaRes.meta.description,
-          coverImageUrl: metaRes.meta.og_image,
-          favicon_url: metaRes.meta.favicon_url,
-          siteName: metaRes.meta.siteName,
-          author: metaRes.meta.author,
-          publishedAt: metaRes.meta.publishedAt,
-          contentType: metaRes.meta.contentType,
-        })
-      }
-      if (captureItem.captureMode === 'quick') {
-        const contentRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
-        if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
-      }
-    } catch {}
-  }
-
-  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
-
+  // Save (online) or queue (offline)
   if (!navigator.onLine) {
     try {
       const queued = await enqueue('capture', captureItem)
@@ -150,7 +106,7 @@ async function processCaptureInServiceWorker(payload, tab) {
         return { ok: false, error: queueErr.message, code: queueErr.code }
       }
     }
-    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind, body: err.body }
   }
 }
 
@@ -385,6 +341,7 @@ let _queueFlushing = false
 // can still attach the highlight without creating a second bookmark.
 async function saveHighlightFromContext(tab) {
   if (!tab?.id) return
+
   const token = await getToken()
   if (!token) {
     showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
@@ -398,40 +355,31 @@ async function saveHighlightFromContext(tab) {
   } catch {}
   if (!highlight?.text) return
 
-  // Step 1: ensure a capture exists for this page.
+  // Step 1: ensure a capture exists for this page (delegated to offscreen doc).
   let captureId = null
-  try {
-    const captureItem = {
-      sourceUrl: tab.url,
-      title: tab.title || 'Untitled',
-      captureMode: 'highlight',
-      status: 'inbox',
-      capturedAt: new Date().toISOString(),
-      contentType: 'bookmark',
-    }
-    captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
-    const result = await saveCapture(captureItem)
-    captureId = result?.id
-  } catch (err) {
-    if (err?.status === 409 && err?.body?.id) {
-      captureId = err.body.id
-    } else {
-      showNotification('Glassy — Highlight failed', err?.message || 'Could not save the page.', 'error')
-      return
-    }
+  const captureItem = {
+    sourceUrl: tab.url,
+    title: tab.title || 'Untitled',
+    captureMode: 'highlight',
+    status: 'inbox',
+    capturedAt: new Date().toISOString(),
+    contentType: 'bookmark',
+  }
+  const result = await delegateCapture(captureItem, tab)
+  if (result?.ok) {
+    captureId = result.data?.id
+  } else if (result?.status === 409 && result?.body?.id) {
+    captureId = result.body.id
   }
 
   if (!captureId) {
-    showNotification('Glassy — Highlight failed', 'Could not locate bookmark.', 'error')
+    showNotification('Glassy — Highlight failed', result?.error || 'Could not save the page.', 'error')
     return
   }
 
-  // Step 2: attach the highlight to the bookmark.
   try {
     await createHighlight(captureId, {
-      text: highlight.text,
-      note: '',
-      color: 'yellow',
+      text: highlight.text, note: '', color: 'yellow'
     })
     showNotification('Glassy — Highlighted ✓', highlight.text.slice(0, 80), 'success')
   } catch (err) {
@@ -471,9 +419,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
             type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
             item,
           })
-          if (res?.ok && res?.synced) {
-            await dequeue(item.id)
-          } else if (res?.ok && res?.dropped) {
+          if (res?.ok && (res?.synced || res?.dropped)) {
             await dequeue(item.id)
           } else if (res?.retry) {
             await incrementAttempts(item.id)

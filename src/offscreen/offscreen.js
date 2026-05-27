@@ -15,13 +15,11 @@
  * service worker but with the full DOM environment available.
  */
 
-import { saveCapture, saveBookmark, saveDocument, saveNote, createHighlight } from '../lib/api.js'
+import { saveCapture, saveBookmark, saveDocument, saveNote } from '../lib/api.js'
 import { enqueue, dequeue, incrementAttempts } from '../lib/offlineQueue.js'
 import { getToken } from '../lib/auth.js'
-import { planBackgroundSaveFailure } from '../background/savePolicy.js'
-import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
-
-let _processing = false
+import { planQueueFailure } from '../background/savePolicy.js'
+import { buildCaptureItem } from '../lib/capturePipeline.js'
 
 // ── Message handler ──────────────────────────────────────────────────────────
 
@@ -45,20 +43,6 @@ async function handleOffscreenMessage(message) {
   }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function sameDocumentUrl(left, right) {
-  try {
-    const leftUrl = new URL(left)
-    const rightUrl = new URL(right)
-    leftUrl.hash = ''
-    rightUrl.hash = ''
-    return leftUrl.href === rightUrl.href
-  } catch {
-    return left === right
-  }
-}
-
 // ── Capture processing ───────────────────────────────────────────────────────
 
 /**
@@ -70,48 +54,11 @@ function sameDocumentUrl(left, right) {
  */
 async function processCapture(payload) {
   const token = await getToken()
-  if (!token) {
-    return { ok: false, error: 'Not logged in' }
-  }
+  if (!token) return { ok: false, error: 'Not logged in' }
 
   const { tabId, tabUrl, item } = payload
-  const captureItem = { ...item }
 
-  // Step 1: Extract content from content script ONLY if source matches tab
-  if (tabId && !captureItem.contentMarkdown) {
-    const sourceUrl = captureItem.sourceUrl || captureItem.url
-    const canUseTabContent = sourceUrl && tabUrl && sameDocumentUrl(sourceUrl, tabUrl)
-    if (canUseTabContent) {
-      try {
-        const metaRes = await chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_META' })
-        if (metaRes?.meta) {
-          Object.assign(captureItem, {
-            canonicalUrl: metaRes.meta.canonicalUrl,
-            title: captureItem.title === 'Untitled' || !captureItem.title
-              ? metaRes.meta.title
-              : captureItem.title,
-            description: metaRes.meta.description,
-            coverImageUrl: metaRes.meta.og_image,
-            favicon_url: metaRes.meta.favicon_url,
-            siteName: metaRes.meta.siteName,
-            author: metaRes.meta.author,
-            publishedAt: metaRes.meta.publishedAt,
-            contentType: metaRes.meta.contentType,
-          })
-        }
-        if (captureItem.captureMode === 'quick') {
-          const contentRes = await chrome.tabs.sendMessage(tabId, { type: 'GET_STRUCTURED_CONTENT' })
-          if (contentRes?.markdown) captureItem.contentMarkdown = contentRes.markdown
-        }
-      } catch {}
-    }
-  }
-
-  // Step 2: Ensure contentType defaults to bookmark
-  if (!captureItem.contentType) captureItem.contentType = 'bookmark'
-
-  // Step 3: Assemble premium Markdown presentation
-  captureItem.contentMarkdown = assemblePremiumMarkdown(captureItem)
+  const captureItem = await buildCaptureItem({ item, tabId, tabUrl })
 
   // Step 4: Save (online) or queue (offline)
   if (!navigator.onLine) {
@@ -136,7 +83,7 @@ async function processCapture(payload) {
         return { ok: false, error: queueErr.message, code: queueErr.code }
       }
     }
-    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind, body: err.body }
   }
 }
 
@@ -163,11 +110,12 @@ async function flushQueueItem(item) {
     await dequeue(item.id)
     return { ok: true, synced: true }
   } catch (err) {
-    const plan = planBackgroundSaveFailure(err)
+    const plan = planQueueFailure(err)
     if (plan.action === 'retry') {
       await incrementAttempts(item.id)
       return { ok: false, retry: true }
     }
+    // action === 'drop' or 'pause' — drop the item from queue
     await dequeue(item.id)
     return { ok: false, dropped: true, reason: plan.kind }
   }
