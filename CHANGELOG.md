@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.1] — 2026-05-27
+
+### Architecture
+- **MV3 Offscreen Document** — Chrome MV3 kills service workers after ~30s of inactivity. A hidden persistent offscreen document (`src/offscreen/`) now handles all heavy capture processing: content-script metadata extraction, Markdown assembly, and API calls. The service worker acts as a pure message broker, staying safely within the kill window.
+- **Firefox Fallback Path** — Browsers without the `chrome.offscreen` API (Firefox MV2, Safari) fall back to in-service-worker processing via `processCaptureInServiceWorker()`. One codebase, two execution paths.
+- **Shared Module Refactoring** — `src/lib/capturePipeline.js` (`buildCaptureItem`) and `src/lib/urlUtils.js` (`getHostname`, `sameDocumentUrl`) extracted to eliminate duplicate logic between the service worker and offscreen document. Both paths now produce identical capture items.
+- **Content Security Policy** — Added `content_security_policy` to `manifest.json` for stricter execution isolation.
+
+### Fixed
+- **P0: Screenshot Double-Wrapping** — `GET_SCREENSHOT` response no longer double-wraps `dataUrl`; screenshots flow directly to the popup.
+- **P0: Element Picker State Lost** — Selected element/screenshot state now persisted in Zustand with `persist` middleware; survives tab switch and popup close.
+- **P0: Side Panel Bricked** — Removed `chrome.sidePanel.setOptions({ enabled: false })` call that globally disabled the side panel after every save.
+- **P0: QuickActions Legacy Path** — "Save Page" in QuickActions now routes through the unified `SAVE_CAPTURE` pipeline instead of the legacy `SAVE_PAGE` flow.
+- **Cross-Tab Metadata Leakage** — Context-menu link saves now guard against extracting metadata from the wrong tab via `sameDocumentUrl()`. Only fetches metadata when `sourceUrl` matches the active tab.
+
+### Changed
+- **Alarm Handler Deduplication** — Offline queue flush response branches collapsed from four to two.
+- **`saveHighlightFromContext` Unified** — Now delegates capture to the offscreen document via `delegateCapture()`, consistent with all other save paths.
+- **`flushQueueItem` Planner Fix** — Corrected to call `planQueueFailure` (which returns `{ action }`) instead of `planBackgroundSaveFailure` (which has no `.action`).
+
+### Verification
+- `npm test` → **129 passed** (11 test files)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `web-ext lint --source-dir=dist-firefox --self-hosted` → **0 errors**, 8 warnings (same pre-existing set as v2.3.0)
+
+---
+
 ## [2.3.0] — 2026-05-22
 
 ### Added
