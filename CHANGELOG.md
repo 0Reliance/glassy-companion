@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.2] — 2026-05-29
+
+### Added
+- **Content Security Policy** — Added `content_security_policy` to `manifest.json` for stricter execution isolation.
+
+### Changed
+- **MV3 Offscreen Document (refined)** — The offscreen document architecture (introduced in v2.3.1-dev) is now the exclusive save path for Chrome. The service worker delegates all capture processing to a persistent offscreen page, avoiding the Chrome MV3 30-second service worker kill window. Firefox falls back to in-service-worker processing automatically.
+- **Shared Module Refactoring** — `src/lib/capturePipeline.js` and `src/lib/urlUtils.js` extracted as shared modules between service worker and offscreen document paths.
+- **Code cleanup** — Inline `getHostname()`, `sameDocumentUrl()`, and `assemblePremiumMarkdown()` removed from service worker; use shared modules instead.
+
+### Fixed
+- **Offscreen doc test mocks** — Service worker tests now mock `chrome.offscreen`, `premiumMarkdown`, and `urlUtils` for proper CI coverage.
+- **Extension download flow** — Firefox users now download the correct v2.3.2 XPI via the pinned version link inside the app.
+
+### Verification
+- `npm test` → **129 passed** (11 test files)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `web-ext lint --source-dir=dist-firefox --self-hosted` → **0 errors**, 8 warnings (same pre-existing set as v2.3.0)
+
+---
+
 ## [2.3.1] — 2026-05-27
 
 ### Architecture
