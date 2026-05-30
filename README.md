@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.3.2-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.4.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -24,7 +24,7 @@
 | **Quick Save** | Instant, one-click save of the current page with premium Markdown formatting. |
 | **Smart Save** | Structured capture with 8 presets (Bookmark, Article, Video, Repo, Product, Research, Highlight, Screenshot), destination routing, and lifecycle flags. |
 | **Element Picker** | Click any element on the page to capture it as rich Markdown. Hover-to-highlight with purple glow. |
-| **Screenshot Capture** | Capture the visible viewport as a PNG image attached to your save. |
+| **Screenshot Capture** | Capture the visible viewport — automatically uploaded as WebP and embedded in your save's markdown content. |
 | **Site Interpreters** | Automatic enriched metadata for YouTube, GitHub, product pages, and scholarly articles via Schema.org. |
 | **Content Preview** | Preview extracted page content as rendered HTML or raw Markdown before saving. See word count and reading time. |
 | **Side Panel** | Persistent side panel (Chrome, `Ctrl+Shift+P`) that stays open while you browse. Firefox falls back to popup. |
@@ -88,7 +88,7 @@ npm run build            # Production build → dist/
 npm run build:firefox    # Firefox build → dist-firefox/
 npm run zip              # Package Chrome → glassy-companion-v*.zip
 npm run zip:firefox      # Package Firefox → glassy-companion-v*-firefox.xpi
-npm test                 # Run unit tests (128 tests)
+npm test                 # Run unit tests (129 tests)
 ```
 
 ---

@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.0] — 2026-05-30 — Screenshot Upload Pipeline, Popup Crash Fix
+
+### Added
+- **Screenshot upload pipeline** — Screenshots captured via QuickActions now automatically upload to the server (base64 → WebP) and are embedded as `![Screenshot](url)` in the save markdown. The SmartSavePanel shows upload progress and auto-populates title/content.
+- **`uploadCaptureImage()`** — New API client function for `POST /api/ext/capture-image`.
+- **`captureImage` constant** — API path for the new screenshot endpoint.
+
+### Fixed
+- **Popup crash on save completion** — `SaveView.jsx` referenced undefined variable `toastType` (ReferenceError). Changed to `saveStatus` prop, which is the actual value the SaveToast component expects.
+- **AI summarize endpoint always returning 503** — `aiService.js` called `router_ai.generateContent()` which does not exist on the `ProviderRouter` class. Changed to `executeTask('text-generation', ...)`.
+
+### Verification
+- `npm test` → **129 passed** (11 test files, same as 2.3.2)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+- `npm run build:firefox` → ✓ Firefox artifact (`dist-firefox/`)
+- `npm run zip` → `glassy-companion-v2.4.0.zip` (540 KB, 23 files)
+- `npm run zip:firefox` → `glassy-companion-v2.4.0-firefox.xpi` (540 KB, 23 files)
+
+---
+
 ## [2.3.2] — 2026-05-29
 
 ### Added
