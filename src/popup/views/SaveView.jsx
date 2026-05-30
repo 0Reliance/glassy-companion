@@ -77,7 +77,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
 
     return (
       <SaveToast
-        type={toastType}
+        type={saveStatus}
         errorMessage={errorMessage}
         captureId={lastCaptureId}
         onDismiss={resetSaveStatus}
