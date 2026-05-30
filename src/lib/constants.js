@@ -20,6 +20,7 @@ export const API_PATHS = {
   searchBookmarks: '/api/keep/bookmarks',
   captures: '/api/captures',
   captureRules: '/api/capture-rules',
+  captureImage: '/api/ext/capture-image',
   items: '/api/items',
 }
 

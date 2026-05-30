@@ -261,6 +261,15 @@ export function saveCapture(payload) {
 }
 
 /**
+ * POST /api/ext/capture-image — upload a screenshot from extension.
+ * Accepts base64 dataUrl, returns { url, id, format, success }.
+ * @param {string} dataUrl - base64 data URL of the screenshot
+ */
+export function uploadCaptureImage(dataUrl) {
+  return apiFetch(API_PATHS.captureImage, { method: 'POST', body: { dataUrl } })
+}
+
+/**
  * GET /api/capture-rules — fetch routing and preset rules.
  */
 export function fetchCaptureRules() {

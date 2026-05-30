@@ -3,6 +3,7 @@ import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import ContentPreview from './ContentPreview.jsx'
 import { PRESETS } from '../../lib/presets.js'
+import { uploadCaptureImage } from '../../lib/api.js'
 
 export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, defaults, pendingElement, pendingScreenshot, onClearPending }) {
   const [title, setTitle] = useState(defaults?.title || pageMeta?.title || '')
@@ -16,6 +17,8 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
   const [contentMarkdown, setContentMarkdown] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [screenshotUrl, setScreenshotUrl] = useState(null)
+  const [screenshotUploading, setScreenshotUploading] = useState(false)
   const pendingAppliedRef = useRef(false)
 
   // Pre-populate from element picker or screenshot on mount.
@@ -32,9 +35,31 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       onClearPending?.()
     } else if (pendingScreenshot) {
       pendingAppliedRef.current = true
-      // Screenshot is stored but can't be embedded as Markdown — surface as a note.
       setContentType('screenshot')
-      setNote(`📸 Screenshot captured from ${pendingScreenshot.title}\n\n[View screenshot in your Keep library]`)
+      // Upload the screenshot to the server so it gets a permanent URL.
+      // The upload happens asynchronously; the save button is disabled until complete.
+      setScreenshotUploading(true)
+      uploadCaptureImage(pendingScreenshot.dataUrl)
+        .then(result => {
+          if (result?.url) {
+            const fullUrl = result.url.startsWith('http')
+              ? result.url
+              : `https://glassy.fyi${result.url}`
+            setScreenshotUrl(fullUrl)
+            // Build a rich markdown note with the embedded screenshot
+            const markdown = `## 📸 Screenshot\n\n![Screenshot](${fullUrl})\n\n*Captured from ${pendingScreenshot.title || 'current page'}*`
+            setContentMarkdown(markdown)
+            setShowPreview(true)
+            if (!title && pendingScreenshot.title) {
+              setTitle(`📸 ${pendingScreenshot.title}`)
+            }
+          }
+        })
+        .catch(() => {
+          // Upload failed — still allow saving with metadata note
+          setNote(`📸 Screenshot captured from ${pendingScreenshot.title}\n\n[Upload failed — screenshot will be saved as a note only]`)
+        })
+        .finally(() => setScreenshotUploading(false))
       onClearPending?.()
     }
   }, [pendingElement, pendingScreenshot, onClearPending])
@@ -200,9 +225,14 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
         />
       )}
 
-      <button className="btn-accent" onClick={handleSave} disabled={saving} style={{ marginTop: showPreview ? 0 : 4 }}>
-        {saving ? <span className="spinner" /> : '✨'}
-        {saving ? 'Saving…' : 'Save to Glassy'}
+      <button className="btn-accent" onClick={handleSave} disabled={saving || screenshotUploading} style={{ marginTop: showPreview ? 0 : 4 }}>
+        {saving ? (
+          <><span className="spinner" /> Saving…</>
+        ) : screenshotUploading ? (
+          <><span className="spinner" /> Uploading screenshot…</>
+        ) : (
+          <>✨ Save to Glassy</>
+        )}
       </button>
     </div>
   )
