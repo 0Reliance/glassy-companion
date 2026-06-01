@@ -161,4 +161,44 @@ describe('extractor.js', () => {
       }
     })
   })
+
+  describe('error telemetry', () => {
+    it('returns a structured { error } response when a sync handler throws', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      // Force getSelectionHtml() to throw deep in the handler.
+      window.getSelection = vi.fn(() => {
+        throw new Error('selection unavailable')
+      })
+      const response = await sendMessage(messageListeners, { type: 'GET_SELECTION_HTML' })
+      expect(response).toEqual({ error: 'selection unavailable' })
+      expect(warnSpy).toHaveBeenCalled()
+    })
+
+    it('relays a CONTENT_SCRIPT_ERROR to the service worker on failure', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const sendMessageSpy = vi.fn(() => ({ catch: () => {} }))
+      globalThis.chrome.runtime.sendMessage = sendMessageSpy
+      window.getSelection = vi.fn(() => {
+        throw new Error('boom')
+      })
+      await sendMessage(messageListeners, { type: 'GET_SELECTION_MARKDOWN' })
+      expect(sendMessageSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'CONTENT_SCRIPT_ERROR',
+          payload: expect.objectContaining({ context: 'GET_SELECTION_MARKDOWN', message: 'boom' }),
+        })
+      )
+    })
+
+    it('does not throw when the relay channel is unavailable', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      // No chrome.runtime.sendMessage defined — reporter must swallow this.
+      delete globalThis.chrome.runtime.sendMessage
+      window.getSelection = vi.fn(() => {
+        throw new Error('kaboom')
+      })
+      const response = await sendMessage(messageListeners, { type: 'GET_SELECTION_HTML' })
+      expect(response).toEqual({ error: 'kaboom' })
+    })
+  })
 })

@@ -559,6 +559,16 @@ async function handleMessage(message) {
       }
     }
 
+    // Telemetry sink: content scripts relay handler failures here so they are
+    // observable instead of vanishing silently in the page context.
+    case 'CONTENT_SCRIPT_ERROR': {
+      const p = message.payload || {}
+      console.warn(
+        `[Glassy] content-script error (${p.context || 'unknown'}) on ${p.url || 'unknown'}: ${p.message || 'no detail'}`
+      )
+      return { ok: true }
+    }
+
     default:
       return { ok: false, error: 'Unknown message type' }
   }

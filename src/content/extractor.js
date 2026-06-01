@@ -207,6 +207,40 @@ function captureHighlight() {
   }
 }
 
+// ── Error telemetry ──────────────────────────────────────────────────────────
+// Content-script failures used to vanish: a thrown handler left sendResponse
+// uncalled (the popup then hung until its message timeout) and nothing was
+// logged. reportContentError surfaces the failure to the console AND relays a
+// compact record to the service worker so these errors become observable.
+// The reporter is best-effort and must never throw — a failing reporter must
+// not mask the original error.
+function reportContentError(context, err) {
+  const detail = err?.message || String(err)
+  console.warn(`[Glassy content] ${context} failed:`, detail)
+  try {
+    chrome.runtime
+      .sendMessage({
+        type: 'CONTENT_SCRIPT_ERROR',
+        payload: { context, message: detail, url: location.href },
+      })
+      ?.catch(() => {}) // relay is best-effort; ignore delivery failures
+  } catch {
+    // sendMessage can throw synchronously if the extension context is gone
+  }
+}
+
+// Run a synchronous handler and always send a response, converting a thrown
+// error into a structured { error } payload (instead of leaving the channel
+// open) so the popup gets a definitive answer and the failure is reported.
+function respondSync(context, sendResponse, fn) {
+  try {
+    sendResponse(fn())
+  } catch (err) {
+    reportContentError(context, err)
+    sendResponse({ error: err?.message || `${context} failed` })
+  }
+}
+
 // ── Message handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -219,37 +253,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           meta,
           selectedText: window.getSelection()?.toString().trim().slice(0, 1000)
         })
+      }).catch(err => {
+        reportContentError('GET_PAGE_META', err)
+        sendResponse({ error: err?.message || 'page meta extraction failed' })
       })
       return true // async
 
     case 'GET_STRUCTURED_CONTENT':
-      sendResponse({ markdown: getStructuredContent() })
+      respondSync('GET_STRUCTURED_CONTENT', sendResponse, () => ({ markdown: getStructuredContent() }))
       break
 
     case 'GET_SELECTION_MARKDOWN':
-      sendResponse({ markdown: getSelectionMarkdown() })
+      respondSync('GET_SELECTION_MARKDOWN', sendResponse, () => ({ markdown: getSelectionMarkdown() }))
       break
 
     case 'CAPTURE_HIGHLIGHT':
-      sendResponse({ highlight: captureHighlight() })
+      respondSync('CAPTURE_HIGHLIGHT', sendResponse, () => ({ highlight: captureHighlight() }))
       break
 
     // Compatibility cases
     case 'GET_PAGE_TEXT':
-      sendResponse({ text: getPageText() })
+      respondSync('GET_PAGE_TEXT', sendResponse, () => ({ text: getPageText() }))
       break
     case 'GET_SELECTED_TEXT':
-      sendResponse({ text: window.getSelection()?.toString().trim().slice(0, 10000) || '' })
+      respondSync('GET_SELECTED_TEXT', sendResponse, () => ({
+        text: window.getSelection()?.toString().trim().slice(0, 10000) || ''
+      }))
       break
     case 'GET_SELECTION_HTML':
-      sendResponse({ html: getSelectionHtml() })
+      respondSync('GET_SELECTION_HTML', sendResponse, () => ({ html: getSelectionHtml() }))
       break
     case 'GET_PAGE_HTML':
-      sendResponse({
+      respondSync('GET_PAGE_HTML', sendResponse, () => ({
         url: location.href,
         title: document.title,
         excerpt: (document.body?.innerText || '').slice(0, 500)
-      })
+      }))
       break
 
       case 'ACTIVATE_ELEMENT_PICKER': {
