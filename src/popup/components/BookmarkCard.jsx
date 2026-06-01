@@ -16,6 +16,11 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
 
   useEffect(() => {
     chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
+      if (chrome.runtime.lastError) {
+        // Storage read failed (e.g. extension context invalidated) — keep the
+        // fresh form rather than throwing inside the storage callback.
+        return
+      }
       const draft = result?.[BOOKMARK_DRAFT_KEY]
       if (draft) {
         if (draft.title) setTitle(draft.title)

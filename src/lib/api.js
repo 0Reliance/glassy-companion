@@ -262,11 +262,25 @@ export function saveCapture(payload) {
 
 /**
  * POST /api/ext/capture-image — upload a screenshot from extension.
- * Accepts base64 dataUrl, returns { url, id, format, success }.
+ * Accepts base64 dataUrl, returns { url, absoluteUrl, id, format, success }.
+ *
+ * The server returns a host-relative path (e.g. /uploads/captures/x.webp).
+ * We resolve it against the *configured* base URL here so the embedded image
+ * always points at the instance the user is actually authenticated against
+ * (glassy.fyi, a self-hosted server, or a dev instance) — never a hardcoded host.
+ *
  * @param {string} dataUrl - base64 data URL of the screenshot
  */
-export function uploadCaptureImage(dataUrl) {
-  return apiFetch(API_PATHS.captureImage, { method: 'POST', body: { dataUrl } })
+export async function uploadCaptureImage(dataUrl) {
+  const result = await apiFetch(API_PATHS.captureImage, { method: 'POST', body: { dataUrl } })
+  if (result?.url && !/^https?:\/\//i.test(result.url)) {
+    const baseUrl = await getBaseUrl()
+    const path = result.url.startsWith('/') ? result.url : `/${result.url}`
+    result.absoluteUrl = `${baseUrl.replace(/\/+$/, '')}${path}`
+  } else if (result?.url) {
+    result.absoluteUrl = result.url
+  }
+  return result
 }
 
 /**

@@ -20,8 +20,7 @@ vi.mock('../../lib/api.js', () => ({
 vi.mock('../../lib/offlineQueue.js', () => ({
   enqueue: vi.fn(async () => {}),
   getQueue: vi.fn(async () => []),
-  dequeue: vi.fn(async () => {}),
-  incrementAttempts: vi.fn(async () => {}),
+  applyFlushOutcomes: vi.fn(async () => {}),
   clearQueue: vi.fn(async () => {}),
 }))
 
@@ -372,5 +371,19 @@ describe('service-worker.js — offline queue flush', () => {
     await alarmHandler({ name: 'glassy_offline_sync' })
 
     expect(saveDocument).toHaveBeenCalledWith({ url: 'https://example.com/page', title: 'Queued page' })
+  })
+
+  it('applies a synced item via a single batched applyFlushOutcomes call', async () => {
+    const { applyFlushOutcomes } = await import('../../lib/offlineQueue.js')
+    getQueue.mockResolvedValueOnce([
+      { id: 'queued-page-2', type: 'page', payload: { url: 'https://example.com/2' }, attempts: 0 },
+    ])
+
+    const alarmHandler = handlers.onAlarm[0]
+    await alarmHandler({ name: 'glassy_offline_sync' })
+
+    expect(applyFlushOutcomes).toHaveBeenCalledTimes(1)
+    const arg = applyFlushOutcomes.mock.calls[0][0]
+    expect([...arg.remove]).toContain('queued-page-2')
   })
 })

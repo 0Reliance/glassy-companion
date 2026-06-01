@@ -17,9 +17,15 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
   const [contentMarkdown, setContentMarkdown] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [screenshotUrl, setScreenshotUrl] = useState(null)
   const [screenshotUploading, setScreenshotUploading] = useState(false)
+  const [screenshotError, setScreenshotError] = useState(null)
   const pendingAppliedRef = useRef(false)
+  // Holds the raw screenshot data URL until the user decides to save. We do NOT
+  // upload on mount — that would orphan an image on the server every time the
+  // user opens the panel and then cancels. Upload happens in handleSave instead.
+  const screenshotDataUrlRef = useRef(null)
+  // Caches the uploaded absolute URL so a save retry doesn't re-upload.
+  const uploadedScreenshotUrlRef = useRef(null)
 
   // Pre-populate from element picker or screenshot on mount.
   useEffect(() => {
@@ -36,35 +42,63 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
     } else if (pendingScreenshot) {
       pendingAppliedRef.current = true
       setContentType('screenshot')
-      // Upload the screenshot to the server so it gets a permanent URL.
-      // The upload happens asynchronously; the save button is disabled until complete.
-      setScreenshotUploading(true)
-      uploadCaptureImage(pendingScreenshot.dataUrl)
-        .then(result => {
-          if (result?.url) {
-            const fullUrl = result.url.startsWith('http')
-              ? result.url
-              : `https://glassy.fyi${result.url}`
-            setScreenshotUrl(fullUrl)
-            // Build a rich markdown note with the embedded screenshot
-            const markdown = `## 📸 Screenshot\n\n![Screenshot](${fullUrl})\n\n*Captured from ${pendingScreenshot.title || 'current page'}*`
-            setContentMarkdown(markdown)
-            setShowPreview(true)
-            if (!title && pendingScreenshot.title) {
-              setTitle(`📸 ${pendingScreenshot.title}`)
-            }
-          }
-        })
-        .catch(() => {
-          // Upload failed — still allow saving with metadata note
-          setNote(`📸 Screenshot captured from ${pendingScreenshot.title}\n\n[Upload failed — screenshot will be saved as a note only]`)
-        })
-        .finally(() => setScreenshotUploading(false))
+      // Stash the data URL and show an inline local preview using the data URL
+      // directly. The actual upload is deferred to save time (see handleSave).
+      screenshotDataUrlRef.current = pendingScreenshot.dataUrl
+      const localMarkdown = `## 📸 Screenshot\n\n![Screenshot](${pendingScreenshot.dataUrl})\n\n*Captured from ${pendingScreenshot.title || 'current page'}*`
+      setContentMarkdown(localMarkdown)
+      setShowPreview(true)
+      if (!title && pendingScreenshot.title) {
+        setTitle(`📸 ${pendingScreenshot.title}`)
+      }
       onClearPending?.()
     }
   }, [pendingElement, pendingScreenshot, onClearPending])
 
-  const handleSave = useCallback(() => {
+  // Upload the deferred screenshot with a small bounded backoff. Returns the
+  // absolute URL, or throws if all attempts fail so the caller can surface it.
+  const uploadScreenshotWithRetry = useCallback(async (dataUrl) => {
+    if (uploadedScreenshotUrlRef.current) return uploadedScreenshotUrlRef.current
+    let lastErr
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await uploadCaptureImage(dataUrl)
+        const url = result?.absoluteUrl || result?.url
+        if (url) {
+          uploadedScreenshotUrlRef.current = url
+          return url
+        }
+        lastErr = new Error('Upload returned no URL')
+      } catch (err) {
+        lastErr = err
+      }
+      // Exponential backoff: 0.5s, 1s before the next retry.
+      if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+    }
+    throw lastErr || new Error('Screenshot upload failed')
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    let markdown = contentMarkdown || undefined
+    const dataUrl = screenshotDataUrlRef.current
+
+    // If this capture carries a deferred screenshot, upload it now and swap the
+    // inline data-URL preview for the permanent server URL before saving.
+    if (dataUrl) {
+      setScreenshotError(null)
+      setScreenshotUploading(true)
+      try {
+        const url = await uploadScreenshotWithRetry(dataUrl)
+        markdown = `## 📸 Screenshot\n\n![Screenshot](${url})\n\n*Captured from ${pendingScreenshot?.title || title || 'current page'}*`
+        setContentMarkdown(markdown)
+      } catch {
+        setScreenshotUploading(false)
+        setScreenshotError('Screenshot upload failed. Check your connection and try saving again.')
+        return
+      }
+      setScreenshotUploading(false)
+    }
+
     onSave({
       sourceUrl: pageMeta.url,
       canonicalUrl: pageMeta.canonicalUrl,
@@ -82,9 +116,9 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       coverImageUrl: pageMeta.og_image,
       favicon_url: pageMeta.favicon_url,
       aiAutoTag,
-      contentMarkdown: contentMarkdown || undefined,
+      contentMarkdown: markdown,
     })
-  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, contentMarkdown, onSave])
+  }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, contentMarkdown, onSave, pendingScreenshot, uploadScreenshotWithRetry])
 
   const handleLoadPreview = useCallback(async () => {
     if (showPreview) { setShowPreview(false); return }
@@ -234,6 +268,12 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
           <>✨ Save to Glassy</>
         )}
       </button>
+
+      {screenshotError && (
+        <div role="alert" style={{ fontSize: 11, color: '#ff8a8a', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', borderRadius: 8, padding: '8px 10px' }}>
+          {screenshotError}
+        </div>
+      )}
     </div>
   )
 }

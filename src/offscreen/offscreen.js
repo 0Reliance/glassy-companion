@@ -16,9 +16,9 @@
  */
 
 import { saveCapture, saveBookmark, saveDocument, saveNote } from '../lib/api.js'
-import { enqueue, dequeue, incrementAttempts } from '../lib/offlineQueue.js'
+import { enqueue } from '../lib/offlineQueue.js'
 import { getToken } from '../lib/auth.js'
-import { planQueueFailure } from '../background/savePolicy.js'
+import { planBackgroundSaveFailure, planQueueFailure } from '../background/savePolicy.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
 
 // ── Message handler ──────────────────────────────────────────────────────────
@@ -90,33 +90,34 @@ async function processCapture(payload) {
 // ── Queue flush ────────────────────────────────────────────────────────────
 
 /**
- * Flush a single queue item. Called by the service worker during alarm flush.
+ * Flush a single queue item: perform the network save and report the outcome.
+ *
+ * This is PURE with respect to the queue — it does NOT dequeue/increment here.
+ * The service worker is the single owner of queue mutation and applies all
+ * outcomes in one batched write after the flush loop (see applyFlushOutcomes).
+ * Returns { synced } / { retry } / { dropped } for the caller to act on.
  */
 async function flushQueueItem(item) {
   const token = await getToken()
   if (!token) return { ok: false, error: 'Not authenticated' }
 
-  try {
-    if (item.attempts >= 5) {
-      await dequeue(item.id)
-      return { ok: true, dropped: true, reason: 'max_attempts' }
-    }
+  if (item.attempts >= 5) {
+    return { ok: true, dropped: true, reason: 'max_attempts' }
+  }
 
+  try {
     if (item.type === 'capture') await saveCapture(item.payload)
     else if (item.type === 'bookmark') await saveBookmark(item.payload)
     else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
     else await saveNote(item.payload)
 
-    await dequeue(item.id)
     return { ok: true, synced: true }
   } catch (err) {
     const plan = planQueueFailure(err)
     if (plan.action === 'retry') {
-      await incrementAttempts(item.id)
       return { ok: false, retry: true }
     }
-    // action === 'drop' or 'pause' — drop the item from queue
-    await dequeue(item.id)
+    // action === 'drop' or 'pause' — caller drops the item from the queue
     return { ok: false, dropped: true, reason: plan.kind }
   }
 }
