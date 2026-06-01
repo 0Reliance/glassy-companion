@@ -18,7 +18,7 @@
 import { saveCapture, saveBookmark, saveDocument, saveNote } from '../lib/api.js'
 import { enqueue, dequeue, incrementAttempts } from '../lib/offlineQueue.js'
 import { getToken } from '../lib/auth.js'
-import { planQueueFailure } from '../background/savePolicy.js'
+import { planBackgroundSaveFailure, planQueueFailure } from '../background/savePolicy.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
 
 // ── Message handler ──────────────────────────────────────────────────────────
