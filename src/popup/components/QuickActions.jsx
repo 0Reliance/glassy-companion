@@ -106,7 +106,6 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
             dataUrl: res.dataUrl,
             title: pageMeta?.title || tab?.title || 'Screenshot',
             capturedAt: Date.now(),
-            thumbnailUrl: res.dataUrl, // small dataUrl for preview
           }
         }).catch(() => {})
         setScreenshotStatus('done')
