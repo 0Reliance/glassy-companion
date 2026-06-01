@@ -175,6 +175,7 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           className="glass-card"
           onClick={handleCaptureScreenshot}
           disabled={screenshotStatus !== 'idle'}
+          title="Capture the visible viewport — image uploads to your Glassy instance and embeds in the note"
           style={{
             flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 6, cursor: screenshotStatus !== 'idle' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',

@@ -1,10 +1,12 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.3.0
+**Version:** 2.5.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** May 22, 2026
+**Last Updated:** June 1, 2026
 
-> **v2.3.0 adds:** Visual element picker, screenshot capture, site-specific interpreters (YouTube, GitHub, product, article), side panel (Chrome only, Ctrl+Shift+P), content preview with rendered/raw toggle, tag intelligence with frequency tracking, undo save, duplicate pre-flight check, skeleton loading UI, and a11y styles. See [CHANGELOG.md](../CHANGELOG.md) for details.
+> **v2.5.0 adds:** Content-script error telemetry, reliable offline-queue flush (O(n) via `applyFlushOutcomes`), deferred screenshot upload with bounded backoff, instance-aware screenshot URLs, idempotent premium markdown with Canonical/Published metadata. See [CHANGELOG.md](../CHANGELOG.md) for details.
+> **v2.4.0 adds:** Screenshot upload pipeline (base64 → server WebP → embedded markdown), popup crash fix (`saveStatus`), AI summarize fix (`executeTask`).
+> **v2.3.x adds:** MV3 offscreen document architecture, shared capture modules, Visual element picker, site-specific interpreters, side panel (Chrome only).
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
 
@@ -49,24 +51,28 @@ Glassy Companion has evolved into a multi-mode capture system that handles struc
 ```text
 src/
 ├── background/
-│   ├── service-worker.js       # Coordination: menus, keyboard, relay, premium assembly
+│   ├── service-worker.js       # Pure broker: menus, keyboard relay, queue flusher (SW is never the capture processor on Chrome)
 │   └── savePolicy.js           # Error classification
+├── offscreen/
+│   └── offscreen.js            # Chrome MV3 heavy-work executor: metadata extraction, markdown assembly, API calls
 ├── content/
-│   ├── extractor.js            # Structured extraction (Schema.org, main content)
+│   ├── extractor.js            # Structured extraction (Schema.org, main content) + error telemetry
 │   └── formatter.js            # HTML-to-Markdown (Premium quality)
 ├── lib/
 │   ├── api.js                  # Authenticated client for captures & items
 │   ├── auth.js                 # JWT & session management
 │   ├── cache.js                # TTL-based collections/tags cache
+│   ├── capturePipeline.js      # Shared: buildCaptureItem — used by both offscreen and SW paths
 │   ├── constants.js            # Endpoints & storage keys
-│   ├── offlineQueue.js         # Capture replay logic
+│   ├── offlineQueue.js         # O(n) batch-flush via applyFlushOutcomes; SW is sole mutation owner
 │   ├── presets.js              # Typed content definitions (Article, Video, etc.)
 │   ├── rules.js                # Client-side rule engine (Domain/URL patterns)
-│   └── types.js                # JSDoc canonical schemas
+│   ├── types.js                # JSDoc canonical schemas
+│   └── urlUtils.js             # Shared: getHostname, sameDocumentUrl
 └── popup/
     ├── Popup.jsx               # App entry
     ├── components/
-    │   ├── SmartSavePanel.jsx  # Structured capture UI
+    │   ├── SmartSavePanel.jsx  # Structured capture UI; screenshot upload deferred to save time
     │   ├── QuickActions.jsx    # Save Page + AI summary actions
     │   ├── BookmarkCard.jsx    # Quick save UI
     │   └── AppShell.jsx        # Premium layout with obsidian layering
@@ -122,8 +128,14 @@ Defined in `src/lib/types.js`.
 
 ---
 
-## 6. Capture Reliability Notes
+## 6. Capture Reliability Notes (v2.5.0)
 
+- **No silent capture loss:** `offscreen.js` previously called `planBackgroundSaveFailure` without importing it, causing a `ReferenceError` on every online-save failure. The missing import is now in place, so flaky-network failures are reliably queued for retry.
+- **Content-script error telemetry:** `extractor.js` reports handler failures via `reportContentError()` and a `respondSync()` wrapper. A `CONTENT_SCRIPT_ERROR` message reaches a sink in the service worker. `GET_PAGE_META` has a `.catch()` — the popup no longer hangs on extraction failure.
+- **O(n) offline-queue flush:** `applyFlushOutcomes({remove, increment})` applies all outcomes in a single read-modify-write. Items enqueued *during* a flush are preserved because the helper re-reads at apply time. The offscreen flusher is pure; the service worker is the single queue-mutation owner.
+- **Instance-aware screenshot URLs:** `uploadCaptureImage()` resolves the server's host-relative path against the *configured* base URL, so screenshots embed the user's actual instance (glassy.fyi, self-hosted, or dev) rather than a hardcoded host.
+- **Deferred screenshot upload:** `SmartSavePanel` no longer uploads the screenshot on mount. Upload is deferred to save time with a 3-attempt bounded backoff and inline error surfacing. Cancelling a capture never leaves an orphaned server-side image.
+- **Idempotent premium markdown:** `assemblePremiumMarkdown()` skips re-prepending an already-assembled header and strips duplicate leading H1 from page-extracted content. Canonical and Published metadata lines are added.
 - **Same-document guard:** link saves only request page metadata/content when the target URL matches the active tab, preventing cross-page contamination.
 - **Offline replay coverage:** queued `page` and `document` items replay through `saveDocument()` rather than falling back to note creation.
 - **Rule safety:** invalid URLs fail closed, and domain/path rule matching now requires the intended combination instead of broad substring matches.
@@ -132,8 +144,8 @@ Defined in `src/lib/types.js`.
 
 ## 7. Testing
 
-**Framework:** Vitest 2.1
+**Framework:** Vitest 3
 **Verification:** Playwright (Mock Chrome environment)
 
-Total Tests: **114**
-Coverage: API, Auth, Cache, Offline Queue, Save Policy, Extractor, Formatter, Bridge.
+Total Tests: **143** (12 test files)
+Coverage: API, Auth, Cache, Offline Queue (`applyFlushOutcomes` batch flush), Save Policy, Extractor + error telemetry, Formatter, Bridge, Screenshot upload pipeline, Offscreen document lifecycle.
