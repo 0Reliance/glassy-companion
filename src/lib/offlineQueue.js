@@ -78,6 +78,34 @@ export async function incrementAttempts(id) {
   await saveQueue(updated)
 }
 
+/**
+ * Apply a batch of flush outcomes in a SINGLE read-modify-write.
+ *
+ * A queue flush processes every item, and calling dequeue()/incrementAttempts()
+ * per item meant one full storage read + write per item — O(n) writes of an
+ * O(n) array, i.e. O(n^2) work across the queue. This applies all removals and
+ * attempt-bumps in one pass.
+ *
+ * Concurrency-safe: it re-reads the queue at apply time, so any item enqueued
+ * during the flush window (it won't be in `remove`/`increment`) passes through
+ * untouched rather than being clobbered.
+ *
+ * @param {{ remove?: Iterable<string>, increment?: Iterable<string> }} outcomes
+ */
+export async function applyFlushOutcomes({ remove, increment } = {}) {
+  const removeSet = new Set(remove || [])
+  const incrementSet = new Set(increment || [])
+  if (removeSet.size === 0 && incrementSet.size === 0) return
+  const queue = await loadQueue()
+  const next = []
+  for (const item of queue) {
+    if (removeSet.has(item.id)) continue // removal wins over increment
+    if (incrementSet.has(item.id)) next.push({ ...item, attempts: item.attempts + 1 })
+    else next.push(item)
+  }
+  await saveQueue(next)
+}
+
 /** Clear the entire queue (e.g., on logout). */
 export async function clearQueue() {
   await chrome.storage.local.remove(STORAGE_KEYS.offlineQueue)

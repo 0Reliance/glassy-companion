@@ -4,7 +4,7 @@
 
 import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight, deleteBookmark } from '../lib/api.js'
-import { enqueue, getQueue, dequeue, incrementAttempts, clearQueue } from '../lib/offlineQueue.js'
+import { enqueue, getQueue, applyFlushOutcomes, clearQueue } from '../lib/offlineQueue.js'
 import { getSettings } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
@@ -408,9 +408,12 @@ chrome.alarms.onAlarm.addListener(async alarm => {
       useOffscreen = false
     }
 
+    const toRemove = new Set()
+    const toIncrement = new Set()
+
     for (const item of queue) {
       if (item.attempts >= 5) {
-        await dequeue(item.id)
+        toRemove.add(item.id)
         continue
       }
       try {
@@ -420,11 +423,11 @@ chrome.alarms.onAlarm.addListener(async alarm => {
             item,
           })
           if (res?.ok && (res?.synced || res?.dropped)) {
-            await dequeue(item.id)
+            toRemove.add(item.id)
           } else if (res?.retry) {
-            await incrementAttempts(item.id)
+            toIncrement.add(item.id)
           } else {
-            await incrementAttempts(item.id)
+            toIncrement.add(item.id)
           }
         } else {
           // Legacy in-SW path
@@ -432,14 +435,21 @@ chrome.alarms.onAlarm.addListener(async alarm => {
           else if (item.type === 'bookmark') await saveBookmark(item.payload)
           else if (item.type === 'page' || item.type === 'document') await saveDocument(item.payload)
           else await saveNote(item.payload)
-          await dequeue(item.id)
+          toRemove.add(item.id)
         }
       } catch (err) {
         const failurePlan = planQueueFailure(err)
-        if (failurePlan.action === 'retry') await incrementAttempts(item.id)
-        else await dequeue(item.id)
+        if (failurePlan.action === 'retry') toIncrement.add(item.id)
+        else toRemove.add(item.id)
       }
     }
+
+    // Apply every removal/attempt-bump in a single read-modify-write instead of
+    // one storage write per item (was O(n^2) across the queue). Items enqueued
+    // concurrently during this flush window are preserved (see applyFlushOutcomes).
+    // A rare SW kill mid-flush just replays this cycle next alarm; server-side
+    // dedup makes any re-send of an already-synced item a no-op.
+    await applyFlushOutcomes({ remove: toRemove, increment: toIncrement })
   } finally {
     _queueFlushing = false
   }

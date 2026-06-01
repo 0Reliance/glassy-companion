@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  applyFlushOutcomes,
   clearQueue,
   dequeue,
   enqueue,
@@ -101,5 +102,44 @@ describe('offlineQueue', () => {
     const queue = await getQueue()
     expect(queue).toHaveLength(MAX_QUEUE_SIZE)
     expect(queue.find(it => it.payload.url === 'https://overflow.test')).toBeUndefined()
+  })
+
+  describe('applyFlushOutcomes', () => {
+    it('removes and increments in a single batch', async () => {
+      const a = await enqueue('bookmark', { url: 'https://a.test' })
+      const b = await enqueue('bookmark', { url: 'https://b.test' })
+      const c = await enqueue('bookmark', { url: 'https://c.test' })
+
+      await applyFlushOutcomes({ remove: [a.id, c.id], increment: [b.id] })
+
+      const queue = await getQueue()
+      expect(queue).toHaveLength(1)
+      expect(queue[0].id).toBe(b.id)
+      expect(queue[0].attempts).toBe(1)
+    })
+
+    it('lets removal win when an id is in both sets', async () => {
+      const a = await enqueue('note', { content: 'x' })
+      await applyFlushOutcomes({ remove: [a.id], increment: [a.id] })
+      await expect(getQueue()).resolves.toEqual([])
+    })
+
+    it('preserves items enqueued during the flush window', async () => {
+      const a = await enqueue('bookmark', { url: 'https://a.test' })
+      // Simulate a concurrent enqueue that happened after the flush snapshot.
+      const concurrent = await enqueue('bookmark', { url: 'https://late.test' })
+
+      await applyFlushOutcomes({ remove: [a.id] })
+
+      const queue = await getQueue()
+      expect(queue).toHaveLength(1)
+      expect(queue[0].id).toBe(concurrent.id)
+    })
+
+    it('is a no-op when given empty sets', async () => {
+      await enqueue('bookmark', { url: 'https://keep.test' })
+      await applyFlushOutcomes({ remove: [], increment: [] })
+      await expect(getQueue()).resolves.toHaveLength(1)
+    })
   })
 })

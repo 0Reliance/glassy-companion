@@ -15,8 +15,6 @@ vi.mock('../../lib/api.js', () => ({
 
 vi.mock('../../lib/offlineQueue.js', () => ({
   enqueue: vi.fn(async () => ({ id: 'q-1' })),
-  dequeue: vi.fn(async () => {}),
-  incrementAttempts: vi.fn(async () => {}),
 }))
 
 vi.mock('../../lib/capturePipeline.js', () => ({
@@ -41,9 +39,9 @@ vi.stubGlobal('navigator', { onLine: true })
 
 await import('../offscreen.js')
 
-const { saveCapture } = await import('../../lib/api.js')
+const { saveCapture, saveDocument } = await import('../../lib/api.js')
 const { enqueue } = await import('../../lib/offlineQueue.js')
-const { planBackgroundSaveFailure } = await import('../../background/savePolicy.js')
+const { planBackgroundSaveFailure, planQueueFailure } = await import('../../background/savePolicy.js')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -81,6 +79,41 @@ describe('offscreen.js', () => {
       expect(planBackgroundSaveFailure).toHaveBeenCalled()
       expect(enqueue).toHaveBeenCalledWith('capture', expect.any(Object))
       expect(res).toMatchObject({ ok: true, queued: true })
+    })
+  })
+
+  describe('OFFSCREEN_FLUSH_QUEUE_ITEM', () => {
+    // The offscreen flusher is PURE w.r.t. the queue: it saves and reports the
+    // outcome, but never mutates the queue itself (the service worker is the
+    // single owner and batches all mutations via applyFlushOutcomes). The mock
+    // only exports `enqueue` — if offscreen.js imported dequeue/incrementAttempts
+    // the module would fail to load against this mock.
+    it('reports synced without mutating the queue on success', async () => {
+      saveDocument.mockResolvedValueOnce({ id: 'doc-2' })
+      const res = await sendMessage({
+        type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+        item: { id: 'q-7', type: 'page', payload: { url: 'https://e.com' }, attempts: 0 },
+      })
+      expect(res).toMatchObject({ ok: true, synced: true })
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('reports retry when the save fails with a retryable error', async () => {
+      planQueueFailure.mockReturnValueOnce({ action: 'retry', kind: 'network' })
+      saveDocument.mockRejectedValueOnce(Object.assign(new Error('net'), { status: 503 }))
+      const res = await sendMessage({
+        type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+        item: { id: 'q-8', type: 'page', payload: { url: 'https://e.com' }, attempts: 1 },
+      })
+      expect(res).toMatchObject({ ok: false, retry: true })
+    })
+
+    it('reports dropped when the item has exhausted its attempts', async () => {
+      const res = await sendMessage({
+        type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+        item: { id: 'q-9', type: 'page', payload: { url: 'https://e.com' }, attempts: 5 },
+      })
+      expect(res).toMatchObject({ ok: true, dropped: true, reason: 'max_attempts' })
     })
   })
 
