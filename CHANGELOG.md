@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.5.0] — 2026-06-01 — Reliability & Capture Hardening
+
+A reliability-focused release: no captured data is silently lost, content-script
+failures are now observable, the offline queue scales cleanly, and screenshot
+upload is deferred and instance-aware.
+
+### Added
+- **Content-script error telemetry** — `extractor.js` now reports handler
+  failures via `reportContentError()` and a `respondSync()` wrapper, relaying a
+  `CONTENT_SCRIPT_ERROR` message to a new sink in the service worker instead of
+  silently swallowing the error. `GET_PAGE_META` gained a missing `.catch()` so
+  the popup no longer hangs on extraction failure.
+
+### Fixed
+- **Failed online saves were never queued (silent data loss).** `offscreen.js`
+  called `planBackgroundSaveFailure` without importing it, throwing a
+  `ReferenceError` on every online-save failure — so a capture that failed on a
+  flaky network was dropped instead of queued for retry. Added the missing
+  import.
+- **Screenshot uploads orphaned images on cancel.** `SmartSavePanel` uploaded
+  the screenshot on panel mount, so opening then cancelling left an unreferenced
+  image on the server. Upload is now deferred to save time with a bounded
+  3-attempt backoff and inline error surfacing.
+- **Embedded screenshots pointed at a hardcoded host.** `uploadCaptureImage()`
+  now resolves the server's host-relative path against the *configured* base
+  URL, so screenshots embed the user's actual instance (glassy.fyi, self-hosted,
+  or dev) rather than `https://glassy.fyi`.
+- **Premium markdown could double its header.** `assemblePremiumMarkdown()` is
+  now idempotent (skips re-prepending an already-assembled header) and strips a
+  duplicate leading H1 from page-extracted content; adds Canonical/Published
+  metadata lines.
+- **`BookmarkCard` could throw inside a storage callback** when the extension
+  context was invalidated — now guards `chrome.runtime.lastError`.
+
+### Performance
+- **Offline-queue flush is now O(n) instead of O(n²).** The alarm flush called
+  `dequeue`/`incrementAttempts` per item (a full storage read+write each), and
+  the offscreen flusher double-mutated the queue. A new
+  `applyFlushOutcomes({remove, increment})` applies all outcomes in a single
+  read-modify-write (re-reading at apply time so items enqueued *during* the
+  flush survive); the offscreen flusher is now pure and the service worker is
+  the single queue-mutation owner.
+
+### Verification
+- `npx vitest run` → **143 passed** (12 test files; +8 over 2.4.0)
+- `npm run build` → ✓ Chrome artifact (`dist/`)
+
+---
+
 ## [2.4.0] — 2026-05-30 — Screenshot Upload Pipeline, Popup Crash Fix
 
 ### Added
