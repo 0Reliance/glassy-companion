@@ -39,10 +39,6 @@
   "side_panel": {
     "default_path": "src/sidepanel/index.html"
   },
-  "offscreen": {
-    "reason": ["WORKERS"],
-    "url": "src/offscreen/index.html"
-  },
   "content_scripts": [
     {
       "matches": [
