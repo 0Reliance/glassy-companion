@@ -19,6 +19,14 @@ upload is deferred and instance-aware.
   the popup no longer hangs on extraction failure.
 
 ### Fixed
+- **Invalid `offscreen` key in manifest.json** (2026-06-02 post-release fix).
+  Chrome MV3 rejects unknown `manifest.json` keys. The block
+  `"offscreen": { "reason": ["WORKERS"], ... }` was declared in the manifest
+  even though offscreen documents must be created programmatically via
+  `chrome.offscreen.createDocument()`. Removed from `manifest.json`; the service
+  worker already handled runtime creation correctly. Fixed, rebuilt, and
+  re-uploaded to the v2.5.0 release. CRXJS 2.4.0 has no code path that
+  re-injects this key.
 - **Failed online saves were never queued (silent data loss).** `offscreen.js`
   called `planBackgroundSaveFailure` without importing it, throwing a
   `ReferenceError` on every online-save failure — so a capture that failed on a

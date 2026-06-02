@@ -160,19 +160,18 @@ The service worker is now a **pure message broker**:
 | `src/offscreen/index.html` | Entry point — hidden page, no visible UI |
 | `src/offscreen/offscreen.js` | Message handler, capture processing, queue flush |
 
-### 5.5 Manifest Changes
+### 5.5 Manifest — No Offscreen Key Required
 
-```json
-{
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; ..."
-  },
-  "offscreen": {
-    "reason": ["WORKERS"],
-    "url": "src/offscreen/index.html"
-  }
-}
+Chrome MV3 rejects unknown manifest keys. The `offscreen` document is created **programmatically at runtime** via `chrome.offscreen.createDocument()`, not declared in `manifest.json`. This was a critical bug in v2.5.0:
+
+```diff
+-  "offscreen": {
+-    "reason": ["WORKERS"],     // INVALID — Chrome rejects unknown keys
+-    "url": "src/offscreen/index.html"
+-  }
 ```
+
+✅ **Fixed 2026-06-02**: Removed the invalid `offscreen` key from `manifest.json`. The service worker handles offscreen doc creation dynamically (see §5.2). CRXJS 2.4.0 has no code path that re-injects this key — the fix is permanent.
 
 ### 5.6 Vite Build Changes
 
