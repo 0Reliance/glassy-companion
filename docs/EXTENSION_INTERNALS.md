@@ -1,9 +1,10 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.5.0
+**Version:** 2.6.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** June 1, 2026
+**Last Updated:** June 6, 2026
 
+> **v2.6.0 adds:** Region screenshot capture (drag-to-select overlay + DPR-accurate offscreen crop), structured image manifest (`images[]`) on captures so screenshots and element clips populate the app's native image gallery (hero + lightbox), and element-picker image harvesting with source attribution. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.5.0 adds:** Content-script error telemetry, reliable offline-queue flush (O(n) via `applyFlushOutcomes`), deferred screenshot upload with bounded backoff, instance-aware screenshot URLs, idempotent premium markdown with Canonical/Published metadata. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.4.0 adds:** Screenshot upload pipeline (base64 → server WebP → embedded markdown), popup crash fix (`saveStatus`), AI summarize fix (`executeTask`).
 > **v2.3.x adds:** MV3 offscreen document architecture, shared capture modules, Visual element picker, site-specific interpreters, side panel (Chrome only).
@@ -56,7 +57,9 @@ src/
 ├── offscreen/
 │   └── offscreen.js            # Chrome MV3 heavy-work executor: metadata extraction, markdown assembly, API calls
 ├── content/
-│   ├── extractor.js            # Structured extraction (Schema.org, main content) + error telemetry
+│   ├── extractor.js            # Structured extraction (Schema.org, main content) + error telemetry + region/element picker relays
+│   ├── elementPicker.js        # Visual element picker; harvests images[] + adds "Clipped from {site}" attribution
+│   ├── regionPicker.js         # Drag-to-select region screenshot overlay (tears down before capture, sends DPR)
 │   └── formatter.js            # HTML-to-Markdown (Premium quality)
 ├── lib/
 │   ├── api.js                  # Authenticated client for captures & items
@@ -128,7 +131,20 @@ Defined in `src/lib/types.js`.
 
 ---
 
-## 6. Capture Reliability Notes (v2.5.0)
+## 6. Image & Screenshot Pipeline (v2.6.0)
+
+Captures now carry a structured image manifest so visual content becomes a first-class object in the app rather than a tiny inline thumbnail.
+
+- **`images[]` manifest:** `CaptureItem` (`src/lib/types.js`) carries `images[]` (`{ url, src, name, width, height }`) and optional `screenshot` metadata. `SmartSavePanel` populates `payload.images` for both `screenshot` and `highlight` (element) content types. The server stores these in `images_json`, and the app renders a hero image + lightbox.
+- **Full-page / visible screenshot:** captured by the service worker via `chrome.tabs.captureVisibleTab`, deferred-uploaded by `SmartSavePanel` at save time.
+- **Region screenshot (drag-to-select):** `content/regionPicker.js` paints a dark overlay with a selection rectangle. On mouse-up it computes the rect, **tears the overlay down first** (waiting two animation frames so the overlay is never in the capture), then sends `CAPTURE_REGION` with the rect and `window.devicePixelRatio`.
+  - The service worker captures the visible tab, then delegates cropping to the offscreen document via `chrome.runtime.sendMessage({ type: 'OFFSCREEN_CROP_IMAGE', dataUrl, rect, dpr })` (same `ensureOffscreen()` delegation pattern as capture processing — there is no custom port).
+  - `offscreen/offscreen.js` scales the CSS-pixel rect by `dpr` and clamps to the captured image bounds before drawing to a canvas, so crops are pixel-accurate on HiDPI / retina / zoomed displays. Falls back to the uncropped viewport image if the offscreen doc is unavailable.
+- **Element picker:** `content/elementPicker.js` collects every `<img>` URL inside the selected element into `images[]` and prepends a `> Clipped from {site}` attribution header to the Markdown.
+
+---
+
+## 7. Capture Reliability Notes (v2.5.0)
 
 - **No silent capture loss:** `offscreen.js` previously called `planBackgroundSaveFailure` without importing it, causing a `ReferenceError` on every online-save failure. The missing import is now in place, so flaky-network failures are reliably queued for retry.
 - **Content-script error telemetry:** `extractor.js` reports handler failures via `reportContentError()` and a `respondSync()` wrapper. A `CONTENT_SCRIPT_ERROR` message reaches a sink in the service worker. `GET_PAGE_META` has a `.catch()` — the popup no longer hangs on extraction failure.
@@ -142,7 +158,7 @@ Defined in `src/lib/types.js`.
 
 ---
 
-## 7. Testing
+## 8. Testing
 
 **Framework:** Vitest 3
 **Verification:** Playwright (Mock Chrome environment)

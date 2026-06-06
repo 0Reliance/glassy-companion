@@ -163,11 +163,30 @@ function onClick(e) {
     // Import nodeToMarkdown dynamically (it's already a module export)
     import('./formatter.js').then(({ nodeToMarkdown }) => {
       const markdown = nodeToMarkdown(clone)
+
+      // Collect any images inside the element for the native gallery
+      const images = []
+      clone.querySelectorAll('img').forEach(img => {
+        const src = img.src || img.getAttribute('src')
+        if (src) {
+          images.push({
+            url: src,
+            src,
+            name: img.getAttribute('alt') || 'clipped image',
+          })
+        }
+      })
+
+      // Add attribution header
+      const site = document.title || window.location.hostname || 'current page'
+      const attributedMarkdown = `> Clipped from *${site}*\n\n${markdown}`
+
       const result = {
-        markdown,
+        markdown: attributedMarkdown,
         tagName: el.tagName.toLowerCase(),
         textPreview: (el.textContent || '').trim().slice(0, 200),
         capturedAt: Date.now(),
+        images,
       }
       // Store result for the popup to pick up on next open.
       chrome.storage.local.set({ glassy_pending_element: result }).catch(() => {})

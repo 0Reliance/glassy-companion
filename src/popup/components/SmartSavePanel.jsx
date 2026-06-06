@@ -26,6 +26,8 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
   const screenshotDataUrlRef = useRef(null)
   // Caches the uploaded absolute URL so a save retry doesn't re-upload.
   const uploadedScreenshotUrlRef = useRef(null)
+  // Caches images collected by the element picker for the native gallery.
+  const pendingElementImagesRef = useRef([])
 
   // Pre-populate from element picker or screenshot on mount.
   useEffect(() => {
@@ -37,6 +39,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       if (!title && pendingElement.textPreview) {
         setTitle(pendingElement.textPreview.slice(0, 100))
       }
+      pendingElementImagesRef.current = pendingElement.images || []
       setShowPreview(true)
       onClearPending?.()
     } else if (pendingScreenshot) {
@@ -99,7 +102,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       setScreenshotUploading(false)
     }
 
-    onSave({
+    const payload = {
       sourceUrl: pageMeta.url,
       canonicalUrl: pageMeta.canonicalUrl,
       title,
@@ -117,7 +120,20 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       favicon_url: pageMeta.favicon_url,
       aiAutoTag,
       contentMarkdown: markdown,
-    })
+    }
+
+    // If this is a screenshot capture, send the image as a native gallery item
+    // so the app renders a full-size hero + lightbox instead of a tiny inline thumbnail.
+    if (contentType === 'screenshot' && uploadedScreenshotUrlRef.current) {
+      payload.images = [{ url: uploadedScreenshotUrlRef.current, name: title || 'Screenshot' }]
+    }
+
+    // If this is an element capture with clipped images, send them as a native gallery.
+    if (contentType === 'highlight' && pendingElementImagesRef.current.length) {
+      payload.images = pendingElementImagesRef.current
+    }
+
+    onSave(payload)
   }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, contentMarkdown, onSave, pendingScreenshot, uploadScreenshotWithRetry])
 
   const handleLoadPreview = useCallback(async () => {

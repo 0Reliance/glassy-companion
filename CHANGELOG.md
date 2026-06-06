@@ -1,7 +1,36 @@
 # Changelog — Glassy Companion
 
-All notable changes to the Glassy browser extension are documented here.  
+All notable changes to the Glassy browser extension are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+## [2.6.0] — 2026-06-06 — Capture-to-Application Premium Experience
+
+A major uplift for how captured artifacts reach the application. Screenshots,
+element captures, and articles now render as rich, first-class objects with
+native image galleries, offline-durable reader content, and content-type
+visual identity.
+
+### Added
+- **Region screenshot capture** — new drag-to-select overlay in
+  `src/content/regionPicker.js`. User drags a rectangle on the page; the
+  service worker captures the visible viewport and delegates cropping to the
+  offscreen document via `OFFSCREEN_CROP_IMAGE`. Returns a cropped PNG stored
+  as a pending screenshot for the popup.
+- **Structured image manifest (`images[]`) on captures** — `CaptureItem` type
+  extended with `ScreenshotMeta` and `CaptureImage` typedefs. Screenshot and
+  element captures now send `images[]` alongside Markdown so the app can render
+  a native hero + lightbox instead of thumbnailing them to 80px.
+- **Element picker image harvesting** — `elementPicker.js` now collects all
+  `<img>` URLs from the selected element into `images[]` and adds a
+  "Clipped from {site}" attribution header to the Markdown.
+
+### Changed
+- **SmartSavePanel** populates `payload.images` for both `screenshot` and
+  `highlight` (element) content types so the server can store them in
+  `images_json`.
+- **QuickActions** gained a "Region" button between Screenshot and Element.
 
 ---
 

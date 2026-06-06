@@ -38,6 +38,39 @@ async function handleOffscreenMessage(message) {
       return flushQueueItem(message.item)
     case 'OFFSCREEN_PING':
       return { ok: true }
+
+    case 'OFFSCREEN_CROP_IMAGE': {
+      try {
+        const { dataUrl, rect, dpr = 1 } = message
+        const img = new Image()
+        img.src = dataUrl
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = () => reject(new Error('Failed to load image for crop'))
+          // Safety timeout
+          setTimeout(() => reject(new Error('Image load timeout')), 5000)
+        })
+        // captureVisibleTab produces an image scaled by devicePixelRatio relative
+        // to the CSS-pixel coordinates the content script measured. Scale the rect
+        // to device pixels and clamp to the captured image bounds.
+        const scale = dpr || 1
+        const sx = Math.max(0, Math.round(rect.x * scale))
+        const sy = Math.max(0, Math.round(rect.y * scale))
+        const sw = Math.max(1, Math.min(Math.round(rect.width * scale), img.naturalWidth - sx))
+        const sh = Math.max(1, Math.min(Math.round(rect.height * scale), img.naturalHeight - sy))
+
+        const canvas = document.createElement('canvas')
+        canvas.width = sw
+        canvas.height = sh
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+        const croppedDataUrl = canvas.toDataURL('image/png')
+        return { dataUrl: croppedDataUrl, width: sw, height: sh }
+      } catch (err) {
+        return { error: err.message }
+      }
+    }
+
     default:
       return { ok: false, error: 'Unknown offscreen message type' }
   }

@@ -9,6 +9,7 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
   const [summaryError, setSummaryError] = useState('')
   const [pageStatus, setPageStatus] = useState('idle')
   const [screenshotStatus, setScreenshotStatus] = useState('idle')
+  const [regionStatus, setRegionStatus] = useState('idle')
   const [elementPickerActive, setElementPickerActive] = useState(false)
 
   async function handleSummarize() {
@@ -120,6 +121,21 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
     }
   }
 
+  async function handleCaptureRegion() {
+    if (regionStatus !== 'idle') return
+    setRegionStatus('selecting')
+    try {
+      // Close popup so user can interact with the page.
+      window.close()
+      await new Promise(r => setTimeout(r, 400))
+      chrome.runtime.sendMessage({ type: 'ACTIVATE_REGION_PICKER' }).catch(() => {})
+      // Result will be stored in chrome.storage.local by the service worker
+      // after the user drags a selection and cropping completes.
+    } catch {
+      setRegionStatus('idle')
+    }
+  }
+
   async function handleElementPicker() {
     if (elementPickerActive) return
     setElementPickerActive(true)
@@ -146,6 +162,11 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
     : screenshotStatus === 'done' ? 'Captured!'
     : screenshotStatus === 'error' ? 'Failed'
     : 'Screenshot'
+
+  const regionLabel = regionStatus === 'selecting' ? 'Select...'
+    : regionStatus === 'done' ? 'Captured!'
+    : regionStatus === 'error' ? 'Failed'
+    : 'Region'
 
   return (
     <div>
@@ -189,6 +210,27 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
             : <span style={{ fontSize: 16 }}>{screenshotStatus === 'done' ? '✓' : screenshotStatus === 'error' ? '!' : '📸'}</span>}
           <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
             {screenshotLabel}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="glass-card"
+          onClick={handleCaptureRegion}
+          disabled={regionStatus !== 'idle'}
+          title="Drag to select a region of the page — cropped image uploads to your Glassy instance"
+          style={{
+            flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 6, cursor: regionStatus !== 'idle' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
+        >
+          {regionStatus === 'selecting'
+            ? <span className="spinner" style={{ width: 14, height: 14 }} />
+            : <span style={{ fontSize: 16 }}>{regionStatus === 'done' ? '✓' : regionStatus === 'error' ? '!' : '⬚'}</span>}
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+            {regionLabel}
           </span>
         </button>
         <button

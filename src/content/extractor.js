@@ -320,6 +320,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true
     }
 
+    case 'ACTIVATE_REGION_PICKER': {
+      import('./regionPicker.js').then(mod => {
+        mod.activateRegionPicker()
+      }).catch(() => {})
+      sendResponse({ ok: true })
+      break
+    }
+
+    case 'DEACTIVATE_REGION_PICKER':
+      import('./regionPicker.js').then(mod => {
+        mod.deactivateRegionPicker()
+        sendResponse({ ok: true })
+      }).catch(() => sendResponse({ ok: false }))
+      return true
+
     default:
       return false
   }

@@ -549,6 +549,64 @@ async function handleMessage(message) {
       }
     }
 
+    // Region screenshot: content script sends viewport rect → SW captures → offscreen crops.
+    case 'CAPTURE_REGION': {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id) throw new Error('No active tab')
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+
+        // Delegate crop to the offscreen document (it has a real DOM + canvas).
+        // captureVisibleTab returns an image scaled by the page's devicePixelRatio,
+        // so the CSS-pixel rect from the content script must be scaled to match.
+        let croppedDataUrl = null
+        try {
+          await ensureOffscreen()
+          const cropResult = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              type: 'OFFSCREEN_CROP_IMAGE',
+              dataUrl,
+              rect: message.rect,
+              dpr: message.dpr || 1,
+            }, (response) => {
+              if (chrome.runtime.lastError) return resolve(null)
+              resolve(response)
+            })
+          })
+          if (cropResult?.dataUrl) croppedDataUrl = cropResult.dataUrl
+        } catch {
+          // Offscreen unavailable — fall back to the uncropped viewport image.
+        }
+
+        const result = {
+          dataUrl: croppedDataUrl || dataUrl,
+          url: tab.url,
+          title: tab.title || 'Region Screenshot',
+          capturedAt: new Date().toISOString(),
+          mode: croppedDataUrl ? 'region' : 'viewport',
+          rect: message.rect,
+        }
+        await chrome.storage.local.set({ glassy_pending_screenshot: result })
+        return { ok: true, cropped: !!croppedDataUrl }
+      } catch (err) {
+        return { ok: false, error: err.message }
+      }
+    }
+
+    // Relay: popup → service worker → content script → activate region picker.
+    case 'ACTIVATE_REGION_PICKER': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id) return { ok: false, error: 'No active tab' }
+      return chrome.tabs.sendMessage(tab.id, { type: 'ACTIVATE_REGION_PICKER' })
+    }
+
+    // Relay: popup → service worker → content script → deactivate region picker.
+    case 'DEACTIVATE_REGION_PICKER': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id) return { ok: false }
+      return chrome.tabs.sendMessage(tab.id, { type: 'DEACTIVATE_REGION_PICKER' })
+    }
+
     case 'CHECK_DUPLICATE_URL': {
       try {
         const result = await checkUrl(message.url)
