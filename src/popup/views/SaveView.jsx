@@ -8,6 +8,19 @@ import { isUnsavableUrl } from '../../lib/urlUtils.js'
 
 export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
   const [mode, setMode] = useState('quick') // quick | smart
+  // Live screenshot: captured in this popup session via the Screenshot button.
+  // Preferred over pendingScreenshot (prior session) when both present.
+  const [liveScreenshot, setLiveScreenshot] = useState(null)
+
+  // When a screenshot is captured in the current session, switch immediately
+  // to SmartSavePanel with the screenshot pre-loaded \u2014 no popup re-open needed.
+  const handleScreenshotCaptured = useCallback((data) => {
+    setLiveScreenshot(data)
+    setMode('smart')
+  }, [])
+
+  // Effective pending screenshot: live (just captured) takes priority.
+  const effectivePendingScreenshot = liveScreenshot || pendingScreenshot
 
   // Re-check duplicate state against the newly selected account (dedup is
   // per-account on the server) so the "already saved" badge stays accurate.
@@ -148,8 +161,8 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         </div>
       )}
 
-      {/* Pending capture banner — element picker / screenshot from prior popup session */}
-      {(pendingElement || pendingScreenshot) && saveStatus === 'idle' && (
+      {/* Pending capture banner — element picker / screenshot (prior session only; live screenshots go straight to SmartSave) */}
+      {(pendingElement || (pendingScreenshot && !liveScreenshot)) && saveStatus === 'idle' && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '8px 10px', marginBottom: 8,
@@ -193,6 +206,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
             onSave={handleSave}
             onSaveNote={handleSaveNote}
             saving={saveStatus === 'saving'}
+            onScreenshotCaptured={handleScreenshotCaptured}
           />
           <button
             onClick={() => setMode('smart')}
@@ -216,11 +230,11 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
           pageMeta={pageMeta}
           defaults={ruleDefaults}
           pendingElement={pendingElement}
-          pendingScreenshot={pendingScreenshot}
+          pendingScreenshot={effectivePendingScreenshot}
           onSave={handleSave}
           saving={saveStatus === 'saving'}
-          onCancel={() => { setMode('quick'); clearPending?.() }}
-          onClearPending={() => clearPending?.()}
+          onCancel={() => { setMode('quick'); setLiveScreenshot(null); clearPending?.() }}
+          onClearPending={() => { setLiveScreenshot(null); clearPending?.() }}
         />
       )}
 

@@ -151,6 +151,19 @@ export function nodeToMarkdown(node) {
       return img ? nodeToMarkdown(img) : ''
     }
     case 'img': {
+      // Skip images that are explicitly marked as decorative (accessibility-
+      // standard signals), are tiny tracking pixels, or carry no useful alt text
+      // while being background/layout art. These add noise to captured Markdown.
+      const role = node.getAttribute('role')
+      if (role === 'presentation' || role === 'none') return ''
+      if (node.getAttribute('aria-hidden') === 'true') return ''
+      // Tracking pixels — explicit width/height attributes of ≤2 px.
+      const attrW = parseInt(node.getAttribute('width') || '0', 10)
+      const attrH = parseInt(node.getAttribute('height') || '0', 10)
+      if ((attrW > 0 && attrW <= 2) || (attrH > 0 && attrH <= 2)) return ''
+      // Loaded images with sub-pixel natural dimensions (inline or via JS).
+      if (node.naturalWidth > 0 && node.naturalWidth <= 2) return ''
+      if (node.naturalHeight > 0 && node.naturalHeight <= 2) return ''
       const alt = node.getAttribute('alt') || 'image'
       const src = node.src || node.getAttribute('src')
       return src ? `![${alt}](${src})\n\n` : ''

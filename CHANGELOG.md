@@ -5,6 +5,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.8.0] — 2026-06-07 — Capture Quality & Screenshot UX
+
+Eliminates junk captures on app/SPA pages and makes screenshots a first-class
+one-click workflow instead of a two-popup dance.
+
+### Fixed
+- **Save Page quality gate** — `getStructuredContent()` now scores candidate
+  containers by text density (rejecting navigation-heavy / link-dense sections)
+  and returns an empty string when the page yields fewer than 200 meaningful
+  characters. On SPA dashboards and app pages this means the capture falls through
+  to a clean bookmark instead of creating a note containing a lone decorative image
+  or code block. Previously, saving the Glassy dashboard itself produced a note
+  whose body was `![Custom Background](…)`.
+- **Decorative image filtering** — `nodeToMarkdown` now skips images that carry
+  `role="presentation"`, `role="none"`, `aria-hidden="true"`, or explicit
+  sub-pixel dimensions (tracking pixels ≤ 2 px). Content images are unaffected.
+- **Improved content container scoring** — `findMainContent()` now evaluates
+  ARIA landmarks (`[role="main"]`, `[role="article"]`), link density, and an
+  extended set of semantic class/id selectors (`post-content`, `entry-content`,
+  `article-body`, etc.) before falling back to `document.body`.
+- **Thin-content guard in service worker** — `SAVE_CAPTURE` now only uses
+  extracted content when the markdown is > 50 chars, preventing a subsequent
+  `assemblePremiumMarkdown` call from embedding the empty quality-gate result.
+
+### Changed
+- **Screenshot → immediate SmartSavePanel** — clicking the Screenshot (📸) button
+  now switches the popup straight to Smart Save with the captured image
+  pre-loaded, instead of storing it silently and requiring the user to re-open
+  the popup. The old storage-based flow is retained as a fallback if the callback
+  is absent (e.g. headless tests).
+- **NoteCard lone-image guard** — notes whose content resolves to only an `<img>`
+  tag with no surrounding text now show an empty preview on the card rather than
+  a dangling picture with no context. The full image is still visible on note open.
+- **Clearer tooltips** — Save Page tooltip notes it extracts readable text
+  (best on articles); Screenshot tooltip notes it opens Smart Save for review.
+
+### Added (Tests)
+- `GET_STRUCTURED_CONTENT` tests: semantic article extraction, SPA quality-gate
+  (empty return), high-link-density rejection, `[role="main"]` preference.
+- `decorative image filtering` tests in formatter: `role="presentation/none"`,
+  `aria-hidden`, 1×1 tracking pixel, 2 px boundary, content-image passthrough.
+
+---
+
 ## [2.7.0] — 2026-06-07 — Multi-Account Capture & Frictionless Server Setup
 
 Fixes the "where did my save go?" problem for users who work across multiple

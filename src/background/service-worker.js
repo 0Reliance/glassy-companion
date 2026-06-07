@@ -481,7 +481,12 @@ async function handleMessage(message) {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
           if (tab?.id) {
              const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
-             if (res?.markdown) item.contentMarkdown = res.markdown
+             // Only use the extracted content if it is substantive. An empty
+             // string from the quality gate (SPA / low-content page) means we
+             // should route this as a plain bookmark rather than save a junk note.
+             if (res?.markdown && res.markdown.trim().length > 50) {
+               item.contentMarkdown = res.markdown
+             }
           }
         } catch {}
       }

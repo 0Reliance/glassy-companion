@@ -3,7 +3,7 @@ import { summarizePage } from '../../lib/api.js'
 import { enqueue } from '../../lib/offlineQueue.js'
 import SummaryCard from './SummaryCard.jsx'
 
-export default function QuickActions({ pageMeta, onSaveNote }) {
+export default function QuickActions({ pageMeta, onSaveNote, onScreenshotCaptured }) {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [summaryError, setSummaryError] = useState('')
@@ -100,17 +100,20 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       const res = await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_SCREENSHOT' })
       if (res?.dataUrl) {
-        // Store screenshot result for the popup to pick up on next open.
-        // The user may want to attach it to a Smart Save or use it standalone.
-        chrome.storage.local.set({
-          glassy_pending_screenshot: {
-            dataUrl: res.dataUrl,
-            title: pageMeta?.title || tab?.title || 'Screenshot',
-            capturedAt: Date.now(),
-          }
-        }).catch(() => {})
-        setScreenshotStatus('done')
-        setTimeout(() => setScreenshotStatus('idle'), 2000)
+        const screenshotData = {
+          dataUrl: res.dataUrl,
+          title: pageMeta?.title || tab?.title || 'Screenshot',
+          capturedAt: Date.now(),
+        }
+        if (onScreenshotCaptured) {
+          // Immediately hand off to SmartSavePanel — no intermediate storage needed.
+          onScreenshotCaptured(screenshotData)
+        } else {
+          // Fallback: persist for next popup open (e.g. no callback provided).
+          chrome.storage.local.set({ glassy_pending_screenshot: screenshotData }).catch(() => {})
+          setScreenshotStatus('done')
+          setTimeout(() => setScreenshotStatus('idle'), 2000)
+        }
       } else {
         setScreenshotStatus('error')
         setTimeout(() => setScreenshotStatus('idle'), 3000)
@@ -176,6 +179,7 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           className="glass-card"
           onClick={handleSavePage}
           disabled={pageStatus === 'saving' || pageStatus === 'saved'}
+          title="Save the readable text of this page as a note (article/research content). On app pages and SPAs, use Screenshot instead."
           style={{
             flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 6, cursor: pageStatus === 'saving' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',
@@ -196,7 +200,7 @@ export default function QuickActions({ pageMeta, onSaveNote }) {
           className="glass-card"
           onClick={handleCaptureScreenshot}
           disabled={screenshotStatus !== 'idle'}
-          title="Capture the visible viewport — image uploads to your Glassy instance and embeds in the note"
+          title="Capture the visible viewport as an image — opens Smart Save so you can review and annotate before saving"
           style={{
             flex: 1, padding: '10px 4px', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 6, cursor: screenshotStatus !== 'idle' ? 'default' : 'pointer', background: 'rgba(255,255,255,0.02)',

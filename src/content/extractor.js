@@ -108,24 +108,77 @@ async function extractPageMeta() {
 
 // ── Content extraction ───────────────────────────────────────────────────────
 
+// Meaningful-text character count: strip markdown link/image URLs (they don't
+// represent readable content) then count only alphanumeric characters.
+function meaningfulLength(text) {
+  return (text || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')    // strip markdown images entirely
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // keep only link display text
+    .replace(/[^a-zA-Z0-9]/g, '').length
+}
+
+// Heuristic text-density score for a DOM element (ignores pure navigation).
+// Returns a number; higher = more likely to be main article content.
+function scoreContainer(el) {
+  const text = el.textContent || ''
+  const links = el.querySelectorAll('a')
+  const textLen = text.replace(/\s+/g, ' ').trim().length
+  if (textLen < 100) return 0
+  // Penalise link-heavy elements (nav, menus, footers) — link-density proxy.
+  const linkText = Array.from(links).map(a => a.textContent).join('').trim().length
+  const density = textLen > 0 ? linkText / textLen : 1
+  if (density > 0.65) return 0
+  return textLen
+}
+
 function findMainContent() {
+  // 1. Semantic article element — strongest signal.
   const article = document.querySelector('article')
-  if (article) return article
+  if (article && scoreContainer(article) > 100) return article
 
-  const containers = document.querySelectorAll('main, .content, .article, #content, .post')
-  for (const c of containers) {
-    if (c.textContent.length > 500) return c
+  // 2. ARIA landmark.
+  const main = document.querySelector('[role="main"]')
+  if (main && scoreContainer(main) > 200) return main
+
+  // 3. Extended selector set, scored — pick the highest-scoring candidate.
+  const candidates = document.querySelectorAll(
+    'main, [role="article"], .post-content, .entry-content, .article-content, ' +
+    '.article-body, .story-body, .content-body, .page-content, ' +
+    '.article__body, .post__content, .content, .article, #content, ' +
+    '#main-content, #article-body, .post, .blog-post, [data-article-body]'
+  )
+  let best = null
+  let bestScore = 200 // minimum threshold — skip low-content containers
+  for (const c of candidates) {
+    const s = scoreContainer(c)
+    if (s > bestScore) { bestScore = s; best = c }
   }
+  if (best) return best
 
+  // 4. Last resort — full body, but only if score is reasonable.
+  // On SPAs and app pages this will be near-zero, triggering the quality gate.
   return document.body
 }
+
+// Minimum meaningful characters to consider extraction worth saving as a note.
+// 150 chars of pure text (after URL-stripping) means at least a short paragraph.
+const MIN_MEANINGFUL_CHARS = 150
 
 function getStructuredContent() {
   const main = findMainContent()
   const clone = main.cloneNode(true)
-  const noise = clone.querySelectorAll('script, style, nav, header, footer, aside, .ads, .social-share')
+  // Remove navigation chrome and known noise selectors.
+  const noise = clone.querySelectorAll(
+    'script, style, noscript, nav, header, footer, aside, ' +
+    '.ads, .ad, .advertisement, .social-share, .sidebar, ' +
+    '.cookie-banner, .newsletter-signup, .related-articles'
+  )
   noise.forEach(n => n.remove())
-  return nodeToMarkdown(clone)
+  const markdown = nodeToMarkdown(clone)
+  // Quality gate — if the converted text is too thin to be useful article
+  // content, return empty so the caller falls back to a plain bookmark.
+  if (meaningfulLength(markdown) < MIN_MEANINGFUL_CHARS) return ''
+  return markdown
 }
 
 function getSelectionMarkdown() {

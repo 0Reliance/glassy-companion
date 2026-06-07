@@ -70,4 +70,42 @@ describe('formatter.js', () => {
     const md = formatMarkdown('<table><tr><th>a</th></tr><tr><td>x|y</td></tr></table>')
     expect(md).toContain('| x\\|y |')
   })
+
+  describe('decorative image filtering', () => {
+    it('skips images with role="presentation"', () => {
+      const md = formatMarkdown('<img src="/deco.png" alt="bg" role="presentation">')
+      expect(md).toBe('')
+    })
+
+    it('skips images with role="none"', () => {
+      const md = formatMarkdown('<img src="/deco.png" alt="sprite" role="none">')
+      expect(md).toBe('')
+    })
+
+    it('skips images with aria-hidden="true"', () => {
+      const md = formatMarkdown('<img src="/tracking.png" alt="" aria-hidden="true">')
+      expect(md).toBe('')
+    })
+
+    it('skips 1x1 tracking pixels via width/height attributes', () => {
+      const md = formatMarkdown('<img src="https://track.example.com/px.gif" width="1" height="1" alt="">')
+      expect(md).toBe('')
+    })
+
+    it('skips 2px images (boundary case)', () => {
+      const md = formatMarkdown('<img src="/sprite.png" width="2" height="2" alt="x">')
+      expect(md).toBe('')
+    })
+
+    it('includes content images with no decorative signals', () => {
+      const md = formatMarkdown('<img src="/photo.jpg" alt="A beautiful landscape">')
+      expect(md).toContain('![A beautiful landscape]')
+      expect(md).toContain('/photo.jpg')
+    })
+
+    it('includes images with width > 2 even with no alt', () => {
+      const md = formatMarkdown('<img src="/hero.jpg" alt="" width="800" height="400">')
+      expect(md).toContain('/hero.jpg')
+    })
+  })
 })

@@ -153,6 +153,61 @@ describe('extractor.js', () => {
     })
   })
 
+  describe('GET_STRUCTURED_CONTENT', () => {
+    it('extracts article content from a semantic <article> element', async () => {
+      document.body.innerHTML = `
+        <nav>Menu links go here</nav>
+        <article>
+          <h1>Real Article</h1>
+          <p>This is the real article body with substantial content that exceeds the minimum threshold for saving.</p>
+          <p>More content here to push past 200 meaningful characters of alphanumeric text in this article body.</p>
+        </article>
+      `
+      const response = await sendMessage(messageListeners, { type: 'GET_STRUCTURED_CONTENT' })
+      expect(response.markdown).toContain('Real Article')
+      expect(response.markdown).toContain('real article body')
+      expect(response.markdown).not.toContain('Menu links')
+    })
+
+    it('returns empty string (quality gate) for SPA/app pages with no readable content', async () => {
+      // Simulates a React SPA shell with only decorative/navigation content.
+      document.body.innerHTML = `
+        <header><nav>Home About Contact</nav></header>
+        <div id="app"><div class="spinner"></div></div>
+        <footer>Copyright 2026</footer>
+      `
+      const response = await sendMessage(messageListeners, { type: 'GET_STRUCTURED_CONTENT' })
+      // The quality gate should return '' when meaningful text is below the threshold.
+      expect(response.markdown).toBe('')
+    })
+
+    it('returns empty string for a page dominated by nav links', async () => {
+      // High link-density page — should be rejected by scoreContainer.
+      document.body.innerHTML = `
+        <main>
+          <a href="/a">Link 1</a> <a href="/b">Link 2</a> <a href="/c">Link 3</a>
+          <a href="/d">Link 4</a> <a href="/e">Link 5</a> <a href="/f">Link 6</a>
+          <a href="/g">Link 7</a> <a href="/h">Link 8</a> <a href="/i">Link 9</a>
+        </main>
+      `
+      const response = await sendMessage(messageListeners, { type: 'GET_STRUCTURED_CONTENT' })
+      expect(response.markdown).toBe('')
+    })
+
+    it('prefers [role="main"] over generic body fallback', async () => {
+      document.body.innerHTML = `
+        <div>noise content noise content noise content that is long enough to look like body</div>
+        <div role="main">
+          <h2>Actual Main Content</h2>
+          <p>This section has the real article text that we should be extracting for our notes system
+          with enough length to pass the meaningful content threshold check in the quality gate function.</p>
+        </div>
+      `
+      const response = await sendMessage(messageListeners, { type: 'GET_STRUCTURED_CONTENT' })
+      expect(response.markdown).toContain('Actual Main Content')
+    })
+  })
+
   describe('unknown message type', () => {
     it('returns false for unknown message types', () => {
       for (const fn of messageListeners) {

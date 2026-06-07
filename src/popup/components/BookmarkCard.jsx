@@ -5,7 +5,7 @@ import QuickActions from './QuickActions.jsx'
 
 const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
 
-export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, saving }) {
+export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, saving, onScreenshotCaptured }) {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [collectionId, setCollection] = useState(null)
@@ -137,7 +137,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
         )}
       </div>
 
-      <QuickActions pageMeta={pageMeta} onSaveNote={onSaveNote} />
+      <QuickActions pageMeta={pageMeta} onSaveNote={onSaveNote} onScreenshotCaptured={onScreenshotCaptured} />
 
       <button className="btn-accent" onClick={handleSave} disabled={saving || !pageMeta?.url}>
         {saving ? <span className="spinner" /> : '🔖'}
