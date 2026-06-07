@@ -19,7 +19,8 @@ function createStorageArea() {
       for (const [key, value] of Object.entries(values)) store.set(key, value)
     },
     async remove(key) {
-      store.delete(key)
+      const keys = Array.isArray(key) ? key : [key]
+      for (const k of keys) store.delete(k)
     },
     _clear() {
       store.clear()
@@ -31,6 +32,7 @@ function createStorageArea() {
 describe('cache.js', () => {
   let local
   let getCollections, invalidateCollections, getTags, invalidateTags, getSettings, saveSettings
+  let invalidateAccountScopedCaches
   let fetchCollections, fetchTags
 
   beforeEach(async () => {
@@ -51,6 +53,7 @@ describe('cache.js', () => {
     const cacheMod = await import('../cache.js')
     getCollections = cacheMod.getCollections
     invalidateCollections = cacheMod.invalidateCollections
+    invalidateAccountScopedCaches = cacheMod.invalidateAccountScopedCaches
     getTags = cacheMod.getTags
     invalidateTags = cacheMod.invalidateTags
     getSettings = cacheMod.getSettings
@@ -160,6 +163,23 @@ describe('cache.js', () => {
     fetchTags.mockResolvedValueOnce({ tags: ['new'] })
     const result = await getTags(true)
     expect(result).toEqual(['new'])
+  })
+
+  it('invalidateAccountScopedCaches clears both collections and tags', async () => {
+    fetchCollections.mockResolvedValueOnce([{ id: 1, name: 'A' }])
+    fetchTags.mockResolvedValueOnce({ tags: ['old'] })
+    await getCollections()
+    await getTags()
+
+    await invalidateAccountScopedCaches()
+
+    fetchCollections.mockResolvedValueOnce([{ id: 2, name: 'B' }])
+    fetchTags.mockResolvedValueOnce({ tags: ['new'] })
+    const cols = await getCollections()
+    const tags = await getTags(true)
+    expect(cols).toEqual([{ id: 2, name: 'B' }])
+    expect(tags).toEqual(['new'])
+    expect(fetchCollections).toHaveBeenCalledTimes(2)
   })
 
   // ── Settings ──────────────────────────────────────────────────────────────

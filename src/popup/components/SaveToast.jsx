@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { deleteCapture } from '../hooks/useExtensionBridge.js'
 
-export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother, captureId, onUndo }) {
+export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother, captureId, onUndo, multiAccount = false }) {
   const isError = type === 'error'
   const isDuplicate = type === 'duplicate'
   const isSaved = type === 'saved'
@@ -49,7 +49,9 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
         </h3>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
           {isError ? (errorMessage || 'Something went wrong.') :
-           isDuplicate ? 'This page was already saved to your workspace.' :
+           isDuplicate ? (multiAccount
+             ? 'This page is already saved in the selected account. Switch accounts to save it somewhere else.'
+             : 'This page was already saved to your workspace.') :
            'Your item has been safely stored in Glassy.'}
         </p>
       </div>

@@ -2,10 +2,10 @@
  * Glassy Companion — Service Worker (Manifest V3)
  */
 
-import { getToken, verifyToken, clearAuth } from '../lib/auth.js'
+import { getToken, verifyToken, clearAuth, setActiveAccountId, getActiveAccountId, getCachedUser } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight, deleteBookmark } from '../lib/api.js'
 import { enqueue, getQueue, applyFlushOutcomes, clearQueue } from '../lib/offlineQueue.js'
-import { getSettings } from '../lib/cache.js'
+import { getSettings, invalidateAccountScopedCaches } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
 import { getHostname } from '../lib/urlUtils.js'
@@ -322,7 +322,12 @@ async function backgroundSave(mode, payload, tab) {
   } else if (result?.queued) {
     showNotification('Glassy — Queued', 'You\'re offline or the server is busy. Save will retry.', 'info')
   } else {
-    showNotification('Glassy — Saved ✓', captureItem.title, 'success')
+    const label = await getActiveAccountLabel()
+    showNotification(
+      label ? `Glassy — Saved to ${label} ✓` : 'Glassy — Saved ✓',
+      captureItem.title,
+      'success',
+    )
     if (!result?.duplicate) await updateBadge(1)
   }
 }
@@ -511,6 +516,16 @@ async function handleMessage(message) {
       // doesn't show the previous user's saved-state on tab badges.
       savedUrlCache.clear()
       return { ok: true }
+
+    case 'SET_ACTIVE_ACCOUNT': {
+      const accountId = message.accountId || null
+      await setActiveAccountId(accountId)
+      // Collections, tags, and saved-URL state are all account-scoped — drop
+      // them so the next read reflects the newly selected account.
+      await invalidateAccountScopedCaches().catch(() => {})
+      savedUrlCache.clear()
+      return { ok: true, accountId }
+    }
 
     case 'GET_QUEUE_LENGTH': {
       const q = await getQueue()
@@ -736,6 +751,25 @@ async function getActiveTabMeta() {
 async function checkAuth() {
   const result = await verifyToken()
   return { authenticated: result.ok, user: result.user || null }
+}
+
+/**
+ * Resolve a human-readable label for the currently selected account, so save
+ * notifications can show *where* an item landed (e.g. "Saved to Poziverse ✓").
+ * Returns null when there's only one account or the label can't be resolved,
+ * in which case callers omit the account suffix.
+ */
+async function getActiveAccountLabel() {
+  try {
+    const [activeId, user] = await Promise.all([getActiveAccountId(), getCachedUser()])
+    const accounts = Array.isArray(user?.accounts) ? user.accounts : []
+    if (accounts.length <= 1) return null
+    const id = activeId || user?.activeAccountId
+    const match = accounts.find(a => a.id === id) || accounts.find(a => a.is_primary)
+    return match?.label || null
+  } catch {
+    return null
+  }
 }
 
 async function updateBadge(increment = 0) {

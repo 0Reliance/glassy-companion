@@ -37,6 +37,15 @@ export async function invalidateCollections() {
   await chrome.storage.local.remove(CACHE_KEY)
 }
 
+/**
+ * Drop all account-scoped caches. Collections and tags are stored per-account
+ * on the server, so switching the active account must clear them to avoid
+ * showing the previous account's data.
+ */
+export async function invalidateAccountScopedCaches() {
+  await chrome.storage.local.remove([CACHE_KEY, TAGS_CACHE_KEY])
+}
+
 /** Get extension settings (defaults applied). */
 export async function getSettings() {
   const result = await chrome.storage.local.get(STORAGE_KEYS.settings)

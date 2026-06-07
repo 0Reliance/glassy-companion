@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { getSettings, saveSettings, invalidateCollections } from '../../lib/cache.js'
 import { getBaseUrl, setBaseUrl } from '../../lib/auth.js'
 import { logout, getQueueLength } from '../hooks/useExtensionBridge.js'
+import AccountPicker from '../components/AccountPicker.jsx'
 
 export default function SettingsView({ user, onClose, onLogout }) {
   const [baseUrl, setBaseUrlState] = useState('')
@@ -78,6 +79,16 @@ export default function SettingsView({ user, onClose, onLogout }) {
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
               {user.entitlements?.glassy_keep ? '✦ Glassy Keep' : 'Free'}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account picker — choose which account profile captures are saved to. */}
+      {Array.isArray(user?.accounts) && user.accounts.length > 1 && (
+        <div>
+          <AccountPicker accounts={user.accounts} variant="full" />
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 5 }}>
+            New saves from the extension go here.
           </div>
         </div>
       )}

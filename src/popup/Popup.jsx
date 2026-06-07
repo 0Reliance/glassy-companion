@@ -17,7 +17,7 @@ export default function Popup() {
     pendingElement, pendingScreenshot,
     navigate, handleLoginSuccess,
     setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending,
-    setUser, setPageMeta, setLastCaptureId,
+    setUser, setPageMeta, setLastCaptureId, setAlreadySaved,
   } = useAppState()
 
   const [showSettings, setShowSettings] = useState(false)
@@ -83,6 +83,7 @@ export default function Popup() {
               resetSaveStatus={resetSaveStatus}
               clearPending={clearPending}
               setLastCaptureId={setLastCaptureId}
+              setAlreadySaved={setAlreadySaved}
             />
           )}
 

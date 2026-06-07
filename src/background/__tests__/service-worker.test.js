@@ -6,6 +6,9 @@ vi.mock('../../lib/auth.js', () => ({
   getToken: vi.fn(async () => 'test-token'),
   verifyToken: vi.fn(async () => ({ ok: true, user: { id: 'u1' } })),
   clearAuth: vi.fn(async () => {}),
+  setActiveAccountId: vi.fn(async () => {}),
+  getActiveAccountId: vi.fn(async () => null),
+  getCachedUser: vi.fn(async () => null),
 }))
 
 vi.mock('../../lib/api.js', () => ({
@@ -30,6 +33,7 @@ vi.mock('../../lib/cache.js', () => ({
     showNotifications: true,
     badgeCount: true,
   })),
+  invalidateAccountScopedCaches: vi.fn(async () => {}),
 }))
 
 vi.mock('../../lib/premiumMarkdown.js', () => ({
@@ -290,6 +294,20 @@ describe('service-worker.js — message handler', () => {
       expect(result.ok).toBe(true)
       expect(clearAuth).toHaveBeenCalled()
       expect(chromeMock.action.setBadgeText).toHaveBeenCalledWith({ text: '' })
+    })
+  })
+
+  describe('SET_ACTIVE_ACCOUNT', () => {
+    it('persists the account id and clears account-scoped caches', async () => {
+      const { setActiveAccountId } = await import('../../lib/auth.js')
+      const { invalidateAccountScopedCaches } = await import('../../lib/cache.js')
+
+      const result = await sendMessage({ type: 'SET_ACTIVE_ACCOUNT', accountId: 'acc-2' })
+
+      expect(result.ok).toBe(true)
+      expect(result.accountId).toBe('acc-2')
+      expect(setActiveAccountId).toHaveBeenCalledWith('acc-2')
+      expect(invalidateAccountScopedCaches).toHaveBeenCalled()
     })
   })
 

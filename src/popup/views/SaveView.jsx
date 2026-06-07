@@ -2,10 +2,22 @@ import React, { useState, useCallback } from 'react'
 import BookmarkCard from '../components/BookmarkCard.jsx'
 import SmartSavePanel from '../components/SmartSavePanel.jsx'
 import SaveToast from '../components/SaveToast.jsx'
-import { saveBookmark, saveNote, saveAllTabs } from '../hooks/useExtensionBridge.js'
+import AccountPicker from '../components/AccountPicker.jsx'
+import { saveBookmark, saveNote, saveAllTabs, checkDuplicateUrl } from '../hooks/useExtensionBridge.js'
+import { isUnsavableUrl } from '../../lib/urlUtils.js'
 
-export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId }) {
+export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
   const [mode, setMode] = useState('quick') // quick | smart
+
+  // Re-check duplicate state against the newly selected account (dedup is
+  // per-account on the server) so the "already saved" badge stays accurate.
+  const handleAccountSwitched = useCallback(() => {
+    if (!pageMeta?.url) return
+    setAlreadySaved?.(false)
+    checkDuplicateUrl(pageMeta.url)
+      .then(res => { if (res?.saved) setAlreadySaved?.(true) })
+      .catch(() => {})
+  }, [pageMeta, setAlreadySaved])
 
   const handleSave = useCallback(async (payload) => {
     setSaving()
@@ -83,12 +95,47 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         onDismiss={resetSaveStatus}
         onSaveAnother={resetSaveStatus}
         onUndo={undoHandler}
+        multiAccount={Array.isArray(user?.accounts) && user.accounts.length > 1}
       />
+    )
+  }
+
+  // Pages the server can't accept (chrome://, file://, localhost, private IPs).
+  // Surface this up-front instead of letting the user hit an opaque save error.
+  if (pageMeta?.url && isUnsavableUrl(pageMeta.url)) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '12px 14px',
+          background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)',
+          borderRadius: 10, fontSize: 12, color: '#fcd34d', lineHeight: 1.5,
+        }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>This page can't be saved</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Glassy can only save public web pages. Local, private, and browser
+              pages (like <code>localhost</code>, <code>file://</code>, and
+              <code> chrome://</code>) aren't reachable from the server. Try the
+              Note tab to jot something down instead.
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
     <>
+      {/* Account selector — make the save destination visible & switchable so
+          captures don't silently land in the wrong account profile. */}
+      {Array.isArray(user?.accounts) && user.accounts.length > 1 && saveStatus === 'idle' && (
+        <div style={{ marginBottom: 8 }}>
+          <AccountPicker accounts={user.accounts} variant="compact" onSwitched={handleAccountSwitched} />
+        </div>
+      )}
+
       {alreadySaved && saveStatus === 'idle' && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,

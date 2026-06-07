@@ -94,4 +94,15 @@ describe('useExtensionBridge', () => {
     const result = await getActiveTabMeta()
     expect(result).toEqual({ ok: true, meta })
   })
+
+  it('setActiveAccount sends SET_ACTIVE_ACCOUNT with the account id', async () => {
+    sendMessageSpy.mockImplementation((msg, cb) => cb({ ok: true, accountId: 'acc-2' }))
+    const { setActiveAccount } = await importBridge()
+    const result = await setActiveAccount('acc-2')
+    expect(sendMessageSpy).toHaveBeenCalledWith(
+      { type: 'SET_ACTIVE_ACCOUNT', accountId: 'acc-2' },
+      expect.any(Function),
+    )
+    expect(result).toEqual({ ok: true, accountId: 'acc-2' })
+  })
 })

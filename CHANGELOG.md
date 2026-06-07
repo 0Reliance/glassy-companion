@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.7.0] — 2026-06-07 — Multi-Account Capture & Frictionless Server Setup
+
+Fixes the "where did my save go?" problem for users who work across multiple
+account profiles, and removes the login/logout dance previously required to
+point the extension at a different Glassy server.
+
+### Added
+- **Account picker** — new `src/popup/components/AccountPicker.jsx`. Multi-account
+  users can now choose which account a capture is written to. The selection is
+  sent to the server as the `X-Account-Id` header. Previously the extension was
+  pinned to the primary account, so captures made while working in another
+  profile "vanished" into the wrong account.
+  - **Full variant** in Settings (`SettingsView`) with the caption "New saves
+    from the extension go here."
+  - **Compact variant** at the top of the Save view, visible while a save is
+    pending so the destination is confirmed before committing.
+- **Active-account persistence** — `SET_ACTIVE_ACCOUNT` service-worker message
+  (wired through `setActiveAccount()` in `useExtensionBridge`) stores the chosen
+  account and clears account-scoped caches so the next read reflects the switch.
+- **Destination in confirmations** — background/context-menu save toasts now read
+  "Saved to {account} ✓" when more than one account exists.
+- **Pre-login server selection** — `LoginCard` now exposes a "Server" control
+  *before* authentication. Users point the extension at their server (e.g. a
+  self-hosted instance) up front instead of logging into the default server,
+  changing the URL, and logging in again.
+- **Unsavable-URL guard** — new `isUnsavableUrl()` in `src/lib/urlUtils.js`
+  mirrors the server's SSRF rules (loopback, private IP ranges, metadata hosts,
+  non-http(s) schemes). The Save view now shows a friendly warning for pages
+  that can't be saved (e.g. `chrome://`, `localhost`) instead of letting the
+  user hit an opaque server error.
+
+### Changed
+- **Account-aware cache invalidation** — `invalidateAccountScopedCaches()` drops
+  both the collections and tags caches; switching accounts also clears the
+  saved-URL checkmark cache so badges reflect the new account.
+- **Duplicate messaging** — the 409 "already saved" toast now hints that the page
+  exists *in the selected account* and that switching accounts allows saving it
+  elsewhere.
+
+---
+
 ## [2.6.0] — 2026-06-06 — Capture-to-Application Premium Experience
 
 A major uplift for how captured artifacts reach the application. Screenshots,

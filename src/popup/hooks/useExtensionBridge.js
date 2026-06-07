@@ -47,6 +47,10 @@ export function checkDuplicateUrl(url) {
   return sendMessage({ type: 'CHECK_DUPLICATE_URL', url })
 }
 
+export function setActiveAccount(accountId) {
+  return sendMessage({ type: 'SET_ACTIVE_ACCOUNT', accountId })
+}
+
 export function deleteCapture(id) {
   return sendMessage({ type: 'DELETE_CAPTURE', id })
 }
