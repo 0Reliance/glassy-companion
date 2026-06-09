@@ -7,6 +7,8 @@
 
 ---
 
+> **Historical Document** — This architecture reference covers the v2.3.1 offscreen-document redesign (May 27, 2026). The extension has since evolved through v2.4–v2.9. For the current architecture, API schema, and feature set, see [`docs/EXTENSION_INTERNALS.md`](docs/EXTENSION_INTERNALS.md) and the companion [CHANGELOG.md](CHANGELOG.md).
+
 ## Table of Contents
 
 1. [Executive Summary](#1-executive-summary)

@@ -23,7 +23,7 @@
 | --- | --- |
 | **Quick Save** | Instant, one-click save of the current page with premium Markdown formatting. |
 | **Smart Save** | Structured capture with 4 content types (Article, Video, Repo, Bookmark). Type chips re-run the page interpreter on change so metadata is always fresh before save. |
-| **Element Picker** | Click any element on the page to capture it as rich Markdown. Hover-to-highlight with purple glow. |
+| **Element Picker** | Click any element on the page to capture it as rich Markdown. Hover-to-highlight with purple glow. (Deferred from main bar in v2.9.0 — available as a future in-reader affordance.) |
 | **Screenshot Capture** | Capture the visible viewport via direct service worker routing (`captureVisibleTab`). Works on restricted URLs, PDFs, and stale tabs where the content script is absent. |
 | **Site Interpreters** | Automatic enriched metadata for YouTube, GitHub, product pages, and scholarly articles via Schema.org. |
 | **Content Preview** | Preview extracted page content as rendered HTML or raw Markdown before saving. See word count and reading time. |
