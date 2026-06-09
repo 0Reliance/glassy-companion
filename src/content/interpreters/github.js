@@ -25,6 +25,7 @@ export async function interpretGitHub(document, url) {
     try {
       const data = JSON.parse(script.textContent)
       if (data['@type'] === 'SoftwareSourceCode') {
+        const stars = (data.interactionStatistic || []).find(s => s.interactionType === 'https://schema.org/WatchAction')?.userInteractionCount || ''
         return {
           enriched: true,
           site: 'github',
@@ -34,9 +35,13 @@ export async function interpretGitHub(document, url) {
             description: data.description?.slice(0, 500) || '',
             author: data.author?.name || owner,
             language: data.programmingLanguage || '',
-            stars: (data.interactionStatistic || []).find(s => s.interactionType === 'https://schema.org/WatchAction')?.userInteractionCount || '',
+            stars: stars ? String(stars) : '',
             license: data.license || '',
             publishedAt: data.dateCreated || '',
+            // Structured data fields
+            owner,
+            repo,
+            topics: [],
           },
         }
       }
@@ -56,6 +61,10 @@ export async function interpretGitHub(document, url) {
   const licenseEl = document.querySelector('[href*="/license"] .octicon-law + *, [aria-label*="license"]')
   const license = licenseEl?.textContent?.trim() || ''
 
+  // Topic pills live in the sidebar under .topic-tag elements
+  const topicEls = document.querySelectorAll('a.topic-tag, [data-octo-click="topic_click"]')
+  const topics = Array.from(topicEls).map(el => el.textContent?.trim()).filter(Boolean)
+
   return {
     enriched: true,
     site: 'github',
@@ -67,7 +76,10 @@ export async function interpretGitHub(document, url) {
       language,
       stars,
       license,
-      sourceUrl: `https://github.com/${owner}/${repo}`,
+      // Structured data fields
+      owner,
+      repo,
+      topics,
     },
   }
 }

@@ -67,6 +67,10 @@
  * @property {'inbox'|'active'|'archived'|'surfaced'|'public_candidate'|'published'} status
  * @property {string[]} [projectIds]
  * @property {ObsidianSync} [obsidian]
+ * @property {Object} [structuredData] — type-specific enriched fields from the site interpreter
+ *   (video: { videoId, provider, channelName, duration, description };
+ *    repo:  { owner, repo, stars, language, license, topics, description };
+ *    article: { abstract, doi, language })
  * @property {Object} [ai]
  */
 

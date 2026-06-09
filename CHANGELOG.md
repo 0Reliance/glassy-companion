@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.9.0] — 2026-06-09 — Structured Capture & Reliable Execution
+
+Foundational refactor that makes Save Page and Screenshot the two perfect,
+first-class capture tools. Removes fragile supplementary buttons. Wires up
+structured enrichment end-to-end so YouTube, GitHub and article captures carry
+type-specific metadata into the reader.
+
+### Changed
+- **Main bar simplified to two actions** — Save Page and Screenshot. Region,
+  Element Picker, and AI Summary removed from the popup bar. AI Summary
+  remains available as a post-save action in Keep. Region and Element remain
+  in code for future in-reader affordances.
+- **Screenshot routes directly through the service worker** — `captureVisibleTab`
+  no longer requires a content-script relay. Works on restricted URLs, PDFs,
+  and stale tabs where the content script is absent.
+- **Four first-class content types** — `article` (absorbs `research`), `video`,
+  `repo`, `bookmark` (fallback). Presets collapsed from 9 to 4.
+- **Smart Save chips re-run the page interpreter** on type change, so switching
+  from `bookmark` to `video` refreshes structured metadata before save.
+
+### Added
+- **`ensureContentScript(tabId, tabUrl)`** in the service worker — programmatic
+  `chrome.scripting.executeScript` fallback when the static content-script
+  injection is missing (stale tabs, post-update tabs). Eliminates the
+  "Could not establish connection" failure class for `SAVE_CAPTURE` and
+  `GET_PAGE_META`.
+- **Structured capture pipeline** — `extractor.js` builds a typed `structuredData`
+  object per content type (video: `videoId`, `provider`, `channelName`, `duration`;
+  repo: `owner`, `repo`, `stars`, `language`, `license`, `topics`; article:
+  `abstract`, `doi`, `language`). `capturePipeline.js` preserves it through to
+  the server payload.
+- **YouTube interpreter** now extracts `videoId` reliably via regex (handles all
+  URL variants including shorts and query-param watch URLs), and always sets
+  `provider: 'youtube'`.
+- **GitHub interpreter** now extracts `owner`, `repo`, and `topics[]` from both
+  Schema.org and fallback DOM scraping.
+
+### Fixed
+- Interpreter-enriched fields (`videoId`, `stars`, owner/repo, etc.) were silently
+  dropped by `buildCaptureItem` — root cause was selective field copy in
+  `extractor.js`. Fixed by `buildStructuredData()` typed packaging.
+- Screenshot button was non-functional on restricted pages due to content-script
+  relay. Fixed by direct SW routing.
+- Smart Save content-type chips had no effect on actual scraping behavior —
+  `saveMode` field in presets was dead code. Fixed by `handleContentTypeChange`
+  re-running `GET_PAGE_META`.
+
+---
+
 ## [2.8.0] — 2026-06-07 — Capture Quality & Screenshot UX
 
 Eliminates junk captures on app/SPA pages and makes screenshots a first-class

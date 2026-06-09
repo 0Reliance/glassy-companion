@@ -19,6 +19,85 @@ import {
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
 
+// ── Content Script Injection Fallback ─────────────────────────────────────────
+
+/**
+ * Protocols where chrome.scripting.executeScript is forbidden. Attempting
+ * injection on these throws and should be skipped entirely.
+ */
+const RESTRICTED_PROTOCOLS = new Set(['chrome:', 'chrome-extension:', 'about:', 'data:', 'javascript:', 'edge:', 'moz-extension:'])
+
+/**
+ * Resolve the content-script file paths to inject. These MUST come from the
+ * runtime manifest, not a hardcoded source path: the Vite/CRX build rewrites
+ * `src/content/extractor.js` into a hashed loader (e.g.
+ * `assets/extractor.js-loader-<hash>.js`) whose name changes every build.
+ * Reading the manifest keeps this correct in both dev and production.
+ *
+ * @returns {string[]}
+ */
+function getContentScriptFiles() {
+  try {
+    const manifest = chrome.runtime.getManifest()
+    const js = manifest?.content_scripts?.[0]?.js
+    if (Array.isArray(js) && js.length) return js
+  } catch {}
+  // Fallback to the source path (dev / unbuilt).
+  return ['src/content/extractor.js']
+}
+
+/**
+ * Ensure the content script is running in the given tab.
+ *
+ * In MV3, the static content_scripts declaration only injects on page load.
+ * After an extension update (or if the tab predates installation) the content
+ * script is gone — all sendMessage calls throw "Could not establish connection."
+ *
+ * This helper detects that situation and uses chrome.scripting.executeScript
+ * to inject the content script on demand. It returns true when the content
+ * script is (or is now) present, false when injection is not possible
+ * (restricted page).
+ *
+ * The content script guards against double-registration, so a redundant
+ * injection (lost race against the static loader) is harmless.
+ *
+ * @param {number} tabId
+ * @param {string} [tabUrl]
+ * @returns {Promise<boolean>}
+ */
+async function ensureContentScript(tabId, tabUrl) {
+  if (!tabId) return false
+
+  // Check for restricted protocol — injection will always fail on these.
+  if (tabUrl) {
+    try {
+      const proto = new URL(tabUrl).protocol
+      if (RESTRICTED_PROTOCOLS.has(proto)) return false
+    } catch { return false }
+  }
+
+  // Fast-path: lightweight liveness probe (does NOT serialize the DOM).
+  try {
+    const pong = await chrome.tabs.sendMessage(tabId, { type: 'PING' })
+    if (pong?.ok) return true // already present
+  } catch {
+    // Content script absent — inject it below.
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: getContentScriptFiles(),
+    })
+    // Brief settle time for the script to register its message listener.
+    await new Promise(r => setTimeout(r, 150))
+    return true
+  } catch {
+    // Injection failed (PDF, WebStore page, sandboxed iframe, etc.)
+    return false
+  }
+}
+
 // ── Offscreen Document Management (MV3 Service Worker Keep-Alive) ──────────────
 
 let _offscreenReady = false
@@ -64,7 +143,11 @@ async function delegateCapture(payload, tab) {
       payload: { tabId: tab?.id, tabUrl: tab?.url, item: payload }
     }, (response) => {
       if (chrome.runtime.lastError) {
-        // Offscreen doc failed — fall back to in-SW processing
+        // Offscreen doc is unreachable (Chrome may have torn it down under
+        // memory pressure). Clear the cached-ready flag so the next call
+        // recreates it instead of assuming it is still alive, then fall back
+        // to in-SW processing for this capture.
+        _offscreenReady = false
         return resolve(processCaptureInServiceWorker(payload, tab))
       }
       resolve(response || { ok: false, error: 'No response from offscreen' })
@@ -480,7 +563,8 @@ async function handleMessage(message) {
         try {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
           if (tab?.id) {
-             const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
+            await ensureContentScript(tab.id, tab.url)
+            const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STRUCTURED_CONTENT' })
              // Only use the extracted content if it is substantive. An empty
              // string from the quality gate (SPA / low-content page) means we
              // should route this as a plain bookmark rather than save a junk note.
@@ -589,7 +673,12 @@ async function handleMessage(message) {
               rect: message.rect,
               dpr: message.dpr || 1,
             }, (response) => {
-              if (chrome.runtime.lastError) return resolve(null)
+              if (chrome.runtime.lastError) {
+                // Offscreen doc unreachable — clear the ready flag so it is
+                // recreated next time, then fall back to the uncropped image.
+                _offscreenReady = false
+                return resolve(null)
+              }
               resolve(response)
             })
           })
@@ -744,6 +833,7 @@ async function getActiveTabMeta() {
     try { meta.domain = new URL(tab.url).hostname } catch {}
     if (tab.id) {
       try {
+        await ensureContentScript(tab.id, tab.url)
         const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
         if (response?.meta) meta = { ...meta, ...response.meta }
         if (response?.selectedText) meta.selectedText = response.selectedText

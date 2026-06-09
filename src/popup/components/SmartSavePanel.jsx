@@ -19,6 +19,9 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
   const [previewLoading, setPreviewLoading] = useState(false)
   const [screenshotUploading, setScreenshotUploading] = useState(false)
   const [screenshotError, setScreenshotError] = useState(null)
+  // Structured data from the interpreter — preserved through the pipeline and
+  // stored as bookmarks.structured_data server-side for type-aware rendering.
+  const [structuredData, setStructuredData] = useState(pageMeta?.structuredData || {})
   const pendingAppliedRef = useRef(false)
   // Holds the raw screenshot data URL until the user decides to save. We do NOT
   // upload on mount — that would orphan an image on the server every time the
@@ -35,7 +38,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
     if (pendingElement) {
       pendingAppliedRef.current = true
       setContentMarkdown(pendingElement.markdown || '')
-      setContentType('highlight')
+      setContentType('bookmark')
       if (!title && pendingElement.textPreview) {
         setTitle(pendingElement.textPreview.slice(0, 100))
       }
@@ -44,7 +47,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       onClearPending?.()
     } else if (pendingScreenshot) {
       pendingAppliedRef.current = true
-      setContentType('screenshot')
+      setContentType('bookmark')  // screenshots save as bookmark captures
       // Stash the data URL and show an inline local preview using the data URL
       // directly. The actual upload is deferred to save time (see handleSave).
       screenshotDataUrlRef.current = pendingScreenshot.dataUrl
@@ -120,21 +123,38 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
       favicon_url: pageMeta.favicon_url,
       aiAutoTag,
       contentMarkdown: markdown,
+      // Type-specific structured data — enables video embed, repo card, etc. in reader
+      structuredData: Object.keys(structuredData).length > 0 ? structuredData : undefined,
     }
 
-    // If this is a screenshot capture, send the image as a native gallery item
-    // so the app renders a full-size hero + lightbox instead of a tiny inline thumbnail.
-    if (contentType === 'screenshot' && uploadedScreenshotUrlRef.current) {
+    // Attach captured images as a native gallery item so the app renders a
+    // full-size hero + lightbox instead of a tiny inline thumbnail. Keyed off
+    // the presence of the image refs, NOT the contentType string — screenshots
+    // and element clips both save under the 'bookmark' type now.
+    if (uploadedScreenshotUrlRef.current) {
       payload.images = [{ url: uploadedScreenshotUrlRef.current, name: title || 'Screenshot' }]
-    }
-
-    // If this is an element capture with clipped images, send them as a native gallery.
-    if (contentType === 'highlight' && pendingElementImagesRef.current.length) {
+    } else if (pendingElementImagesRef.current.length) {
       payload.images = pendingElementImagesRef.current
     }
 
     onSave(payload)
   }, [pageMeta, title, contentType, destination, tags, note, isPublic, isPinned, aiAutoTag, contentMarkdown, onSave, pendingScreenshot, uploadScreenshotWithRetry])
+
+  // When the user changes the type chip, re-run GET_PAGE_META to get updated
+  // structuredData for the chosen type. Only meaningful when switching to a type
+  // that has an interpreter (video, repo, article). Silently ignored on failure.
+  const handleContentTypeChange = useCallback(async (newType) => {
+    setContentType(newType)
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const metaRes = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_META' })
+      if (metaRes?.meta?.structuredData) {
+        setStructuredData(metaRes.meta.structuredData)
+      }
+    } catch {
+      // content script not present — keep existing structuredData
+    }
+  }, [])
 
   const handleLoadPreview = useCallback(async () => {
     if (showPreview) { setShowPreview(false); return }
@@ -170,7 +190,7 @@ export default function SmartSavePanel({ pageMeta, onSave, saving, onCancel, def
           return (
             <button
               key={p.id}
-              onClick={() => setContentType(p.id)}
+              onClick={() => handleContentTypeChange(p.id)}
               style={{
                 padding: '6px 10px',
                 borderRadius: 8,

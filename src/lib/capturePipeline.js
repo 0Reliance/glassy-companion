@@ -42,6 +42,11 @@ export async function buildCaptureItem({ item, tabId, tabUrl }) {
             publishedAt: metaRes.meta.publishedAt,
             contentType: metaRes.meta.contentType,
           })
+          // Preserve the type-specific structured data from the interpreter.
+          // This flows through to bookmarks.structured_data on the server.
+          if (metaRes.meta.structuredData && Object.keys(metaRes.meta.structuredData).length > 0) {
+            captureItem.structuredData = metaRes.meta.structuredData
+          }
         }
         if (captureItem.captureMode === 'quick') {
           const contentRes = await chrome.tabs.sendMessage(tabId, { type: 'GET_STRUCTURED_CONTENT' })

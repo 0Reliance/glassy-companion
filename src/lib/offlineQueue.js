@@ -35,9 +35,31 @@ async function loadQueue() {
   return result[STORAGE_KEYS.offlineQueue] || []
 }
 
-/** Persist the queue to chrome.storage.local. */
+/**
+ * Persist the queue to chrome.storage.local.
+ *
+ * A large capture payload can push the serialized queue past the
+ * chrome.storage.local quota. Chrome surfaces this either by rejecting the
+ * promise or by setting chrome.runtime.lastError. We normalize both into a
+ * QueueFullError so callers get the same "reconnect to sync" signal they
+ * already handle for a length-capped queue, instead of an opaque failure.
+ */
 async function saveQueue(queue) {
-  await chrome.storage.local.set({ [STORAGE_KEYS.offlineQueue]: queue })
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEYS.offlineQueue]: queue })
+  } catch (err) {
+    const msg = err?.message || ''
+    if (/quota/i.test(msg)) {
+      throw new QueueFullError()
+    }
+    throw err
+  }
+  // Some Chrome versions report quota errors via lastError rather than a
+  // rejected promise — surface those too.
+  const lastError = globalThis.chrome?.runtime?.lastError
+  if (lastError && /quota/i.test(lastError.message || '')) {
+    throw new QueueFullError()
+  }
 }
 
 /** Add an item to the offline queue. Returns the new queue item. */

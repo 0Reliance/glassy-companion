@@ -62,6 +62,22 @@ function detectContentType(meta, schemas) {
   return 'bookmark'
 }
 
+/**
+ * Collapse any detected/interpreted type into one of the four canonical,
+ * first-class content types. Keeps the stored taxonomy airtight so the Smart
+ * Save chips and the reader templates always agree on a known value.
+ *
+ *   research → article  (long-form scholarly text is just an article)
+ *   product  → bookmark (no longer a first-class type; rich link preview)
+ *   anything unknown → bookmark (honest fallback)
+ */
+const CANONICAL_CONTENT_TYPES = new Set(['article', 'video', 'repo', 'bookmark'])
+function normalizeContentType(type) {
+  if (type === 'research') return 'article'
+  if (type === 'product') return 'bookmark'
+  return CANONICAL_CONTENT_TYPES.has(type) ? type : 'bookmark'
+}
+
 async function extractPageMeta() {
   const title_ = getMeta('og:title') || getMeta('twitter:title') || document.title || ''
   const description_ = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || ''
@@ -88,22 +104,72 @@ async function extractPageMeta() {
     siteName: getMeta('og:site_name') || domain,
   }
 
-  meta.contentType = detectContentType(meta, schemas)
+  meta.contentType = normalizeContentType(detectContentType(meta, schemas))
 
   // Run site-specific interpreter for enriched metadata.
   try {
     const enriched = await runInterpreter(location.href, document)
     if (enriched?.enriched) {
-      // Override/extend with interpreter metadata.
-      Object.assign(meta, enriched.metadata)
-      if (enriched.contentType) meta.contentType = enriched.contentType
+      // Override/extend flat meta fields with interpreter values.
+      // Pull only the standard shared fields to avoid polluting the flat meta
+      // namespace with type-specific data (videoId, stars, etc.).
+      const { title, description, author, publishedAt, coverImageUrl, language: _lang, ...rest } = enriched.metadata
+      if (title) meta.title = title
+      if (description) meta.description = description.slice(0, 1000)
+      if (author) meta.author = author
+      if (publishedAt) meta.publishedAt = publishedAt
+      if (coverImageUrl) meta.og_image = coverImageUrl
+
+      if (enriched.contentType) meta.contentType = normalizeContentType(enriched.contentType)
       meta.interpreterSite = enriched.site
+
+      // Build the structured data payload — type-specific fields only.
+      // Pass the RAW interpreter type so 'research' still yields abstract/doi
+      // even though meta.contentType has been normalized to 'article'.
+      meta.structuredData = buildStructuredData(enriched.contentType, enriched.metadata)
     }
   } catch {
     // interpreter failed — generic meta is still usable
   }
 
   return meta
+}
+
+/**
+ * Extract type-specific structured fields from interpreter metadata.
+ * Returns a plain object safe to JSON-serialize and store server-side.
+ * All values are strings, numbers, or string arrays — no nested objects.
+ */
+function buildStructuredData(contentType, metadata = {}) {
+  switch (contentType) {
+    case 'video':
+      return {
+        videoId:     String(metadata.videoId || ''),
+        provider:    String(metadata.provider || 'youtube'),
+        channelName: String(metadata.channelName || ''),
+        duration:    String(metadata.duration || ''),
+        description: String(metadata.description || '').slice(0, 1000),
+      }
+    case 'repo':
+      return {
+        owner:       String(metadata.owner || metadata.author || ''),
+        repo:        String(metadata.repo || ''),
+        stars:       String(metadata.stars || ''),
+        language:    String(metadata.language || ''),
+        license:     String(metadata.license || ''),
+        topics:      Array.isArray(metadata.topics) ? metadata.topics.slice(0, 20) : [],
+        description: String(metadata.description || '').slice(0, 1000),
+      }
+    case 'article':
+    case 'research':
+      return {
+        abstract: String(metadata.abstract || '').slice(0, 2000),
+        doi:      String(metadata.doi || ''),
+        language: String(metadata.language || ''),
+      }
+    default:
+      return {}
+  }
 }
 
 // ── Content extraction ───────────────────────────────────────────────────────
@@ -296,10 +362,20 @@ function respondSync(context, sendResponse, fn) {
 
 // ── Message handler ──────────────────────────────────────────────────────────
 
+// Registered exactly once per page: ES modules are singletons within a page
+// realm, so even if the service worker's executeScript fallback re-imports this
+// file (losing the race against the static manifest loader), the cached module
+// is not re-evaluated and this listener is not registered twice.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false
 
   switch (message.type) {
+    case 'PING':
+      // Lightweight liveness probe used by the service worker before it
+      // decides whether to inject this content script. Must stay cheap.
+      sendResponse({ ok: true })
+      return false
+
     case 'GET_PAGE_META':
       extractPageMeta().then(meta => {
         sendResponse({
