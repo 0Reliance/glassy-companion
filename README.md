@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.8.0-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.9.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -22,9 +22,9 @@
 | Feature | Description |
 | --- | --- |
 | **Quick Save** | Instant, one-click save of the current page with premium Markdown formatting. |
-| **Smart Save** | Structured capture with 8 presets (Bookmark, Article, Video, Repo, Product, Research, Highlight, Screenshot), destination routing, and lifecycle flags. |
+| **Smart Save** | Structured capture with 4 content types (Article, Video, Repo, Bookmark). Type chips re-run the page interpreter on change so metadata is always fresh before save. |
 | **Element Picker** | Click any element on the page to capture it as rich Markdown. Hover-to-highlight with purple glow. |
-| **Screenshot Capture** | Capture the visible viewport — automatically uploaded as WebP and embedded in your save's markdown content. |
+| **Screenshot Capture** | Capture the visible viewport via direct service worker routing (`captureVisibleTab`). Works on restricted URLs, PDFs, and stale tabs where the content script is absent. |
 | **Site Interpreters** | Automatic enriched metadata for YouTube, GitHub, product pages, and scholarly articles via Schema.org. |
 | **Content Preview** | Preview extracted page content as rendered HTML or raw Markdown before saving. See word count and reading time. |
 | **Side Panel** | Persistent side panel (Chrome, `Ctrl+Shift+P`) that stays open while you browse. Firefox falls back to popup. |
