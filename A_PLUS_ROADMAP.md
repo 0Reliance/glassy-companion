@@ -23,7 +23,7 @@
 | 7 | Storage quota monitoring | ✅ FIXED (v2.11.0) — alarm listener updated; `checkStorageQuota()` runs every 6h via `STORAGE_QUOTA_ALARM`; 80% warn / 95% critical with auto-trim |
 | 8 | SPA schema polling | ✅ IMPROVED (v2.9.0) |
 | 9 | Chrome Web Store + AMO submission | ⏳ Store assets ready; submission next |
-| 10 | E2E test suite | ⚠️ **Foundation (10/14 passing)** — test schema for `notes` (22 cols) and `bookmarks` (11 cols) needs to be brought in line with the real INSERT statements; tracked in [`DOCS_EVALUATION_UPDATE_PLAN_2026-06-13.md`](https://github.com/0Reliance/glassy/blob/main/DOCS_EVALUATION_UPDATE_PLAN_2026-06-13.md) P1 follow-up |
+| 10 | E2E test suite | ✅ **Foundation (14/14 passing for real, zero no-op)** — see CJS→ESM tool-module conversion in [`GLASSY_PRE_BUILD_VERIFICATION_2026-06-13.md`](https://github.com/0Reliance/glassy/blob/main/GLASSY_PRE_BUILD_VERIFICATION_2026-06-13.md) Phase C. Companion 168/168 + MCP 14/14 = 836/836 server tests pass. |
 
 ## A+ Differentiators — Final State
 

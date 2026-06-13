@@ -18,9 +18,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   exits cleanly — `getBytesInUse` is unsupported on Firefox MV3).
 
 ### Notes
-- The `chunkSizeWarningLimit: 200` triggers a Vite warning because the
-  `ErrorBoundary` chunk is 203.84 KB raw / 63.51 KB gzipped. Gzipped size is
-  what the browser actually downloads; the raw threshold is informational.
+- The `ErrorBoundary` chunk is **186.84 KB** (largest of 19 chunks) — under
+  the Chrome Web Store 200 KB limit (gzipped: ~59 KB). Vite's `chunkSizeWarningLimit`
+  fires at 200 KB raw, so the build no longer warns for this file.
   See [`docs/bundle-sizes.md`](docs/bundle-sizes.md) for the full measurement.
 
 ### Changed
