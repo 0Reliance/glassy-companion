@@ -13,7 +13,7 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- Current repo-level open item: Firefox Add-ons submission/signing remains outstanding.
+- **Current state (June 13, 2026 — 22:55 UTC):** v2.11.0 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.11.0 with both `glassy-companion-v2.11.0.zip` and `glassy-companion-v2.11.0-firefox.xpi` attached (15/15 preflight checks pass). Remaining: manual upload to Chrome Web Store and Mozilla Add-ons (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6).
 
 ---
 
@@ -56,16 +56,17 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download and unzip the latest release.
-3. Open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**.
-4. Select the unzipped folder.
+2. Download the latest `v2.11.0` assets:
+   - **`glassy-companion-v2.11.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.11.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v*.zip`.
-- **Firefox 121+**: install from `glassy-companion-v*-firefox.xpi` for local/user testing via `about:debugging`. Mozilla Add-ons submission/signing remains the next distribution step.
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.11.0.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.11.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
-> Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID and `strict_min_version: 121.0`.
+> Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 
 ---
 
