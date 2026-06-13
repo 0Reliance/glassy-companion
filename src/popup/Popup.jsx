@@ -1,13 +1,20 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, Suspense, lazy } from 'react'
 import AppShell from './components/AppShell.jsx'
 import LoginCard from './components/LoginCard.jsx'
 import UpsellCard from './components/UpsellCard.jsx'
-import SaveView from './views/SaveView.jsx'
-import NoteView from './views/NoteView.jsx'
-import SearchView from './views/SearchView.jsx'
-import SettingsView from './views/SettingsView.jsx'
 import Skeleton from './components/Skeleton.jsx'
 import useAppState from './hooks/useAppState.js'
+
+// ── Code-split views ─────────────────────────────────────────────────────────
+// Each view is loaded on demand so the popup's main chunk stays small
+// (Chrome Web Store requires all chunks under 200 KB). The lazy() calls
+// produce separate chunks: SaveView, NoteView, SearchView, KbSearchView,
+// SettingsView. KbSearchView was already in the 'kb-view' manual chunk.
+const SaveView = lazy(() => import('./views/SaveView.jsx'))
+const NoteView = lazy(() => import('./views/NoteView.jsx'))
+const SearchView = lazy(() => import('./views/SearchView.jsx'))
+const KbSearchView = lazy(() => import('./views/KbSearchView.jsx'))
+const SettingsView = lazy(() => import('./views/SettingsView.jsx'))
 
 // ── Root Popup component ──────────────────────────────────────────────────────
 
@@ -45,11 +52,13 @@ export default function Popup() {
     >
       {/* Settings overlay */}
       {showSettings && isAuthed && (
-        <SettingsView
-          user={user}
-          onClose={() => setShowSettings(false)}
-          onLogout={handleLogout}
-        />
+        <Suspense fallback={<Skeleton variant="settings" />}>
+          <SettingsView
+            user={user}
+            onClose={() => setShowSettings(false)}
+            onLogout={handleLogout}
+          />
+        </Suspense>
       )}
 
       {/* Main content — hidden when settings open */}
@@ -66,33 +75,45 @@ export default function Popup() {
           )}
 
           {view === 'save' && (
-            <SaveView
-              pageMeta={pageMeta}
-              user={user}
-              ruleDefaults={ruleDefaults}
-              alreadySaved={alreadySaved}
-              saveStatus={saveStatus}
-              errorMessage={errorMessage}
-              lastCaptureId={lastCaptureId}
-              pendingElement={pendingElement}
-              pendingScreenshot={pendingScreenshot}
-              setSaving={setSaving}
-              setSaved={setSaved}
-              setDuplicate={setDuplicate}
-              setError={setError}
-              resetSaveStatus={resetSaveStatus}
-              clearPending={clearPending}
-              setLastCaptureId={setLastCaptureId}
-              setAlreadySaved={setAlreadySaved}
-            />
+            <Suspense fallback={<Skeleton variant="save" />}>
+              <SaveView
+                pageMeta={pageMeta}
+                user={user}
+                ruleDefaults={ruleDefaults}
+                alreadySaved={alreadySaved}
+                saveStatus={saveStatus}
+                errorMessage={errorMessage}
+                lastCaptureId={lastCaptureId}
+                pendingElement={pendingElement}
+                pendingScreenshot={pendingScreenshot}
+                setSaving={setSaving}
+                setSaved={setSaved}
+                setDuplicate={setDuplicate}
+                setError={setError}
+                resetSaveStatus={resetSaveStatus}
+                clearPending={clearPending}
+                setLastCaptureId={setLastCaptureId}
+                setAlreadySaved={setAlreadySaved}
+              />
+            </Suspense>
           )}
 
           {view === 'note' && (
-            <NoteView pageMeta={pageMeta} />
+            <Suspense fallback={<Skeleton variant="note" />}>
+              <NoteView pageMeta={pageMeta} />
+            </Suspense>
           )}
 
           {view === 'search' && (
-            <SearchView />
+            <Suspense fallback={<Skeleton variant="search" />}>
+              <SearchView />
+            </Suspense>
+          )}
+
+          {view === 'kb' && (
+            <Suspense fallback={<Skeleton variant="kb" />}>
+              <KbSearchView />
+            </Suspense>
           )}
         </main>
       )}

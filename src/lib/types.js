@@ -13,10 +13,13 @@
 
 /**
  * @typedef {Object} ObsidianSync
- * @property {string} [path]
- * @property {string} [template]
- * @property {string} [emittedAt]
- * @property {string} [noteId]
+ * @property {string} [path] — target vault path (e.g. 'Clips/web-clips/')
+ * @property {string} [template] — OFM template name for the push
+ * @property {string} [emittedAt] — ISO timestamp of last successful push
+ * @property {string} [noteId] — Glassy note ID that was pushed
+ * NOTE: This type is a stub — push-to-Obsidian from the browser extension
+ * is not yet implemented. Captures can be pushed to Obsidian via the
+ * glassy-dash web app's Vault integration.
  */
 
 /**

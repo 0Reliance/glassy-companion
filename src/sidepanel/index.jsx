@@ -19,6 +19,7 @@ const root = createRoot(rootEl)
 root.render(
   <ErrorBoundary>
     <div style={{
+      '--popup-width': '100%',
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',

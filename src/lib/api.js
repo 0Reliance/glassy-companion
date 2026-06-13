@@ -303,3 +303,38 @@ export function updateItemLifecycle(id, updates) {
 export function promoteItem(id) {
   return apiFetch(`${API_PATHS.items}/${encodeURIComponent(id)}/promote`, { method: 'POST' })
 }
+
+// ── Knowledge Base (Second Brain) ──────────────────────────────────────────────
+
+/**
+ * POST /api/kb/query — Search the knowledge base using hybrid text + semantic search.
+ * @param {string} query - Natural language search query
+ * @param {Object} options - Search options
+ * @param {string[]} options.sources - Source types to search (bookmarks, notes, vault, voice)
+ * @param {number} options.limit - Max results (default 10)
+ */
+export function searchKnowledgeBase(query, options = {}) {
+  return apiFetch(API_PATHS.kbSearch, {
+    method: 'POST',
+    body: {
+      query,
+      sources: options.sources,
+      limit: options.limit || 10,
+    },
+  })
+}
+
+/**
+ * GET /api/kb/status — Get corpus indexing status.
+ */
+export function getKbStatus() {
+  return apiFetch(API_PATHS.kbStatus)
+}
+
+/**
+ * POST /api/ext/mcp-token — Exchange JWT for MCP connection info.
+ * Returns { mcpUrl, mcpToken } for configuring external AI tools.
+ */
+export function getMcpToken() {
+  return apiFetch(API_PATHS.kbMcpToken, { method: 'POST' })
+}

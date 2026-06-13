@@ -23,7 +23,7 @@
 /* ── Reset & body ─────────────────────────────────────────────────────────── */
 
 body {
-  width: 380px;
+  width: var(--popup-width, 380px);
   min-height: 200px;
   max-height: 580px;
   overflow-x: hidden;

@@ -22,6 +22,10 @@ export const API_PATHS = {
   captureRules: '/api/capture-rules',
   captureImage: '/api/ext/capture-image',
   items: '/api/items',
+  // Knowledge Base — Second Brain search
+  kbSearch: '/api/kb/query',
+  kbStatus: '/api/kb/status',
+  kbMcpToken: '/api/ext/mcp-token',
 }
 
 export const STORAGE_KEYS = {

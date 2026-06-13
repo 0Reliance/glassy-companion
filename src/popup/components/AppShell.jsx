@@ -4,14 +4,15 @@ const TABS = [
   { id: 'save', label: 'Save', icon: '🔖' },
   { id: 'note', label: 'Note', icon: '📝' },
   { id: 'search', label: 'Search', icon: '🔍' },
+  { id: 'kb', label: 'KB', icon: '🧠' },
 ]
 
 export default function AppShell({ activeView, onNavigate, user, showSettings, onToggleSettings, children }) {
-  const isContentView = ['save', 'note', 'search'].includes(activeView)
+  const isContentView = ['save', 'note', 'search', 'kb'].includes(activeView)
 
   return (
     <div className="popup-root" style={{
-      width: 380, fontFamily: "'Inter', sans-serif",
+      width: 'var(--popup-width, 380px)', fontFamily: "'Inter', sans-serif",
       background: '#08080c', color: 'rgba(255,255,255,0.95)', minHeight: 200,
       position: 'relative', overflow: 'hidden'
     }}>
