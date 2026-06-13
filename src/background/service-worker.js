@@ -19,6 +19,11 @@ import {
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
 
+// ── Storage Quota Monitoring alarm name ────────────────────────────────────
+// Defined here (not at the bottom of the file) so the alarm listener can
+// reference it without depending on hoisting or evaluation order.
+const STORAGE_QUOTA_ALARM = 'glassy_storage_quota_check'
+
 // ── Content Script Injection Fallback ─────────────────────────────────────────
 
 /**
@@ -476,6 +481,11 @@ async function saveHighlightFromContext(tab) {
 }
 
 chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === STORAGE_QUOTA_ALARM) {
+    // S2.8: Storage quota monitoring (6h cadence)
+    await checkStorageQuota()
+    return
+  }
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
   if (!navigator.onLine || _queueFlushing) return
   _queueFlushing = true
@@ -935,3 +945,49 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     debouncedCheckBadge(tabId, changeInfo.url)
   }
 })
+
+// ── Storage Quota Monitoring ─────────────────────────────────────────────────
+// Chrome MV3 enforces a ~10MB limit on chrome.storage.local.
+// This alarm checks quota every 6 hours and warns when approaching the limit.
+// (STORAGE_QUOTA_ALARM is declared near the top of this file, with the other
+// alarm names, so the listener can reference it without hoisting concerns.)
+
+const STORAGE_QUOTA_WARN_THRESHOLD = 0.8 // Warn at 80% usage
+const STORAGE_QUOTA_CRITICAL_THRESHOLD = 0.95 // Critical at 95%
+
+async function checkStorageQuota() {
+  try {
+    const bytesInUse = await chrome.storage.local.getBytesInUse()
+    const quotaBytes = chrome.storage.local.QUOTA_BYTES || 10485760 // 10MB default
+    const usageRatio = bytesInUse / quotaBytes
+
+    if (usageRatio >= STORAGE_QUOTA_CRITICAL_THRESHOLD) {
+      console.warn('[Glassy] Storage critical:', Math.round(usageRatio * 100) + '% used')
+      // Auto-trim offline queue to free space
+      try {
+        const queue = await getQueue()
+        if (queue.length > 50) {
+          // Keep only the 50 most recent items
+          const trimmed = queue.slice(-50)
+          await clearQueue()
+          for (const item of trimmed) {
+            await enqueue(item.type, item.payload)
+          }
+          console.log('[Glassy] Trimmed offline queue from', queue.length, 'to 50 items')
+        }
+      } catch (queueErr) {
+        console.warn('[Glassy] Queue trim failed:', queueErr.message)
+      }
+    } else if (usageRatio >= STORAGE_QUOTA_WARN_THRESHOLD) {
+      console.warn('[Glassy] Storage warning:', Math.round(usageRatio * 100) + '% used')
+    }
+  } catch (err) {
+    // getBytesInUse may not be available in all browsers (Firefox)
+    console.warn('[Glassy] Storage quota check failed:', err.message)
+  }
+}
+
+// Register the quota check alarm on startup
+try {
+  chrome.alarms.create(STORAGE_QUOTA_ALARM, { periodInMinutes: 360 }) // 6 hours
+} catch { /* Firefox may not support alarms.create with periodInMinutes */ }

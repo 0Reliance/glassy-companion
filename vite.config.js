@@ -27,11 +27,39 @@ export default defineConfig(({ mode }) => {
           sidepanel: resolve(__dirname, 'src/sidepanel/index.html'),
           offscreen: resolve(__dirname, 'src/offscreen/index.html'),
         },
+        output: {
+          // Manual chunk splitting to keep all chunks under 200KB
+          // (Chrome Web Store requirement for extension submissions)
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-state': ['zustand'],
+            'ui-components': [
+              resolve(__dirname, 'src/popup/components/AppShell.jsx'),
+              resolve(__dirname, 'src/popup/components/SmartSavePanel.jsx'),
+              resolve(__dirname, 'src/popup/components/BookmarkCard.jsx'),
+              resolve(__dirname, 'src/popup/components/ContentPreview.jsx'),
+              resolve(__dirname, 'src/popup/components/SummaryCard.jsx'),
+              resolve(__dirname, 'src/popup/components/UpsellCard.jsx'),
+              resolve(__dirname, 'src/popup/components/LoginCard.jsx'),
+              resolve(__dirname, 'src/popup/components/TagEditor.jsx'),
+              resolve(__dirname, 'src/popup/components/CollectionPicker.jsx'),
+              resolve(__dirname, 'src/popup/components/AccountPicker.jsx'),
+              resolve(__dirname, 'src/popup/components/QuickActions.jsx'),
+              resolve(__dirname, 'src/popup/components/SaveToast.jsx'),
+              resolve(__dirname, 'src/popup/components/Skeleton.jsx'),
+            ],
+            'kb-view': [
+              resolve(__dirname, 'src/popup/views/KbSearchView.jsx'),
+            ],
+          },
+        },
       },
       outDir,
       emptyOutDir: true,
       sourcemap: mode === 'development',
       minify: mode !== 'development',
+      // Warn on chunks over 200KB (store requirement)
+      chunkSizeWarningLimit: 200,
     },
   }
 })
