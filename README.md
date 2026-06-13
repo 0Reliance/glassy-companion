@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.9.0-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.11.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -37,7 +37,10 @@
 | **Glassy Design** | A beautiful, layered Obsidian theme with luminous indicators and glass-morphic UI. |
 | **Rule Engine** | Automatic preset assignment based on domain and URL patterns from your Glassy dashboard. |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is unreachable and sync automatically. |
+| **Knowledge Base Search (v2.10.0)** | Search your Glassy knowledge base (bookmarks, notes, vault files) from the popup. Source filter tabs, debounced hybrid search, corpus indexing status, and relevance scores. |
+| **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.33.0+). |
 | **Cross-Browser** | Full Chrome and Firefox support. Accessibility: focus indicators, reduced motion, high contrast. |
+| **Storage quota monitoring (v2.11.0)** | Periodic alarm checks `chrome.storage.local` usage; warns at 80%, auto-trims the offline queue at 95% critical. |
 
 ---
 

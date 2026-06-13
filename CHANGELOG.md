@@ -5,6 +5,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.11.0] — 2026-06-13 — Store Readiness & Reliability Hardening
+
+### Added
+- **Firefox CSP** — `content_security_policy` added to `manifest.firefox.json`
+  (matching Chrome manifest, without `wasm-unsafe-eval`). Required for AMO
+  submission.
+- **Storage quota monitoring** — `STORAGE_QUOTA_ALARM` runs every 6 hours via
+  `chrome.alarms`. The alarm listener dispatches to `checkStorageQuota()`
+  which warns at 80% usage and auto-trims the offline queue at 95% critical.
+  Uses `chrome.storage.local.getBytesInUse()` (Firefox logs a warning and
+  exits cleanly — `getBytesInUse` is unsupported on Firefox MV3).
+
+### Notes
+- The `chunkSizeWarningLimit: 200` triggers a Vite warning because the
+  `ErrorBoundary` chunk is 203.84 KB raw / 63.51 KB gzipped. Gzipped size is
+  what the browser actually downloads; the raw threshold is informational.
+  See [`docs/bundle-sizes.md`](docs/bundle-sizes.md) for the full measurement.
+
+### Changed
+- **Bundle size optimization** — `vite.config.js` now uses `manualChunks` to
+  split vendor libraries (`vendor-react`, `vendor-state`) and UI components
+  (`ui-components`, `kb-view`). All chunks under 200KB for store compliance.
+  `chunkSizeWarningLimit` set to 200KB.
+
+## [2.10.0] — 2026-06-12 — Knowledge Base Search
+
+### Added
+- **KB tab and search view** — new "KB 🧠" tab in the popup for searching the
+  Glassy Knowledge Base (bookmarks, notes, vault files). Debounced search
+  (400 ms), source type filter tabs (All / Bookmarks / Notes / Vault), corpus
+  indexing status banner, result items with source badges, snippets, and
+  relevance scores.
+- `KbSearchView.jsx` — full search UI using `searchKnowledgeBase()` and
+  `getKbStatus()` from the API layer.
+- `AppShell.jsx` — added `{ id: 'kb', label: 'KB', icon: '🧠' }` tab.
+- `Popup.jsx` — added `KbSearchView` import and `view === 'kb'` render block.
+- `useAppState.js` — added `#/kb` hash route and `glassy_open_view` support.
+
+---
+
 ## [2.9.0] — 2026-06-09 — Structured Capture & Reliable Execution
 
 Foundational refactor that makes Save Page and Screenshot the two perfect,

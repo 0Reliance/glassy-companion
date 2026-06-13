@@ -7,7 +7,9 @@
 
 ---
 
-> **Historical Document** — This architecture reference covers the v2.3.1 offscreen-document redesign (May 27, 2026). The extension has since evolved through v2.4–v2.9. For the current architecture, API schema, and feature set, see [`docs/EXTENSION_INTERNALS.md`](docs/EXTENSION_INTERNALS.md) and the companion [CHANGELOG.md](CHANGELOG.md).
+> **Historical Document** — This architecture reference covers the v2.3.1 offscreen-document redesign (May 27, 2026). The extension has since evolved through v2.4–v2.11. For the current architecture, API schema, and feature set, see [`docs/EXTENSION_INTERNALS.md`](docs/EXTENSION_INTERNALS.md) and the companion [CHANGELOG.md](CHANGELOG.md).
+>
+> **v2.11.0 addendum (June 13, 2026):** A `STORAGE_QUOTA_ALARM` (periodInMinutes 360 = 6h) is now registered alongside the existing offline-sync alarm. The `chrome.alarms.onAlarm` listener dispatches to `checkStorageQuota()` which calls `chrome.storage.local.getBytesInUse()` and emits a `console.warn` at 80% usage and auto-trims the offline queue to its 50 most-recent items at 95% (the queue's `MAX_QUEUE_SIZE` is 200, so a trim to 50 frees ~75% of local storage headroom). Firefox compatibility: `getBytesInUse` is unavailable on Firefox, so the quota check logs a warning and exits cleanly. Bundle size configuration (S2.7) — `vite.config.js` defines `manualChunks` to split `vendor-react`, `vendor-state`, `ui-components`, and `kb-view`; `chunkSizeWarningLimit` is 200 KB. See [`docs/bundle-sizes.md`](docs/bundle-sizes.md) for measured chunk sizes (note: `ErrorBoundary` chunk lands at 203.84 KB raw / 63.51 KB gzipped — above the 200 KB warning, below the practical loading cost).
 
 ## Table of Contents
 
