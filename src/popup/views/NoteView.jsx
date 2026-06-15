@@ -20,8 +20,9 @@ export default function NoteView({ pageMeta }) {
   const textareaRef = useRef(null)
   const draftTimer = useRef(null)
 
-  // Restore draft on mount
+  // Restore draft when page context is known.
   useEffect(() => {
+    if (!pageMeta?.url) return
     try {
       chrome.storage.local.get(DRAFT_KEY, (result) => {
         if (chrome.runtime.lastError) {
@@ -30,6 +31,11 @@ export default function NoteView({ pageMeta }) {
         }
         const draft = result?.[DRAFT_KEY]
         if (draft) {
+          if (draft.url && draft.url !== pageMeta.url) {
+            // Stale draft from a different page — discard it.
+            chrome.storage.local.remove(DRAFT_KEY)
+            return
+          }
           if (draft.content) setContent(draft.content)
           if (draft.title) setTitle(draft.title)
           if (Array.isArray(draft.tags) && draft.tags.length) setTags(draft.tags)
@@ -41,7 +47,10 @@ export default function NoteView({ pageMeta }) {
     } catch (err) {
       console.warn('[NoteView] draft restore error:', err)
     }
-    // Focus textarea
+  }, [pageMeta?.url])
+
+  // Focus textarea on mount
+  useEffect(() => {
     setTimeout(() => textareaRef.current?.focus(), 100)
   }, [])
 
@@ -51,12 +60,12 @@ export default function NoteView({ pageMeta }) {
     draftTimer.current = setTimeout(() => {
       if (content || title) {
         chrome.storage.local.set({
-          [DRAFT_KEY]: { content, title, tags, collectionId, savedAt: Date.now() }
+          [DRAFT_KEY]: { content, title, tags, collectionId, url: pageMeta?.url, savedAt: Date.now() }
         })
       }
     }, 500)
     return () => { if (draftTimer.current) clearTimeout(draftTimer.current) }
-  }, [content, title, tags, collectionId])
+  }, [content, title, tags, collectionId, pageMeta?.url])
 
   const clearDraft = useCallback(() => {
     chrome.storage.local.remove(DRAFT_KEY)

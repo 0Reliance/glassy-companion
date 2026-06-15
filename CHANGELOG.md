@@ -5,6 +5,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.11.1] — 2026-06-15 — Draft Stale-Data Fix
+
+### Fixed
+- **BookmarkCard preview showing previous page** — `chrome.storage.local` draft
+  restoration was racing `pageMeta` arrival. The draft callback fired after the
+  `pageMeta?.title` effect, overwriting the current page title with the previous
+  page's draft. Now both `BookmarkCard` and `NoteView` store the page `url` in
+  the draft and validate it on restore; mismatched drafts are discarded instead
+  of restored. Effects now depend on `pageMeta?.url` so they only run once the
+  active tab context is known.
+
+### Changed
+- `BookmarkCard.jsx` — `BOOKMARK_DRAFT_KEY` now includes `url`; restore effect
+  depends on `[pageMeta?.url]` and removes stale drafts.
+- `NoteView.jsx` — `DRAFT_KEY` now includes `url`; restore effect split from
+  textarea focus and depends on `[pageMeta?.url]`.
+- `BookmarkCard.test.jsx` — added `url` field to draft contract tests and a
+  stale-draft discard scenario.
+
+---
+
 ## [2.11.0] — 2026-06-13 — Store Readiness & Reliability Hardening
 
 ### Added

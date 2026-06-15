@@ -15,6 +15,7 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
   const draftTimer = useRef(null)
 
   useEffect(() => {
+    if (!pageMeta?.url) return
     chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
       if (chrome.runtime.lastError) {
         // Storage read failed (e.g. extension context invalidated) — keep the
@@ -23,23 +24,28 @@ export default function BookmarkCard({ pageMeta, user, onSave, onSaveNote, savin
       }
       const draft = result?.[BOOKMARK_DRAFT_KEY]
       if (draft) {
+        if (draft.url && draft.url !== pageMeta.url) {
+          // Stale draft from a different page — discard it.
+          chrome.storage.local.remove(BOOKMARK_DRAFT_KEY)
+          return
+        }
         if (draft.title) setTitle(draft.title)
         if (draft.notes) { setNotes(draft.notes); setShowNotes(true) }
         if (Array.isArray(draft.tags)) setTags(draft.tags)
         if (draft.collectionId != null) setCollection(draft.collectionId)
       }
     })
-  }, [])
+  }, [pageMeta?.url])
 
   useEffect(() => {
     if (draftTimer.current) clearTimeout(draftTimer.current)
     draftTimer.current = setTimeout(() => {
       chrome.storage.local.set({
-        [BOOKMARK_DRAFT_KEY]: { title, notes, tags, collectionId, savedAt: Date.now() }
+        [BOOKMARK_DRAFT_KEY]: { title, notes, tags, collectionId, url: pageMeta?.url, savedAt: Date.now() }
       })
     }, 500)
     return () => clearTimeout(draftTimer.current)
-  }, [title, notes, tags, collectionId])
+  }, [title, notes, tags, collectionId, pageMeta?.url])
 
   useEffect(() => {
     if (pageMeta?.title && !title) setTitle(pageMeta.title)

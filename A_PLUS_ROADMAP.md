@@ -1,9 +1,9 @@
-# Glassy Companion — A+ Extension Roadmap (Updated June 13, 2026 — Final)
+# Glassy Companion — A+ Extension Roadmap (Updated June 15, 2026 — Final)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
 
-> **June 13 final update:** v2.11.0 completes store readiness hardening. Server-side MCP SDK upgrade (glassy-dash v2.33.0) ships real `@modelcontextprotocol/sdk` with 6 tools, 3 prompts, 3 resources, completable(), DNS rebinding, tier-based rate limiting, and Obsidian proxy unification. S3 substantially complete: side panel responsive, store assets, E2E test foundation, MCP bridge config snippets. Grade: A-.
+> **June 15 update:** v2.11.1 hotfix closes the stale-draft race condition in `BookmarkCard` and `NoteView` (drafts now store page URL and discard mismatches on restore). Server-side MCP SDK upgrade (glassy-dash v2.34.1) ships real `@modelcontextprotocol/sdk` with 10 tools, 3 prompts, 3 resources, and local on-device embeddings. Grade: A-.
 
 ## Original Critical Issues (Hotfix Tier) — v2.5.0–v2.11.0 Status
 
@@ -14,6 +14,7 @@
 | 3 | Element picker discovery cliff | ✅ IMPROVED (v2.9.0) |
 | 4 | Missing CSP in manifest | ✅ FIXED (v2.11.0) |
 | 5 | Side panel responsive layout | ✅ FIXED (v2.11.0 — CSS var --popup-width) |
+| 6 | Stale draft race (preview card shows previous page) | ✅ FIXED (v2.11.1 — draft stores URL, discards mismatches on restore) |
 
 ## Foundation Tier — Current Status
 

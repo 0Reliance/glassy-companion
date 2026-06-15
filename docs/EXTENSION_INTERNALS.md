@@ -1,9 +1,10 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.11.0
+**Version:** 2.11.1
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** June 13, 2026
+**Last Updated:** June 15, 2026
 
+> **v2.11.1 fixes:** Draft stale-data race in `BookmarkCard` and `NoteView`. Drafts now store `url` and are discarded when the saved URL differs from the current active tab, preventing the preview card from showing the previous page's title/image. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.11.0 adds:** Firefox Content Security Policy (matches Chrome without `wasm-unsafe-eval`), `STORAGE_QUOTA_ALARM` 6-hourly quota check with 80% warn / 95% critical auto-trim, and `manualChunks` bundle splitting (vendor-react, vendor-state, ui-components, kb-view) with `chunkSizeWarningLimit: 200`. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.10.0 adds:** KB 🧠 tab in the popup — `KbSearchView.jsx` with debounced hybrid search, source filter tabs (All / Bookmarks / Notes / Vault), corpus status banner, and relevance scores. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.9.0 adds:** Two-button main bar (Save Page + Screenshot), structured capture pipeline with 4 content types, direct service-worker screenshot routing, `ensureContentScript` fallback, and interpreter re-run on type change. See [CHANGELOG.md](../CHANGELOG.md) for details.

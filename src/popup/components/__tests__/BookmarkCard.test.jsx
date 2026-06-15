@@ -45,12 +45,13 @@ describe('BookmarkCard draft persistence contract', () => {
     })
   })
 
-  it('stores a draft with expected shape', async () => {
+  it('stores a draft with expected shape (including url)', async () => {
     const draft = {
       title: 'My page',
       notes: 'some notes',
       tags: ['react', 'testing'],
       collectionId: 42,
+      url: 'https://example.com/article',
       savedAt: Date.now(),
     }
     await local.set({ [BOOKMARK_DRAFT_KEY]: draft })
@@ -63,6 +64,7 @@ describe('BookmarkCard draft persistence contract', () => {
       notes: 'some notes',
       tags: ['react', 'testing'],
       collectionId: 42,
+      url: 'https://example.com/article',
     })
     expect(stored.savedAt).toBeGreaterThan(0)
   })
@@ -113,5 +115,21 @@ describe('BookmarkCard draft persistence contract', () => {
     expect(result[BOOKMARK_DRAFT_KEY].title).toBe('v2')
     expect(result[BOOKMARK_DRAFT_KEY].notes).toBe('updated')
     expect(result[BOOKMARK_DRAFT_KEY].savedAt).toBe(2000)
+  })
+
+  it('discards stale draft when url differs from current page', async () => {
+    await local.set({
+      [BOOKMARK_DRAFT_KEY]: { title: 'Old page', notes: '', tags: [], collectionId: null, url: 'https://old.example.com', savedAt: 1000 },
+    })
+
+    // Simulate the discard logic: if draft.url !== pageMeta.url, remove it.
+    const currentUrl = 'https://new.example.com'
+    const result = await local.get(BOOKMARK_DRAFT_KEY)
+    const draft = result[BOOKMARK_DRAFT_KEY]
+    if (draft.url && draft.url !== currentUrl) {
+      await local.remove(BOOKMARK_DRAFT_KEY)
+    }
+
+    expect(local._store.has(BOOKMARK_DRAFT_KEY)).toBe(false)
   })
 })
