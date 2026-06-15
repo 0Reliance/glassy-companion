@@ -78,6 +78,11 @@ OAuth via chrome.identity, onboarding carousel, default to Quick Save for power 
 |------|-------|-------------|--------|
 | Week 1 | Store Readiness | CSP manifest fix, bundle size audit, privacy policy | ✅ **DONE** (v2.11.0) |
 | Week 2 | Store Submission | Chrome Web Store + AMO submission, automated CI release | ⏳ Next |
+| Week 2.5 | Local AI Surface Review | Companion has no local AI APIs (no WebLLM, no Whisper, no embeddings). The companion's only AI surface is capture-classification and metadata extraction via the server's MCP/REST endpoints. For parity with the Dash app, the companion would need:
+  - Local text model for on-the-fly rewrites
+  - Local embeddings for offline note-to-note similarity (useful for side-panel "related captures")
+  - This is **not blocking** the A+ grade but is a meaningful future differentiator
+  | 🔮 Future |
 | Week 3 | Quality Polish | SPA schema polling, element picker improvements, side panel layout fix | ⏳ |
 | Week 4 | Knowledge Layer | MCP server prototype (server-side Phase 3), E2E test suite foundation | ✅ **DONE** (glassy-dash v2.33.0: real SDK, 6 tools, 3 prompts, 3 resources) |
 
