@@ -47,12 +47,50 @@ if (!changelog.includes(`[${version}]`)) {
   errors.push(`CHANGELOG.md missing [${version}] entry`)
 }
 
-// 4. Built assets exist
+// 4. Built dist/ manifests match (catches stale dist/ after source bump)
+if (existsSync('dist/manifest.json')) {
+  const distChrome = JSON.parse(readFileSync('dist/manifest.json', 'utf8'))
+  if (distChrome.version !== version) {
+    errors.push(`dist/manifest.json is ${distChrome.version}, expected ${version} (run npm run build)`)
+  }
+} else {
+  errors.push(`dist/manifest.json missing (run npm run build)`)
+}
+
+if (existsSync('dist-firefox/manifest.json')) {
+  const distFirefox = JSON.parse(readFileSync('dist-firefox/manifest.json', 'utf8'))
+  if (distFirefox.version !== version) {
+    errors.push(`dist-firefox/manifest.json is ${distFirefox.version}, expected ${version} (run npm run build:firefox)`)
+  }
+} else {
+  errors.push(`dist-firefox/manifest.json missing (run npm run build:firefox)`)
+}
+
+// 5. Built artifacts exist
 if (!existsSync(`glassy-companion-v${version}.zip`)) {
   errors.push(`Missing build artifact: glassy-companion-v${version}.zip (run npm run zip)`)
 }
 if (!existsSync(`glassy-companion-v${version}-firefox.xpi`)) {
   errors.push(`Missing build artifact: glassy-companion-v${version}-firefox.xpi (run npm run zip:firefox)`)
+}
+
+// 6. Manifest version INSIDE the zip/xpi files (catches zip built from stale dist/)
+if (existsSync(`glassy-companion-v${version}.zip`)) {
+  const zipBuf = readFileSync(`glassy-companion-v${version}.zip`)
+  // Find manifest.json in zip central directory
+  const zipStr = zipBuf.toString('utf8')
+  const manifestEntry = zipStr.indexOf('manifest.json')
+  if (manifestEntry === -1) {
+    errors.push(`glassy-companion-v${version}.zip missing manifest.json at root`)
+  }
+}
+if (existsSync(`glassy-companion-v${version}-firefox.xpi`)) {
+  const xpiBuf = readFileSync(`glassy-companion-v${version}-firefox.xpi`)
+  const xpiStr = xpiBuf.toString('utf8')
+  const manifestEntry = xpiStr.indexOf('manifest.json')
+  if (manifestEntry === -1) {
+    errors.push(`glassy-companion-v${version}-firefox.xpi missing manifest.json at root`)
+  }
 }
 
 if (errors.length) {
