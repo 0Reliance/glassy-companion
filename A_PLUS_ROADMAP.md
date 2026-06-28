@@ -1,4 +1,4 @@
-# Glassy Companion — A+ Extension Roadmap (Updated June 15, 2026 — Final)
+# Glassy Companion — A+ Extension Roadmap (Updated June 22, 2026 — Final)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
@@ -85,7 +85,7 @@ OAuth via chrome.identity, onboarding carousel, default to Quick Save for power 
   - This is **not blocking** the A+ grade but is a meaningful future differentiator
   | 🔮 Future |
 | Week 3 | Quality Polish | SPA schema polling, element picker improvements, side panel layout fix | ⏳ |
-| Week 4 | Knowledge Layer | MCP server prototype (server-side Phase 3), E2E test suite foundation | ✅ **DONE** (glassy-dash v2.33.0: real SDK, 6 tools, 3 prompts, 3 resources) |
+| Week 4 | Knowledge Layer | MCP server prototype (server-side Phase 3), E2E test suite foundation | ✅ **DONE** (glassy-dash v2.34.1: real SDK, 10 tools, 3 prompts, 3 resources) |
 
 ## Key Insight
 The reliability foundation is now sound. v2.5.0–v2.11.0 closed all critical MV3 gaps, delivered structured capture end-to-end, and completed store readiness hardening. The server-side MCP knowledge layer is now a world-class SDK implementation. The remaining path to A+ is: (1) store submission, (2) Companion MCP bridge (Phase 6), (3) Obsidian direct push. The architecture is correct — what remains is distribution and platform depth.

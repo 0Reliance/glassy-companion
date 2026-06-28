@@ -51,6 +51,7 @@ export default function KbSearchView() {
   const [activeSource, setActiveSource] = useState('all')
   const [kbStatus, setKbStatus] = useState(null)
   const [statusLoading, setStatusLoading] = useState(true)
+  const [kbDisabled, setKbDisabled] = useState(false)
   const inputRef = useRef(null)
 
   // Fetch KB status on mount
@@ -102,7 +103,15 @@ export default function KbSearchView() {
         }
       } catch (err) {
         setResults([])
-        setSearchError(err.message || 'Search failed')
+        if (err.status === 403 && /not enabled/i.test(err.message)) {
+          setKbDisabled(true)
+          setSearchError('')
+        } else if (err.status === 403 && /Glassy Keep required/i.test(err.message)) {
+          setKbDisabled(true)
+          setSearchError('')
+        } else {
+          setSearchError(err.message || 'Search failed')
+        }
       } finally {
         setLoading(false)
       }
@@ -131,8 +140,27 @@ export default function KbSearchView() {
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* KB disabled banner — server returned 403 "not enabled" */}
+      {kbDisabled && (
+        <div style={{
+          padding: '16px 14px', textAlign: 'center',
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>🧠</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
+            Knowledge Base search isn't enabled
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>
+            This feature is disabled on the current Glassy instance.
+            Contact your administrator or check back later.
+          </div>
+        </div>
+      )}
+
       {/* Corpus status banner */}
-      {!statusLoading && !corpusReady && (
+      {!statusLoading && !corpusReady && !kbDisabled && (
         <div style={{
           padding: '8px 10px', marginBottom: 8,
           background: 'rgba(251,191,36,0.08)',
@@ -143,7 +171,8 @@ export default function KbSearchView() {
         </div>
       )}
 
-      {/* Search input */}
+      {/* Search input — hidden when KB is disabled */}
+      {!kbDisabled && (
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
         <input
           ref={inputRef}
@@ -155,8 +184,10 @@ export default function KbSearchView() {
           style={{ flex: 1 }}
         />
       </div>
+      )}
 
-      {/* Source filter tabs */}
+      {/* Source filter tabs — hidden when KB is disabled */}
+      {!kbDisabled && (
       <div style={{
         display: 'flex', gap: 4, marginBottom: 8,
         overflowX: 'auto', scrollbarWidth: 'none',
@@ -184,8 +215,10 @@ export default function KbSearchView() {
           )
         })}
       </div>
+      )}
 
-      {/* Results */}
+      {/* Results — hidden when KB is disabled */}
+      {!kbDisabled && (
       <div style={{ maxHeight: 360, overflowY: 'auto' }}>
         {isSearching && (
           <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
@@ -215,9 +248,10 @@ export default function KbSearchView() {
           <KbSearchResult key={`${hit.sourceType}-${hit.sourceId}`} hit={hit} />
         ))}
       </div>
+      )}
 
-      {/* Result count footer */}
-      {!isSearching && results.length > 0 && (
+      {/* Result count footer — hidden when KB is disabled */}
+      {!isSearching && !kbDisabled && results.length > 0 && (
         <div style={{
           textAlign: 'center', padding: '6px 0 2px',
           fontSize: 10, color: 'rgba(255,255,255,0.25)',
