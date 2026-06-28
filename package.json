@@ -11,7 +11,7 @@
     "zip": "node scripts/zip.js",
     "zip:firefox": "node scripts/zip.js --target=firefox",
     "pre-flight": "node scripts/pre-flight-release.js",
-    "test": "vitest run && node scripts/pre-flight-release.js $(grep '\"version\"' package.json | head -1 | sed 's/.*: \"//;s/\".*//')\""
+    "test": "vitest run && node scripts/pre-flight-release.js \"$(grep '\"version\"' package.json | head -1 | sed 's/.*: \"//;s/\".*//')\""
   },
   "dependencies": {
     "react": "^19.0.0",
