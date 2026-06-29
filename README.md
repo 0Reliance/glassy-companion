@@ -13,7 +13,7 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (June 15, 2026 — 22:40 UTC):** v2.11.1 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.11.1 with both `glassy-companion-v2.11.1.zip` and `glassy-companion-v2.11.1-firefox.xpi` attached. Includes draft stale-data fix (discards drafts from previous pages). Remaining: manual upload to Chrome Web Store and Mozilla Add-ons (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6).
+- **Current state (June 29, 2026 — 21:30 UTC):** v2.11.1 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.11.1 with both `glassy-companion-v2.11.1.zip` and `glassy-companion-v2.11.1-firefox.xpi` attached. All 6 critical issues closed, 10/10 foundation items done. Remaining: manual upload to Chrome Web Store and Mozilla Add-ons (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6). Server-side MCP knowledge layer shipped (glassy-dash v2.34.1: real SDK, 10 tools, 3 prompts, 3 resources). Next A+ pillar: Companion MCP bridge (Phase 6) + Obsidian direct push.
 
 ---
 

@@ -69,7 +69,7 @@ Embed a Model Context Protocol bridge in the extension's offscreen document. Gla
 Extension pushes captures directly to Obsidian vault via Local REST API. Bi-directional sync. Route captures to specific vault folders based on domain rules.
 
 ### Pillar III: Zero-Friction Install → Capture
-OAuth via chrome.identity, onboarding carousel, default to Quick Save for power users. **Blocked on**: CSP fix → Chrome Web Store submission.
+OAuth via chrome.identity, onboarding carousel, default to Quick Save for power users. **Blocked on**: manual CWS + AMO store submission (CSP fix shipped in v2.11.0).
 
 ---
 
