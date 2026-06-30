@@ -1,11 +1,11 @@
 # Glassy Companion — Chrome Web Store Listing
 
 ## Short Description (132 characters max)
-Save bookmarks, notes, and highlights to your Glassy dashboard. AI-powered tagging, structured capture, and knowledge base search.
+Save bookmarks, notes, and highlights to your Glassy dashboard. Smart tagging, structured capture, and knowledge base search.
 
 ## Full Description
 
-Glassy Companion is the browser extension for Glassy — your AI-powered second brain. Save anything you find online directly to your Glassy knowledge base with one click.
+Glassy Companion is the browser extension for Glassy — your second brain in the browser. Save anything you find online directly to your Glassy knowledge base with one click.
 
 ### Features
 
@@ -24,7 +24,7 @@ Glassy Companion is the browser extension for Glassy — your AI-powered second 
 **🔌 MCP Bridge (v2.11.0)**
 - Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets
 - Live server URL via `window.location.origin + '/mcp'`
-- Pairs with the Glassy MCP server (glassy-dash v2.33.0+) — 6 tools, 3 prompts, 3 resources
+- Pairs with the Glassy MCP server (glassy-dash v2.33.0+) — 10 tools, 3 prompts, 3 resources
 
 **🛡️ Storage monitoring (v2.11.0)**
 - Periodic 6-hour quota check; warns at 80%, auto-trims the offline queue at 95% critical
@@ -39,7 +39,7 @@ Glassy Companion is the browser extension for Glassy — your AI-powered second 
 - Filter by bookmarks, notes, or vault files
 - Relevance-ranked results with source badges
 
-**🧠 AI-Powered**
+**🧠 Smart Features**
 - Automatic content type detection (article, video, repo, bookmark)
 - Smart tag suggestions
 - Page summarization

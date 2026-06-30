@@ -106,7 +106,7 @@ export default function KbSearchView() {
         if (err.status === 403 && /not enabled/i.test(err.message)) {
           setKbDisabled(true)
           setSearchError('')
-        } else if (err.status === 403 && /Glassy Keep required/i.test(err.message)) {
+        } else if (err.status === 403 && /GlassyKeep required/i.test(err.message)) {
           setKbDisabled(true)
           setSearchError('')
         } else {

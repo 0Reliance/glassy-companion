@@ -77,7 +77,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
               {user.email}
             </div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-              {user.entitlements?.glassy_keep ? '✦ Glassy Keep' : 'Free'}
+              {user.entitlements?.glassy_keep ? '✦ GlassyKeep' : 'Free'}
             </div>
           </div>
         </div>

@@ -130,7 +130,7 @@ export default function NoteView({ pageMeta }) {
         <div style={{ fontSize: 36 }}>📝</div>
         <div style={{ fontWeight: 700, fontSize: 15, color: '#86efac' }}>Note saved!</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-          Your note has been saved to Glassy Keep.
+          Your note has been saved to GlassyKeep.
         </div>
       </div>
     )

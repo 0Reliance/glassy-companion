@@ -394,7 +394,7 @@ async function backgroundSave(mode, payload, tab) {
         showNotification('Glassy — Already saved', captureItem.title, 'info')
         break
       case 'entitlement':
-        showNotification('Glassy — Upgrade required', 'Glassy Keep is required for this save.', 'error')
+        showNotification('Glassy — Upgrade required', 'GlassyKeep is required for this save.', 'error')
         break
       case 'gone':
         showNotification('Glassy — Account unavailable', 'This account is no longer active.', 'error')
