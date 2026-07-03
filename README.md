@@ -38,7 +38,7 @@
 | **Rule Engine** | Automatic preset assignment based on domain and URL patterns from your Glassy dashboard. |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is unreachable and sync automatically. |
 | **Knowledge Base Search (v2.10.0)** | Search your Glassy knowledge base (bookmarks, notes, vault files) from the popup. Source filter tabs, debounced hybrid search, corpus indexing status, and relevance scores. |
-| **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.33.0+). |
+| **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.34+). |
 | **Cross-Browser** | Full Chrome and Firefox support. Accessibility: focus indicators, reduced motion, high contrast. |
 | **Storage quota monitoring (v2.11.0)** | Periodic alarm checks `chrome.storage.local` usage; warns at 80%, auto-trims the offline queue at 95% critical. |
 

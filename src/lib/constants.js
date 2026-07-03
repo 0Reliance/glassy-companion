@@ -1,7 +1,7 @@
 // Extension constants
 // The base URL is the primary Glassy instance.
 // Users can override via extension settings (stored in chrome.storage.local).
-export const DEFAULT_BASE_URL = 'https://glassy.fyi'
+export const DEFAULT_BASE_URL = 'https://app.glassy.fyi'
 
 export const API_PATHS = {
   login: '/api/login',

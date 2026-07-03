@@ -165,7 +165,7 @@ describe('auth.js', () => {
   describe('getBaseUrl / setBaseUrl', () => {
     it('returns default URL when nothing stored', async () => {
       const url = await getBaseUrl()
-      expect(url).toBe('https://glassy.fyi')
+      expect(url).toBe('https://app.glassy.fyi')
     })
 
     it('returns stored URL when set', async () => {
