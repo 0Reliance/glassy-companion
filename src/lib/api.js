@@ -20,9 +20,13 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
   const token = await getToken()
   const { baseUrl, activeAccountId } = await getApiContext()
 
-  // Enforce HTTPS — allow localhost for dev
-  if (!/^https:\/\//i.test(baseUrl) && !/^http:\/\/localhost(:\d+)?$/i.test(baseUrl)) {
-    throw new ApiError(0, 'Server URL must use HTTPS.')
+  // Enforce HTTPS, or allow HTTP for local/Tailscale self-hosted instances.
+  const _isHttps = /^https:\/\//i.test(baseUrl)
+  const _isSafeHttp = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(baseUrl) ||
+    /^http:\/\/(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?\/?.*/i.test(baseUrl) ||
+    /^http:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net(:\d+)?$/i.test(baseUrl)
+  if (!_isHttps && !_isSafeHttp) {
+    throw new ApiError(0, 'Server URL must use HTTPS, or be a local/Tailscale address (http://localhost, LAN IP, or *.ts.net).')
   }
 
   const url = `${baseUrl}${path}`

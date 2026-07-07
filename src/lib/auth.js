@@ -129,9 +129,14 @@ export async function getApiContext() {
 /** Set a custom base URL (for self-hosted Glassy instances). */
 export async function setBaseUrl(url) {
   const clean = url.replace(/\/$/, '')
-  // Only accept HTTPS or localhost for security
-  if (!/^https:\/\//i.test(clean) && !/^http:\/\/localhost(:\d+)?$/i.test(clean)) {
-    throw new Error('Server URL must use HTTPS.')
+  // Accept HTTPS for any host, or HTTP for self-hosted local networks:
+  // localhost, 127.0.0.1, [::1], private LAN (10/172.16/192.168), Tailscale (*.ts.net)
+  const isHttps = /^https:\/\//i.test(clean)
+  const isSafeHttp = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(clean) ||
+    /^http:\/\/(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?\/?.*/i.test(clean) ||
+    /^http:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net(:\d+)?$/i.test(clean)
+  if (!isHttps && !isSafeHttp) {
+    throw new Error('Server URL must use HTTPS, or be a local/Tailscale address (http://localhost, LAN IP, or *.ts.net).')
   }
   await chrome.storage.local.set({ [STORAGE_KEYS.baseUrl]: clean })
 }
