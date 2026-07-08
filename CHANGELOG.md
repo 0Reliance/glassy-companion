@@ -36,7 +36,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-07-08 — Obsidian Bridge & Push-to-Vault
+## [2.12.0] — 2026-07-08 — Unified Save Card & Obsidian Bridge
 
 ### Added
 - **Obsidian Bridge** — the extension now acts as a local proxy between the
@@ -52,6 +52,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Optional host permissions** — declared `optional_host_permissions` for
   `127.0.0.1:27123` and `127.0.0.1:27124` so the Obsidian bridge can request
   localhost access at runtime without widening the base permission set.
+- **Unified `SaveCard` component** — single capture card with progressive
+  disclosure, replacing the legacy two-screen Quick Save (`BookmarkCard`) +
+  Smart Save (`SmartSavePanel`) flow. The "⚙ Smart capture" toggle pill sits
+  high in the form (right after QuickActions, before the Save button) so the
+  most important affordance is one tap away instead of buried at the bottom.
+  Default collapsed state shows essentials (title, collection, tags, note,
+  QuickActions, Save); one tap expands preset type chips, public/pin toggles,
+  and content preview inline. No screen swap, no duplicated fields. Design
+  spec: `docs/superpowers/specs/2026-07-08-unified-save-card-design.md`.
 
 ### Changed
 - **Server URL change flow** — changing the Glassy server URL in Settings now
@@ -64,12 +73,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Service worker lifecycle** — the bridge SSE is started on `onInstalled`,
   `onStartup`, and on SW wake. A 2-minute alarm reconnects the SSE if the
   service worker was evicted.
+- **SaveView simplification** — removed the `mode` state and the buried
+  "✨ Switch to Smart Save" button. `SaveView` now renders `SaveCard` directly,
+  passing `ruleDefaults` as `defaults`, plus `pendingElement` /
+  `pendingScreenshot` for auto-expand on pending captures.
+- **`vite.config.js`** — `manualChunks.ui-components` now includes `SaveCard`
+  instead of the deleted `BookmarkCard` + `SmartSavePanel`. Resulting chunk
+  size: 62.94 KB (gzip 18.77 KB) — under the 200 KB Chrome Web Store limit.
+- **Draft persistence extension** — `glassy_bookmark_draft` now stores
+  `contentType`, `isPublic`, `isPinned`, `aiAutoTag`, and `smartExpanded`
+  alongside the legacy fields, so the user's smart-capture state survives a
+  popup reopen. Legacy fields remain identical → existing drafts restore
+  seamlessly.
 
 ### Fixed
 - **Server URL change left bridge connected to old server** — the SSE endpoint
   URL was computed from `getBaseUrl()` at connection time but never
   re-established when the server URL changed. Now `reconnectBridge()` stops
   and restarts the SSE against the new server.
+- **"Switch to Smart Save" buried at the bottom** — the affordance to access
+  Smart Save was below the Save button, QuickActions, and the collapsed note,
+  requiring the user to scroll past everything to find the most important
+  secondary action. Replaced with the always-visible "⚙ Smart capture" toggle
+  pill placed high in the form.
+
+### Removed
+- `src/popup/components/BookmarkCard.jsx` — logic merged into `SaveCard.jsx`.
+- `src/popup/components/SmartSavePanel.jsx` — logic merged into `SaveCard.jsx`.
+- `src/popup/components/__tests__/BookmarkCard.test.jsx` — replaced by
+  `SaveCard.test.jsx` (preserves all 6 original draft-contract tests + adds a
+  smart-capture-state test; 7 tests total).
+
+### Preserved smartness (verified)
+The unified `SaveCard` preserves every piece of smartness from the legacy
+components: draft persistence with stale-draft discard, capture-rule
+pre-population via `ruleDefaults`, pending element + pending/live screenshot
+pre-load with auto-expand, deferred screenshot upload with 3-attempt backoff
+(never on mount), content-type re-fetch on preset change (`GET_PAGE_META` →
+`structuredData`), structured-data passthrough for type-aware reader
+rendering, tag autocomplete, collection picker, AI auto-tag toggle,
+multi-account routing, already-saved badge, unsavable URL guard, SaveToast,
+content preview, and save-all-tabs.
 
 ---
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Glassy Companion",
-  "version": "2.11.2",
-  "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with AI-powered tagging",
+  "version": "2.12.0",
+  "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with automatic tagging",
   "browser_specific_settings": {
     "gecko": {
       "id": "companion@glassy.fyi",

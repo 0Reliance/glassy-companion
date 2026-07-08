@@ -1,10 +1,11 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.11.1
+**Version:** 2.11.2
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** June 15, 2026
+**Last Updated:** July 8, 2026
 
-> **v2.11.1 fixes:** Draft stale-data race in `BookmarkCard` and `NoteView`. Drafts now store `url` and are discarded when the saved URL differs from the current active tab, preventing the preview card from showing the previous page's title/image. See [CHANGELOG.md](../CHANGELOG.md) for details.
+> **v2.11.2 (unreleased) adds:** Unified Save Card — `BookmarkCard.jsx` and `SmartSavePanel.jsx` are merged into a single `SaveCard.jsx` with progressive disclosure. The "⚙ Smart capture" toggle pill replaces the buried "Switch to Smart Save" button. Draft persistence extended with `contentType`, `isPublic`, `isPinned`, `aiAutoTag`, `smartExpanded` fields. Obsidian Bridge + push-to-vault, self-host CSP/LAN/Tailscale support. See [CHANGELOG.md](../CHANGELOG.md) for details.
+> **v2.11.1 fixes:** Draft stale-data race in the save card and `NoteView`. Drafts now store `url` and are discarded when the saved URL differs from the current active tab, preventing the preview card from showing the previous page's title/image. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.11.0 adds:** Firefox Content Security Policy (matches Chrome without `wasm-unsafe-eval`), `STORAGE_QUOTA_ALARM` 6-hourly quota check with 80% warn / 95% critical auto-trim, and `manualChunks` bundle splitting (vendor-react, vendor-state, ui-components, kb-view) with `chunkSizeWarningLimit: 200`. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.10.0 adds:** KB 🧠 tab in the popup — `KbSearchView.jsx` with debounced hybrid search, source filter tabs (All / Bookmarks / Notes / Vault), corpus status banner, and relevance scores. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.9.0 adds:** Two-button main bar (Save Page + Screenshot), structured capture pipeline with 4 content types, direct service-worker screenshot routing, `ensureContentScript` fallback, and interpreter re-run on type change. See [CHANGELOG.md](../CHANGELOG.md) for details.
@@ -30,8 +31,8 @@ Glassy Companion has evolved into a multi-mode capture system that handles struc
 │  ┌─────────────────┐    chrome.runtime     ┌──────────────────┐  │
 │  │   POPUP (React) │ ◄──── messages ─────► │  SERVICE WORKER  │  │
 │  │                 │                       │  (Background)    │  │
-│  │  Quick Save     │    ┌─────────┐        │                  │  │
-│  │  Smart Save     │    │ STORAGE │        │  Context Menus   │  │
+│  │  Unified Save   │    ┌─────────┐        │                  │  │
+│  │  Card (toggle)  │    │ STORAGE │        │  Context Menus   │  │
 │  │  Note / Search  │    │ local   │        │  Alarm Handler   │  │
 │  │                 │    │ session │        │  Badge Manager   │  │
 │  └────────┬────────┘    └─────────┘        │  Queue Flusher   │  │
@@ -81,12 +82,11 @@ src/
 └── popup/
     ├── Popup.jsx               # App entry
     ├── components/
-    │   ├── SmartSavePanel.jsx  # Structured capture UI; screenshot upload deferred to save time
-    │   ├── QuickActions.jsx    # Save Page + AI summary actions
-    │   ├── BookmarkCard.jsx    # Quick save UI
-    │   └── AppShell.jsx        # Premium layout with obsidian layering
+    │   ├── SaveCard.jsx         # Unified capture card (progressive disclosure: essentials + smart toggle)
+    │   ├── QuickActions.jsx      # Save Page + Screenshot actions
+    │   └── AppShell.jsx          # Premium layout with obsidian layering
     └── views/
-        ├── SaveView.jsx        # Quick/Smart mode switcher
+        ├── SaveView.jsx         # Renders SaveCard directly (no mode switch)
         └── ...
 ```
 
@@ -141,8 +141,8 @@ Defined in `src/lib/types.js`.
 
 Captures now carry a structured image manifest so visual content becomes a first-class object in the app rather than a tiny inline thumbnail.
 
-- **`images[]` manifest:** `CaptureItem` (`src/lib/types.js`) carries `images[]` (`{ url, src, name, width, height }`) and optional `screenshot` metadata. `SmartSavePanel` populates `payload.images` for screenshot and element captures. The server stores these in `images_json`, and the app renders a hero image + lightbox.
-- **Full-page / visible screenshot:** captured by the service worker via `chrome.tabs.captureVisibleTab`, deferred-uploaded by `SmartSavePanel` at save time.
+- **`images[]` manifest:** `CaptureItem` (`src/lib/types.js`) carries `images[]` (`{ url, src, name, width, height }`) and optional `screenshot` metadata. `SaveCard` populates `payload.images` for screenshot and element captures (only when Smart capture is expanded). The server stores these in `images_json`, and the app renders a hero image + lightbox.
+- **Full-page / visible screenshot:** captured by the service worker via `chrome.tabs.captureVisibleTab`, deferred-uploaded by `SaveCard` at save time with a 3-attempt bounded backoff.
 - **Region screenshot (drag-to-select):** `content/regionPicker.js` paints a dark overlay with a selection rectangle. On mouse-up it computes the rect, **tears the overlay down first** (waiting two animation frames so the overlay is never in the capture), then sends `CAPTURE_REGION` with the rect and `window.devicePixelRatio`.
   - The service worker captures the visible tab, then delegates cropping to the offscreen document via `chrome.runtime.sendMessage({ type: 'OFFSCREEN_CROP_IMAGE', dataUrl, rect, dpr })` (same `ensureOffscreen()` delegation pattern as capture processing — there is no custom port).
   - `offscreen/offscreen.js` scales the CSS-pixel rect by `dpr` and clamps to the captured image bounds before drawing to a canvas, so crops are pixel-accurate on HiDPI / retina / zoomed displays. Falls back to the uncropped viewport image if the offscreen doc is unavailable.
@@ -156,7 +156,7 @@ Captures now carry a structured image manifest so visual content becomes a first
 - **Content-script error telemetry:** `extractor.js` reports handler failures via `reportContentError()` and a `respondSync()` wrapper. A `CONTENT_SCRIPT_ERROR` message reaches a sink in the service worker. `GET_PAGE_META` has a `.catch()` — the popup no longer hangs on extraction failure.
 - **O(n) offline-queue flush:** `applyFlushOutcomes({remove, increment})` applies all outcomes in a single read-modify-write. Items enqueued *during* a flush are preserved because the helper re-reads at apply time. The offscreen flusher is pure; the service worker is the single queue-mutation owner.
 - **Instance-aware screenshot URLs:** `uploadCaptureImage()` resolves the server's host-relative path against the *configured* base URL, so screenshots embed the user's actual instance (glassy.fyi, self-hosted, or dev) rather than a hardcoded host.
-- **Deferred screenshot upload:** `SmartSavePanel` no longer uploads the screenshot on mount. Upload is deferred to save time with a 3-attempt bounded backoff and inline error surfacing. Cancelling a capture never leaves an orphaned server-side image.
+- **Deferred screenshot upload:** `SaveCard` no longer uploads the screenshot on mount. Upload is deferred to save time with a 3-attempt bounded backoff and inline error surfacing. Cancelling a capture never leaves an orphaned server-side image.
 - **Idempotent premium markdown:** `assemblePremiumMarkdown()` skips re-prepending an already-assembled header and strips duplicate leading H1 from page-extracted content. Canonical and Published metadata lines are added.
 - **Same-document guard:** link saves only request page metadata/content when the target URL matches the active tab, preventing cross-page contamination.
 - **Offline replay coverage:** queued `page` and `document` items replay through `saveDocument()` rather than falling back to note creation.

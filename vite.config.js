@@ -35,8 +35,7 @@ export default defineConfig(({ mode }) => {
             'vendor-state': ['zustand'],
             'ui-components': [
               resolve(__dirname, 'src/popup/components/AppShell.jsx'),
-              resolve(__dirname, 'src/popup/components/SmartSavePanel.jsx'),
-              resolve(__dirname, 'src/popup/components/BookmarkCard.jsx'),
+              resolve(__dirname, 'src/popup/components/SaveCard.jsx'),
               resolve(__dirname, 'src/popup/components/ContentPreview.jsx'),
               resolve(__dirname, 'src/popup/components/SummaryCard.jsx'),
               resolve(__dirname, 'src/popup/components/UpsellCard.jsx'),

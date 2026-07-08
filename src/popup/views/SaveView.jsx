@@ -1,22 +1,20 @@
 import React, { useState, useCallback } from 'react'
-import BookmarkCard from '../components/BookmarkCard.jsx'
-import SmartSavePanel from '../components/SmartSavePanel.jsx'
+import SaveCard from '../components/SaveCard.jsx'
 import SaveToast from '../components/SaveToast.jsx'
 import AccountPicker from '../components/AccountPicker.jsx'
 import { saveBookmark, saveNote, saveAllTabs, checkDuplicateUrl } from '../hooks/useExtensionBridge.js'
 import { isUnsavableUrl } from '../../lib/urlUtils.js'
 
 export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
-  const [mode, setMode] = useState('quick') // quick | smart
   // Live screenshot: captured in this popup session via the Screenshot button.
   // Preferred over pendingScreenshot (prior session) when both present.
   const [liveScreenshot, setLiveScreenshot] = useState(null)
 
-  // When a screenshot is captured in the current session, switch immediately
-  // to SmartSavePanel with the screenshot pre-loaded \u2014 no popup re-open needed.
+  // When a screenshot is captured in the current session, stash it so
+  // SaveCard auto-expands Smart + pre-loads the screenshot via the
+  // effectivePendingScreenshot prop \u2014 no popup re-open needed.
   const handleScreenshotCaptured = useCallback((data) => {
     setLiveScreenshot(data)
-    setMode('smart')
   }, [])
 
   // Effective pending screenshot: live (just captured) takes priority.
@@ -161,7 +159,10 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         </div>
       )}
 
-      {/* Pending capture banner — element picker / screenshot (prior session only; live screenshots go straight to SmartSave) */}
+      {/* Pending capture banner — element picker / screenshot (prior session only; live screenshots go straight to SaveCard).
+          SaveCard auto-expands Smart + pre-loads the pending capture on mount,
+          so this banner is purely informational. The dismiss (✕) clears the
+          pending state; the saved card already has its copy. */}
       {(pendingElement || (pendingScreenshot && !liveScreenshot)) && saveStatus === 'idle' && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
@@ -175,17 +176,9 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
               ? `Captured element: "${pendingElement.textPreview}"`
               : `Screenshot ready: ${pendingScreenshot.title}`}
           </span>
-          <button
-            onClick={() => { setMode('smart'); clearPending?.() }}
-            style={{
-              padding: '3px 8px', borderRadius: 6,
-              background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)',
-              color: '#c4b5fd', fontSize: 10, fontWeight: 600, cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Use in Smart Save
-          </button>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#c4b5fd', whiteSpace: 'nowrap' }}>
+            Loaded ↓
+          </span>
           <button
             onClick={() => clearPending?.()}
             style={{
@@ -198,45 +191,24 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
           </button>
         </div>
       )}
-      {mode === 'quick' ? (
-        <>
-          <BookmarkCard
-            pageMeta={pageMeta}
-            user={user}
-            onSave={handleSave}
-            onSaveNote={handleSaveNote}
-            saving={saveStatus === 'saving'}
-            onScreenshotCaptured={handleScreenshotCaptured}
-          />
-          <button
-            onClick={() => setMode('smart')}
-            style={{
-              marginTop: 10,
-              width: '100%',
-              padding: '8px 12px',
-              background: 'rgba(99,102,241,0.1)',
-              border: '1px solid rgba(99,102,241,0.2)',
-              borderRadius: 10,
-              color: '#818cf8',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            ✨ Switch to Smart Save
-          </button>
-        </>
-      ) : (
-        <SmartSavePanel
-          pageMeta={pageMeta}
-          defaults={ruleDefaults}
-          pendingElement={pendingElement}
-          pendingScreenshot={effectivePendingScreenshot}
-          onSave={handleSave}
-          saving={saveStatus === 'saving'}
-          onCancel={() => { setMode('quick'); setLiveScreenshot(null); clearPending?.() }}
-          onClearPending={() => { setLiveScreenshot(null); clearPending?.() }}
-        />
-      )}
+
+      {/* Unified SaveCard — single form with progressive disclosure.
+          Smart capture controls expand inline below QuickActions; no screen
+          swap, no duplicated fields. Preserves all BookmarkCard + SmartSavePanel
+          smartness: draft persistence, rule pre-population, pending-capture
+          pre-load, deferred screenshot upload, content-type re-fetch. */}
+      <SaveCard
+        pageMeta={pageMeta}
+        user={user}
+        saving={saveStatus === 'saving'}
+        onSave={handleSave}
+        onSaveNote={handleSaveNote}
+        onScreenshotCaptured={handleScreenshotCaptured}
+        defaults={ruleDefaults}
+        pendingElement={pendingElement}
+        pendingScreenshot={effectivePendingScreenshot}
+        onClearPending={() => { setLiveScreenshot(null); clearPending?.() }}
+      />
 
       <button
         onClick={handleSaveAllTabs}

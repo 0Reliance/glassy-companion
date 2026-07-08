@@ -116,6 +116,21 @@ body {
   color: var(--text-primary);
 }
 
+/* ── Smart Capture Toggle ─────────────────────────────────────────────────── */
+/* Progressive-disclosure pill that reveals content type chips, visibility
+   toggles, and content preview. Always visible in SaveCard — replaces the
+   legacy "Switch to Smart Save" button that was buried at the bottom. */
+
+.smart-toggle:hover {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border-color: rgba(99, 102, 241, 0.38) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
+}
+
+.smart-toggle[aria-expanded="true"] {
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.08);
+}
+
 /* ── Micro-Interactions ──────────────────────────────────────────────────── */
 
 @keyframes slideUpFade {

@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * Unit tests for BookmarkCard draft persistence logic.
- * Since @testing-library/react is not available, we test the draft
- * storage contract directly using the same chrome.storage mock pattern
- * as the other companion tests.
+ * Unit tests for SaveCard draft persistence logic.
+ *
+ * SaveCard replaces the legacy BookmarkCard + SmartSavePanel duo but keeps
+ * the identical `glassy_bookmark_draft` storage contract so existing drafts
+ * restore seamlessly after the upgrade. The shape is extended (adds
+ * contentType, isPublic, isPinned, aiAutoTag, smartExpanded) but the legacy
+ * fields remain identical.
+ *
+ * Since @testing-library/react is not available, we test the draft storage
+ * contract directly using the same chrome.storage mock pattern as the other
+ * companion tests.
  */
 
 const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
@@ -34,7 +41,7 @@ function createStorageArea() {
   }
 }
 
-describe('BookmarkCard draft persistence contract', () => {
+describe('SaveCard draft persistence contract', () => {
   let local
 
   beforeEach(() => {
@@ -64,7 +71,6 @@ describe('BookmarkCard draft persistence contract', () => {
       notes: 'some notes',
       tags: ['react', 'testing'],
       collectionId: 42,
-      url: 'https://example.com/article',
     })
     expect(stored.savedAt).toBeGreaterThan(0)
   })
@@ -131,5 +137,31 @@ describe('BookmarkCard draft persistence contract', () => {
     }
 
     expect(local._store.has(BOOKMARK_DRAFT_KEY)).toBe(false)
+  })
+
+  it('preserves extended draft fields (smart capture state)', async () => {
+    // SaveCard extends the draft shape with smart-capture state so the user's
+    // expand/collapse + preset + toggle choices survive a popup reopen.
+    const draft = {
+      title: 'Smart capture',
+      notes: '',
+      tags: ['design'],
+      collectionId: null,
+      url: 'https://example.com/smart',
+      contentType: 'article',
+      isPublic: true,
+      isPinned: false,
+      aiAutoTag: false,
+      smartExpanded: true,
+      savedAt: Date.now(),
+    }
+    await local.set({ [BOOKMARK_DRAFT_KEY]: draft })
+
+    const result = await local.get(BOOKMARK_DRAFT_KEY)
+    const stored = result[BOOKMARK_DRAFT_KEY]
+    expect(stored.contentType).toBe('article')
+    expect(stored.isPublic).toBe(true)
+    expect(stored.aiAutoTag).toBe(false)
+    expect(stored.smartExpanded).toBe(true)
   })
 })
