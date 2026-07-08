@@ -14,6 +14,12 @@
     "sidePanel"
   ],
   "optional_permissions": [],
+  "optional_host_permissions": [
+    "http://127.0.0.1:27123/",
+    "https://127.0.0.1:27124/",
+    "http://localhost:27123/",
+    "https://localhost:27124/"
+  ],
   "host_permissions": [
     "https://dash.0rel.com/*",
     "https://glassy.fyi/*",

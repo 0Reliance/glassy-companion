@@ -5,6 +5,74 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.11.2] — 2026-07-07 — Self-Hosted CSP & Local Network Support
+
+### Fixed
+- **Extension cannot reach an `http` self-host** — `manifest.json` and
+  `manifest.firefox.json` `content_security_policy.connect-src` now allows
+  `http://localhost:*`, `http://127.0.0.1:*`, `http://[::1]:*`,
+  private-LAN ranges (`192.168.*.*`, `10.*.*`, `172.16.*.*`), and
+  Tailscale (`100.*.*`, `*.ts.net`). Without this, self-hosters running
+  the appliance on `http://localhost:3000` or a Tailscale IP hit a CSP
+  rejection at the manifest layer before any request fires.
+- **HTTPS-only client validation loosened for self-host** — `src/lib/auth.js`
+  and `src/lib/api.js` `validateServerUrl()` now accept the same allowlist
+  (`http://localhost(:port)` already worked; private-LAN and Tailscale ranges
+  added). `https://*` remains the preferred default; the warning fires only
+  for `http://` against a non-loopback, non-private-LAN host.
+- **`BUILD_DOMAIN` placeholder swap** — `LoginCard.jsx` and
+  `SettingsView.jsx` now use a build-time `__GLASSY_BUILD_DOMAIN__` populated
+  by Vite `define()` instead of the hardcoded `https://glassy.fyi`. No more
+  CSP/wording drift on packaged builds. Configurable via
+  `GLASSY_BUILD_DOMAIN` env var.
+
+### Changed
+- `manifest.json` + `manifest.firefox.json` — `connect-src` widened with the
+  allowlist above; `https://*` retained.
+- `src/lib/auth.js` + `src/lib/api.js` — `validateServerUrl()` private-range
+  detector covers all IPv4 RFC1918 ranges + Tailscale CGNAT range + `*.ts.net`.
+- `vite.config.js` — `define()` injects `__GLASSY_BUILD_DOMAIN__`; resolves to
+  `process.env.GLASSY_BUILD_DOMAIN` first, falls back to `https://glassy.fyi`.
+
+---
+
+## [Unreleased] — 2026-07-08 — Obsidian Bridge & Push-to-Vault
+
+### Added
+- **Obsidian Bridge** — the extension now acts as a local proxy between the
+  Glassy server and the user's Obsidian instance. The server pushes proxy
+  requests via SSE; the extension calls Obsidian on `127.0.0.1:27124` and
+  returns the result. This solves the WSL2/Docker networking problem where
+  the container cannot reach Windows localhost.
+- **Obsidian Bridge settings UI** — new section in Settings with Obsidian URL
+  input, API key, test connection button, and connection status indicator.
+- **Push-to-Obsidian** — captures saved via the extension can now be pushed
+  directly to the Obsidian vault as markdown files with YAML frontmatter,
+  without a server round-trip.
+- **Optional host permissions** — declared `optional_host_permissions` for
+  `127.0.0.1:27123` and `127.0.0.1:27124` so the Obsidian bridge can request
+  localhost access at runtime without widening the base permission set.
+
+### Changed
+- **Server URL change flow** — changing the Glassy server URL in Settings now
+  detects the change, saves the new URL, invalidates caches, reconnects the
+  Obsidian bridge SSE, and prompts re-authentication instead of silently
+  keeping an invalid JWT.
+- **Logout stops the bridge** — the `LOGOUT` handler now calls
+  `stopObsidianBridge()` before clearing auth so the SSE connection is cleanly
+  closed instead of reconnecting with an expired token.
+- **Service worker lifecycle** — the bridge SSE is started on `onInstalled`,
+  `onStartup`, and on SW wake. A 2-minute alarm reconnects the SSE if the
+  service worker was evicted.
+
+### Fixed
+- **Server URL change left bridge connected to old server** — the SSE endpoint
+  URL was computed from `getBaseUrl()` at connection time but never
+  re-established when the server URL changed. Now `reconnectBridge()` stops
+  and restarts the SSE against the new server.
+
+---
+
 ## [2.11.1] — 2026-06-15 — Draft Stale-Data Fix
 
 ### Fixed

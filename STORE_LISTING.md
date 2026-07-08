@@ -44,7 +44,13 @@ Glassy Companion is the browser extension for Glassy — the companion to your G
 - Smart tag suggestions
 - Page summarization
 
-**🔒 Private & Secure**
+**� Obsidian Bridge**
+- Connect the Glassy server to your Obsidian vault via the extension
+- Solves Windows/WSL2/Docker networking — the extension runs on your host and reaches Obsidian directly
+- Push captures to your vault as markdown files with one click
+- The extension holds the Obsidian API key locally — never sent to the server
+
+**�🔒 Private & Secure**
 - All data sent directly to your Glassy server over HTTPS
 - No third-party analytics or tracking
 - Offline queue saves captures when you're disconnected

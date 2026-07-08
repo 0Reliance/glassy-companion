@@ -18,6 +18,8 @@ import {
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
+import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge } from '../lib/obsidianBridge.js'
+import { pushCaptureToVault, isPushAvailable } from '../lib/obsidianPush.js'
 
 // ── Storage Quota Monitoring alarm name ────────────────────────────────────
 // Defined here (not at the bottom of the file) so the alarm listener can
@@ -146,7 +148,7 @@ async function delegateCapture(payload, tab) {
     chrome.runtime.sendMessage({
       type: 'OFFSCREEN_PROCESS_CAPTURE',
       payload: { tabId: tab?.id, tabUrl: tab?.url, item: payload }
-    }, (response) => {
+    }, async (response) => {
       if (chrome.runtime.lastError) {
         // Offscreen doc is unreachable (Chrome may have torn it down under
         // memory pressure). Clear the cached-ready flag so the next call
@@ -155,6 +157,32 @@ async function delegateCapture(payload, tab) {
         _offscreenReady = false
         return resolve(processCaptureInServiceWorker(payload, tab))
       }
+
+      // After a successful offscreen save, push to Obsidian if the bridge is
+      // enabled. The offscreen doc doesn't import obsidianPush, so we do it
+      // here in the service worker.
+      if (response?.ok && (payload.contentMarkdown || payload.excerpt || payload.title)) {
+        try {
+          const pushAvailable = await isPushAvailable()
+          if (pushAvailable) {
+            const pushResult = await pushCaptureToVault({
+              title: payload.title || payload.url || 'Untitled',
+              contentMarkdown: payload.contentMarkdown || payload.excerpt || '',
+              tags: payload.visibleTags || [],
+              sourceUrl: payload.url || payload.sourceUrl,
+              capturedAt: payload.capturedAt || new Date().toISOString(),
+            })
+            if (pushResult.ok) {
+              console.log('[Obsidian Push] Capture pushed to vault:', pushResult.path)
+            } else if (pushResult.error) {
+              console.warn('[Obsidian Push] Failed:', pushResult.error)
+            }
+          }
+        } catch (pushErr) {
+          console.warn('[Obsidian Push] Error:', pushErr.message)
+        }
+      }
+
       resolve(response || { ok: false, error: 'No response from offscreen' })
     })
   })
@@ -183,6 +211,29 @@ async function processCaptureInServiceWorker(payload, tab) {
 
   try {
     const result = await saveCapture(captureItem)
+
+    // Push to Obsidian if the bridge is enabled and the capture has content
+    const pushAvailable = await isPushAvailable()
+    if (pushAvailable && (captureItem.contentMarkdown || captureItem.excerpt)) {
+      try {
+        const pushResult = await pushCaptureToVault({
+          title: captureItem.title,
+          contentMarkdown: captureItem.contentMarkdown || captureItem.excerpt,
+          tags: captureItem.visibleTags || [],
+          sourceUrl: captureItem.sourceUrl,
+          capturedAt: captureItem.capturedAt || new Date().toISOString(),
+        })
+        if (pushResult.ok) {
+          console.log('[Obsidian Push] Capture pushed to vault:', pushResult.path)
+        } else if (pushResult.error) {
+          console.warn('[Obsidian Push] Failed:', pushResult.error)
+        }
+      } catch (pushErr) {
+        // Push failure should never block the main save
+        console.warn('[Obsidian Push] Error:', pushErr.message)
+      }
+    }
+
     return { ok: true, data: result, duplicate: !!result?.duplicate }
   } catch (err) {
     const plan = planBackgroundSaveFailure(err)
@@ -203,14 +254,20 @@ async function processCaptureInServiceWorker(payload, tab) {
 chrome.runtime.onInstalled.addListener(() => {
   registerContextMenus()
   ensureOfflineSyncAlarm().catch(() => {})
+  // Start the Obsidian bridge if it's enabled — the service worker just woke up
+  startObsidianBridge().catch(() => {})
 })
 
 chrome.runtime.onStartup.addListener(() => {
   registerContextMenus()
   ensureOfflineSyncAlarm().catch(() => {})
+  // Reconnect the Obsidian bridge on browser startup
+  startObsidianBridge().catch(() => {})
 })
 
 ensureOfflineSyncAlarm().catch(() => {})
+// Best-effort bridge connect on SW wake
+startObsidianBridge().catch(() => {})
 
 async function ensureOfflineSyncAlarm() {
   const existingAlarm = await chrome.alarms.get(ALARM_OFFLINE_SYNC)
@@ -486,6 +543,12 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     await checkStorageQuota()
     return
   }
+  // Obsidian bridge reconnect — attempt to re-establish the SSE if it dropped
+  // (the service worker may have been evicted and restarted)
+  if (alarm.name === 'glassy_obsidian_bridge_reconnect') {
+    startObsidianBridge().catch(() => {})
+    return
+  }
   if (alarm.name !== ALARM_OFFLINE_SYNC) return
   if (!navigator.onLine || _queueFlushing) return
   _queueFlushing = true
@@ -614,6 +677,10 @@ async function handleMessage(message) {
       // Drop saved-URL checkmark cache so a re-login on a different account
       // doesn't show the previous user's saved-state on tab badges.
       savedUrlCache.clear()
+      // Stop the Obsidian bridge SSE — it was authenticated with the now-cleared
+      // JWT and would fail silently on reconnect. The user can re-enable it
+      // after logging back in.
+      await stopObsidianBridge().catch(() => {})
       return { ok: true }
 
     case 'SET_ACTIVE_ACCOUNT': {

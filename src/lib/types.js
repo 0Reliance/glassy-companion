@@ -13,13 +13,15 @@
 
 /**
  * @typedef {Object} ObsidianSync
- * @property {string} [path] — target vault path (e.g. 'Clips/web-clips/')
+ * @property {string} [path] — target vault path where the capture was pushed (e.g. 'Glassy/Clips/')
  * @property {string} [template] — OFM template name for the push
  * @property {string} [emittedAt] — ISO timestamp of last successful push
  * @property {string} [noteId] — Glassy note ID that was pushed
- * NOTE: This type is a stub — push-to-Obsidian from the browser extension
- * is not yet implemented. Captures can be pushed to Obsidian via the
- * glassy-dash web app's Vault integration.
+ * @property {boolean} [pushed] — whether the capture was pushed to the vault
+ * NOTE: Push-to-Obsidian from the browser extension is implemented in
+ * obsidianPush.js. When the Obsidian bridge is enabled and a capture is
+ * saved, the extension pushes it to the vault via the Local REST API and
+ * records the metadata here.
  */
 
 /**

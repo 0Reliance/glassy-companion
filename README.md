@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.11.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.11.2-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -13,7 +13,7 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (June 29, 2026 — 21:30 UTC):** v2.11.1 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.11.1 with both `glassy-companion-v2.11.1.zip` and `glassy-companion-v2.11.1-firefox.xpi` attached. All 6 critical issues closed, 10/10 foundation items done. Remaining: manual upload to Chrome Web Store and Mozilla Add-ons (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6). Server-side MCP knowledge layer shipped (glassy-dash v2.34.1: real SDK, 10 tools, 3 prompts, 3 resources). Next A+ pillar: Companion MCP bridge (Phase 6) + Obsidian direct push.
+- **Current state (July 8, 2026):** v2.11.2 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.11.2 with both `glassy-companion-v2.11.2.zip` and `glassy-companion-v2.11.2-firefox.xpi` attached. v2.11.2 adds CSP allowance for `http://localhost:*` / `http://127.0.0.1:*` / private-LAN / `*.ts.net` (Tailscale) so the extension can reach a self-hosted Glassy running on the same machine, on the LAN, or over Tailscale. All 169 tests pass. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.35.0-beta.4` is public; clone `0Reliance/glassy`, `cd deploy/selfhost`, set `GLASSY_MEMBER_EMAIL` + `JWT_SECRET` + `API_KEY_ENCRYPTION_KEY` in `.env`, then `docker compose up -d`. In-progress: Obsidian Bridge (`[Unreleased]` section below) — the extension becomes a local proxy so the server can reach Obsidian on `127.0.0.1:27124` from inside WSL2/Docker. All 6 critical issues closed; remaining: manual upload to CWS + AMO (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6).
 
 ---
 
@@ -41,6 +41,8 @@
 | **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.34+). |
 | **Cross-Browser** | Full Chrome and Firefox support. Accessibility: focus indicators, reduced motion, high contrast. |
 | **Storage quota monitoring (v2.11.0)** | Periodic alarm checks `chrome.storage.local` usage; warns at 80%, auto-trims the offline queue at 95% critical. |
+| **Obsidian Bridge (v3.0)** | Proxy Obsidian Local REST API requests on behalf of the Glassy server. Solves WSL2/Docker networking — the extension runs on the host and can reach `127.0.0.1:27124` directly. Also pushes captures to the vault as markdown files. |
+| **Push-to-Obsidian (v3.0)** | Captures saved via the extension are automatically pushed to the Obsidian vault as markdown files with YAML frontmatter — no server round-trip needed. |
 
 ---
 
@@ -56,15 +58,15 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.11.1` assets:
-   - **`glassy-companion-v2.11.1.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.11.1-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.11.2` assets:
+   - **`glassy-companion-v2.11.2.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.11.2-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.11.1.zip`.
-- **Firefox 121+**: install from `glassy-companion-v2.11.1-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.11.2.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.11.2-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 

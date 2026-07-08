@@ -3,6 +3,8 @@ import { getSettings, saveSettings, invalidateCollections } from '../../lib/cach
 import { getBaseUrl, setBaseUrl } from '../../lib/auth.js'
 import { logout, getQueueLength } from '../hooks/useExtensionBridge.js'
 import AccountPicker from '../components/AccountPicker.jsx'
+import ObsidianBridgeSection from './ObsidianBridgeSection.jsx'
+import { reconnectBridge } from '../../lib/obsidianBridge.js'
 
 export default function SettingsView({ user, onClose, onLogout }) {
   const [baseUrl, setBaseUrlState] = useState('')
@@ -12,6 +14,11 @@ export default function SettingsView({ user, onClose, onLogout }) {
   const [saved, setSaved] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [queueCount, setQueueCount] = useState(0)
+  // Server URL change flow — when the user changes the Glassy server URL,
+  // the existing JWT becomes invalid against the new server. We offer to
+  // log out so the user can re-authenticate against the new server instead
+  // of getting confused "401 Unauthorized" errors on the next API call.
+  const [serverUrlChanged, setServerUrlChanged] = useState(false)
 
   useEffect(() => {
     getBaseUrl().then(setBaseUrlState).catch(() => {})
@@ -24,9 +31,18 @@ export default function SettingsView({ user, onClose, onLogout }) {
   async function handleSave() {
     setSaving(true)
     const prev = await getBaseUrl()
-    if (baseUrl.trim() && baseUrl.trim() !== prev) {
+    const urlChanged = baseUrl.trim() && baseUrl.trim().replace(/\/$/, '') !== prev
+    if (urlChanged) {
+      // Server URL changed — the JWT from the old server is invalid against
+      // the new one. Save the new URL, invalidate caches, and prompt the user
+      // to log out and re-authenticate against the new server.
       await setBaseUrl(baseUrl.trim().replace(/\/$/, ''))
       await invalidateCollections()
+      // Reconnect the Obsidian bridge SSE to the new server URL
+      await reconnectBridge().catch(() => {})
+      setServerUrlChanged(true)
+      setSaving(false)
+      return
     }
     await saveSettings({ aiAutoTag: aiTag, showNotifications: notifications })
     setSaving(false)
@@ -114,11 +130,53 @@ export default function SettingsView({ user, onClose, onLogout }) {
         <Toggle label="Desktop notifications" desc="Show notification after saving" value={notifications} onChange={setNotifs} />
       </div>
 
+      {/* Obsidian Bridge — lets the extension proxy Obsidian requests for
+          the server, bypassing WSL2/Docker networking issues. */}
+      <ObsidianBridgeSection />
+
       {/* Save settings */}
       <button className="btn-accent" onClick={handleSave} disabled={saving}>
         {saving ? <span className="spinner" /> : null}
         {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save settings'}
       </button>
+
+      {/* Server URL changed — prompt re-authentication */}
+      {serverUrlChanged && (
+        <div style={{
+          background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)',
+          borderRadius: 10, padding: '12px', display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <div style={{ fontSize: 12, color: '#a5b4fc', fontWeight: 600 }}>
+            Server changed — re-authentication required
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+            Your current login is for a different Glassy server. Sign out and
+            sign back in to the new server to continue saving.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setServerUrlChanged(false)}
+              style={{
+                flex: 1, padding: '8px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
+                color: 'rgba(255,255,255,0.65)', fontWeight: 500,
+              }}
+            >
+              Not now
+            </button>
+            <button
+              onClick={handleLogoutClick}
+              style={{
+                flex: 1, padding: '8px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)',
+                color: '#a5b4fc', fontWeight: 600,
+              }}
+            >
+              Sign out & re-login
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="divider" />
 
