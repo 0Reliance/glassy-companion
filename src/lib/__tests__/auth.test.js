@@ -190,11 +190,11 @@ describe('auth.js', () => {
     })
 
     it('setBaseUrl rejects plain http:// non-localhost', async () => {
-      await expect(setBaseUrl('http://example.com')).rejects.toThrow('Server URL must use HTTPS.')
+      await expect(setBaseUrl('http://example.com')).rejects.toThrow('Server URL must use HTTPS, or be a local/Tailscale address')
     })
 
     it('setBaseUrl rejects ftp:// URLs', async () => {
-      await expect(setBaseUrl('ftp://example.com')).rejects.toThrow('Server URL must use HTTPS.')
+      await expect(setBaseUrl('ftp://example.com')).rejects.toThrow('Server URL must use HTTPS, or be a local/Tailscale address')
     })
   })
 

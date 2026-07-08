@@ -158,7 +158,7 @@ describe('api.js — apiFetch wrapper', () => {
 
     await expect(fetchMe()).rejects.toMatchObject({
       status: 0,
-      message: 'Server URL must use HTTPS.',
+      message: 'Server URL must use HTTPS, or be a local/Tailscale address (http://localhost, LAN IP, or *.ts.net).',
     })
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
