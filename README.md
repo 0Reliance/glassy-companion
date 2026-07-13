@@ -3,7 +3,7 @@
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
 [![Version](https://img.shields.io/badge/version-2.12.0-6366f1?style=flat-square)](manifest.json)
-[![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
 ---
@@ -102,4 +102,6 @@ npm test                 # Run unit tests (168 tests)
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+AGPL-3.0 — see [LICENSE](LICENSE) for details.
+
+Commercial use requires a separate license from 0Reliance.
