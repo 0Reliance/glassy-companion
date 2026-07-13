@@ -24,7 +24,7 @@ Glassy Companion is the browser extension for Glassy — the companion to your G
 **🔌 MCP Bridge**
 - Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets
 - Live server URL via `window.location.origin + '/mcp'`
-- Pairs with the Glassy MCP server (glassy-dash v2.34+) — 10 tools, 3 prompts, 3 resources
+- Pairs with the Glassy MCP server (glassy-dash v2.35.0-beta.6+) — 10 tools, 3 prompts, 3 resources
 
 **🛡️ Storage monitoring**
 - Periodic 6-hour quota check; warns at 80%, auto-trims the offline queue at 95% critical
@@ -44,13 +44,13 @@ Glassy Companion is the browser extension for Glassy — the companion to your G
 - Smart tag suggestions
 - Page summarization
 
-**� Obsidian Bridge**
+**📝 Obsidian Bridge**
 - Connect the Glassy server to your Obsidian vault via the extension
 - Solves Windows/WSL2/Docker networking — the extension runs on your host and reaches Obsidian directly
 - Push captures to your vault as markdown files with one click
 - The extension holds the Obsidian API key locally — never sent to the server
 
-**�🔒 Private & Secure**
+**🔒 Private & Secure**
 - All data sent directly to your Glassy server over HTTPS
 - No third-party analytics or tracking
 - Offline queue saves captures when you're disconnected

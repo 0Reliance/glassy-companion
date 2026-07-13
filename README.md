@@ -13,7 +13,7 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (July 8, 2026):** v2.12.0 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.12.0 with both `glassy-companion-v2.12.0.zip` and `glassy-companion-v2.12.0-firefox.xpi` attached. v2.12.0 ships **Obsidian Bridge** (the extension proxies Obsidian Local REST API requests on behalf of the Glassy server, solving WSL2/Docker networking) + **Unified Save Card** (merging Quick + Smart Save into a single progressive-disclosure card with type chips that re-run the page interpreter on change). v2.11.2 added CSP allowance for `http://localhost:*` / `http://127.0.0.1:*` / private-LAN / `*.ts.net` (Tailscale) so the extension can reach a self-hosted Glassy running on the same machine, on the LAN, or over Tailscale. All 170 tests pass. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.35.0-beta.5` is public; clone `0Reliance/glassy-selfhost`, set `GLASSY_MEMBER_EMAIL` + `JWT_SECRET` + `API_KEY_ENCRYPTION_KEY` in `.env`, then `docker compose up -d`. All 6 critical issues closed; remaining: manual upload to CWS + AMO (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6).
+- **Current state (July 13, 2026):** v2.12.0 GitHub release **published** at https://github.com/0Reliance/glassy-companion/releases/tag/v2.12.0 with both `glassy-companion-v2.12.0.zip` and `glassy-companion-v2.12.0-firefox.xpi` attached. v2.12.0 ships **Obsidian Bridge** (the extension proxies Obsidian Local REST API requests on behalf of the Glassy server, solving WSL2/Docker networking) + **Unified Save Card** (merging Quick + Smart Save into a single progressive-disclosure card with type chips that re-run the page interpreter on change). v2.11.2 added CSP allowance for `http://localhost:*` / `http://127.0.0.1:*` / private-LAN / `*.ts.net` (Tailscale) so the extension can reach a self-hosted Glassy running on the same machine, on the LAN, or over Tailscale. All 168 tests pass. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.35.0-beta.6` is public; clone `0Reliance/glassy-selfhost`, set `GLASSY_MEMBER_EMAIL` + `JWT_SECRET` + `API_KEY_ENCRYPTION_KEY` in `.env`, then `docker compose up -d`. All 6 critical issues closed; remaining: manual upload to CWS + AMO (gated on user browser auth — see `/home/pozi/GLASSY_LAUNCH_REPORT_2026-06-13.md` §6).
 
 ---
 
@@ -39,11 +39,11 @@
 | **Rule Engine** | Automatic preset assignment based on domain and URL patterns from your Glassy dashboard. |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is unreachable and sync automatically. |
 | **Knowledge Base Search (v2.10.0)** | Search your Glassy knowledge base (bookmarks, notes, vault files) from the popup. Source filter tabs, debounced hybrid search, corpus indexing status, and relevance scores. |
-| **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.34+). |
+| **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.35.0-beta.6+). |
 | **Cross-Browser** | Full Chrome and Firefox support. Accessibility: focus indicators, reduced motion, high contrast. |
 | **Storage quota monitoring (v2.11.0)** | Periodic alarm checks `chrome.storage.local` usage; warns at 80%, auto-trims the offline queue at 95% critical. |
-| **Obsidian Bridge (v3.0)** | Proxy Obsidian Local REST API requests on behalf of the Glassy server. Solves WSL2/Docker networking — the extension runs on the host and can reach `127.0.0.1:27124` directly. Also pushes captures to the vault as markdown files. |
-| **Push-to-Obsidian (v3.0)** | Captures saved via the extension are automatically pushed to the Obsidian vault as markdown files with YAML frontmatter — no server round-trip needed. |
+| **Obsidian Bridge (v2.12.0)** | Proxy Obsidian Local REST API requests on behalf of the Glassy server. Solves WSL2/Docker networking — the extension runs on the host and can reach `127.0.0.1:27124` directly. Also pushes captures to the vault as markdown files. |
+| **Push-to-Obsidian (v2.12.0)** | Captures saved via the extension are automatically pushed to the Obsidian vault as markdown files with YAML frontmatter — no server round-trip needed. |
 
 ---
 

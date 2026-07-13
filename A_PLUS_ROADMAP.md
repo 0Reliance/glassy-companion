@@ -1,4 +1,4 @@
-# Glassy Companion — A+ Extension Roadmap (Updated June 22, 2026 — Final)
+# Glassy Companion — A+ Extension Roadmap (Updated July 13, 2026 — v2.12.0 shipped)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
@@ -31,7 +31,7 @@
 | # | Item | Status |
 |---|------|--------|
 | 11 | MCP bridge (config-based) | ✅ Dynamic URL snippets in MCPKeySettings.jsx |
-| 12 | Obsidian direct vault push | ⏳ Deferred (full feature) |
+| 12 | Obsidian direct vault push | ✅ SHIPPED (v2.12.0) |
 | 13 | Keyboard-first modal commands | 🔲 S4 |
 | 14 | Automated CI store publishing | 🔲 S4 |
 | 15 | Real-time sync state | 🔲 S4 |
