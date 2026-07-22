@@ -18,7 +18,7 @@ import {
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
-import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge } from '../lib/obsidianBridge.js'
+import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge, isBridgeStarted } from '../lib/obsidianBridge.js'
 import { pushCaptureToVault, isPushAvailable } from '../lib/obsidianPush.js'
 
 // ── Storage Quota Monitoring alarm name ────────────────────────────────────
@@ -268,6 +268,27 @@ chrome.runtime.onStartup.addListener(() => {
 ensureOfflineSyncAlarm().catch(() => {})
 // Best-effort bridge connect on SW wake
 startObsidianBridge().catch(() => {})
+
+// ── MV3 Service Worker lifecycle — keep bridge status honest ──────────────────n// When Chrome evicts the service worker, chrome.runtime.onSuspend fires. The
+// actual SSE connection lives in the offscreen document (which is never evicted),
+// so the bridge stays alive. But if the offscreen doc was ALSO torn down under
+// memory pressure, the status in chrome.storage.local would be stale. We flip
+// it to connected:false here as a belt-and-braces safety net — the next alarm
+// tick (within 2 min) re-establishes the offscreen doc and SSE, flipping it
+// back to true if the connection succeeds.
+chrome.runtime.onSuspend?.(() => {
+  if (isBridgeStarted()) {
+    chrome.storage.local.get('glassy_obsidian_bridge_status').then((result) => {
+      const status = result.glassy_obsidian_bridge_status || {}
+      // Only flip if we were connected — don't clobber an already-disconnected state
+      if (status.connected) {
+        chrome.storage.local.set({
+          glassy_obsidian_bridge_status: { ...status, connected: false, error: 'Service worker suspended' },
+        }).catch(() => {})
+      }
+    }).catch(() => {})
+  }
+})
 
 async function ensureOfflineSyncAlarm() {
   const existingAlarm = await chrome.alarms.get(ALARM_OFFLINE_SYNC)

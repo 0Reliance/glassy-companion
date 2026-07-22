@@ -5,6 +5,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.13.0] — 2026-07-22 — Obsidian Bridge MV3 Reliability Fix
+
+### Fixed — SSE Bridge Moved to Offscreen Document
+
+- **Critical fix: SSE EventSource moved from service worker to offscreen document.**
+  Chrome MV3 evicts service workers after ~30s of inactivity, silently killing the
+  `EventSource` holding the Obsidian Bridge SSE connection. The extension UI showed
+  "Bridge connected" (stale `chrome.storage.local` status) but the server registry
+  reported `connected:false` — Obsidian operations silently failed. The offscreen
+  document is persistent and never evicted by Chrome, so the SSE connection stays
+  alive indefinitely while the browser is open.
+- **`chrome.runtime.onSuspend` handler added** to the service worker — flips
+  bridge status to `connected:false` when the SW is evicted, preventing the
+  stale "connected" indicator. Belt-and-braces alongside the offscreen doc.
+- **`connectSSEInServiceWorker()` retained as legacy fallback** for Firefox <120
+  which doesn't support the offscreen Documents API.
+
+### Fixed — Test Connection Now Tests the Full Bridge Loop
+
+- **Test Connection** previously tested only extension→Obsidian direct fetch,
+  giving false confidence that the bridge worked. It now delegates to the
+  offscreen document which reports both the SSE bridge status AND the direct
+  Obsidian fetch result. The popup shows both legs: green "✓ Connected · plugin
+  v4.x" plus a warning if "SSE bridge to server is not connected."
+
+### Added — Settings Sync to Server
+
+- **`POST /api/ext/obsidian-bridge/settings`** — on SSE `onopen`, the extension
+  pushes its Obsidian URL to the server's `users.obsidian_url` column. This
+  eliminates the dual-store drift where the web-app DB and extension storage
+  could hold different URLs. The Obsidian API token stays extension-side only
+  (never sent to the server — the extension is the canonical source for
+  bridge-routed requests).
+- **`GET /api/ext/obsidian-bridge/status`** now includes `serverObsidianUrl`
+  for the extension's reference.
+
+### Changed — Save Triggers Reconnect
+
+- **`saveBridgeSettings()`** now triggers a bridge reconnect when the URL or
+  token is changed while the bridge is enabled (previously required a manual
+  toggle off/on).
+
+---
+
 ## [2.12.0] — 2026-07-08 — Unified Save Card & Obsidian Bridge
 
 ### Added

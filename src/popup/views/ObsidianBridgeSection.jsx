@@ -193,9 +193,21 @@ export default function ObsidianBridgeSection() {
                 <>
                   ✓ Connected
                   {testResult.plugin?.version && ` · plugin v${testResult.plugin.version}`}
+                  {testResult.bridgeConnected === false && (
+                    <div style={{ marginTop: 4, color: '#fcd34d', fontSize: 10 }}>
+                      ⚠ Obsidian reachable, but SSE bridge to server is not connected. Toggle the bridge off and on to reconnect.
+                    </div>
+                  )}
                 </>
               ) : (
-                <>✗ {testResult.error || `HTTP ${testResult.status}`}</>
+                <>
+                  ✗ {testResult.error || `HTTP ${testResult.status}`}
+                  {testResult.bridgeConnected === false && (
+                    <div style={{ marginTop: 4, fontSize: 10, opacity: 0.8 }}>
+                      Also: SSE bridge to server is not connected. Toggle the bridge off and on.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
