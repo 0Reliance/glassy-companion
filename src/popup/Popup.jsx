@@ -1,7 +1,6 @@
 import React, { useState, useCallback, Suspense, lazy } from 'react'
 import AppShell from './components/AppShell.jsx'
 import LoginCard from './components/LoginCard.jsx'
-import UpsellCard from './components/UpsellCard.jsx'
 import Skeleton from './components/Skeleton.jsx'
 import useAppState from './hooks/useAppState.js'
 
@@ -68,10 +67,6 @@ export default function Popup() {
 
           {view === 'login' && (
             <LoginCard onLoginSuccess={handleLoginSuccess} />
-          )}
-
-          {view === 'no_entitlement' && (
-            <UpsellCard user={user} />
           )}
 
           {view === 'save' && (

@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2.13.0] — 2026-07-22 — Obsidian Bridge MV3 Reliability Fix
 
+### Fixed — Membership Gate Removed from Popup
+
+- **Removed the `no_entitlement` / UpsellCard wall from the popup.** The popup
+  previously checked `entitlements.glassy_keep` on auth and showed an
+  "Unlock GlassyKeep — $15" upsell card if absent. This incorrectly blocked
+  self-hosted admins (whose `clear_lifetime` tier is resolved server-side via
+  `isClearMember()`, not in `entitlements_json`) and created unwanted friction
+  for all users. The extension no longer does any client-side membership
+  gating — the server remains the single gatekeeper via `requireKeep`.
+- **Softened the background-save entitlement toast.** A 403 from the server no
+  longer shows "Upgrade required / GlassyKeep is required" — it now shows
+  "Save unavailable — Saving from the extension requires a Pro plan. Manage
+  your items in your Glassy workspace."
+
 ### Fixed — SSE Bridge Moved to Offscreen Document
 
 - **Critical fix: SSE EventSource moved from service worker to offscreen document.**

@@ -6,7 +6,7 @@ import { evaluateRules } from '../../lib/rules.js'
 /**
  * Central app state hook — manages auth, routing, page meta, and save status.
  *
- * Views: loading | login | no_entitlement | save | note | search | settings
+ * Views: loading | login | save | note | search | settings
  * Save status: idle | saving | saved | duplicate | error
  */
 export default function useAppState() {
@@ -56,11 +56,6 @@ export default function useAppState() {
           return
         }
         setUser(authRes.user)
-
-        if (!authRes.user?.entitlements?.glassy_keep) {
-          setView('no_entitlement')
-          return
-        }
 
         setView(await resolveInitialView())
         const metaRes = await getActiveTabMeta()
@@ -119,10 +114,6 @@ export default function useAppState() {
 
   const handleLoginSuccess = useCallback(async (loggedInUser) => {
     setUser(loggedInUser)
-    if (!loggedInUser?.entitlements?.glassy_keep) {
-      setView('no_entitlement')
-      return
-    }
     setView(await resolveInitialView())
     getActiveTabMeta()
       .then((res) => { if (res?.meta) setPageMeta(res.meta) })

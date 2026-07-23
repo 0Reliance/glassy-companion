@@ -38,7 +38,6 @@ export default defineConfig(({ mode }) => {
               resolve(__dirname, 'src/popup/components/SaveCard.jsx'),
               resolve(__dirname, 'src/popup/components/ContentPreview.jsx'),
               resolve(__dirname, 'src/popup/components/SummaryCard.jsx'),
-              resolve(__dirname, 'src/popup/components/UpsellCard.jsx'),
               resolve(__dirname, 'src/popup/components/LoginCard.jsx'),
               resolve(__dirname, 'src/popup/components/TagEditor.jsx'),
               resolve(__dirname, 'src/popup/components/CollectionPicker.jsx'),

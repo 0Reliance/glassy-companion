@@ -472,7 +472,7 @@ async function backgroundSave(mode, payload, tab) {
         showNotification('Glassy — Already saved', captureItem.title, 'info')
         break
       case 'entitlement':
-        showNotification('Glassy — Upgrade required', 'GlassyKeep is required for this save.', 'error')
+        showNotification('Glassy — Save unavailable', 'Saving from the extension requires a Pro plan. Manage your items in your Glassy workspace.', 'error')
         break
       case 'gone':
         showNotification('Glassy — Account unavailable', 'This account is no longer active.', 'error')
