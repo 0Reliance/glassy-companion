@@ -1,9 +1,10 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.11.2
+**Version:** 2.13.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** July 8, 2026
+**Last Updated:** July 22, 2026
 
+> **v2.13.0 fixes:** Obsidian Bridge MV3 reliability — SSE EventSource moved from the service worker to a persistent offscreen document (Chrome MV3 evicts SWs after ~30s, silently killing the bridge). `chrome.runtime.onSuspend` handler flips status to false on eviction. `connectSSEInServiceWorker()` retained as legacy fallback for Firefox <120. Test Connection now delegates to the offscreen document, reporting both SSE bridge status AND direct Obsidian fetch result. `POST /api/ext/obsidian-bridge/settings` syncs the extension's Obsidian URL to the server's `users.obsidian_url` on connect. `saveBridgeSettings()` triggers reconnect on URL/token change. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.12.0 adds:** Unified Save Card — `BookmarkCard.jsx` and `SmartSavePanel.jsx` are merged into a single `SaveCard.jsx` with progressive disclosure. The "⚙ Smart capture" toggle pill replaces the buried "Switch to Smart Save" button. Draft persistence extended with `contentType`, `isPublic`, `isPinned`, `aiAutoTag`, `smartExpanded` fields. Obsidian Bridge + push-to-vault, self-host CSP/LAN/Tailscale support. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.11.1 fixes:** Draft stale-data race in the save card and `NoteView`. Drafts now store `url` and are discarded when the saved URL differs from the current active tab, preventing the preview card from showing the previous page's title/image. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.11.0 adds:** Firefox Content Security Policy (matches Chrome without `wasm-unsafe-eval`), `STORAGE_QUOTA_ALARM` 6-hourly quota check with 80% warn / 95% critical auto-trim, and `manualChunks` bundle splitting (vendor-react, vendor-state, ui-components, kb-view) with `chunkSizeWarningLimit: 200`. See [CHANGELOG.md](../CHANGELOG.md) for details.
