@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.13.0-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.14.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -59,9 +59,9 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.13.0` assets:
-   - **`glassy-companion-v2.13.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.13.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.14.0` assets:
+   - **`glassy-companion-v2.14.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.14.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support

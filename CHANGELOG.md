@@ -5,6 +5,65 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.14.0] — 2026-07-24 — Obsidian Bridge Deep-Fix (Self-Host WSL2 Unblocked)
+
+### Fixed — localhost Host Permissions (the prime WSL blocker)
+
+- **`optional_host_permissions` broadened from Obsidian-only ports to any localhost port.**
+  The old manifest only declared `http://127.0.0.1:27123/` and `https://127.0.0.1:27124/`
+  (the Obsidian Local REST API ports). When a self-host user ran Glassy on
+  `http://localhost:3010`, the offscreen document's `EventSource` to
+  `http://localhost:3010/api/ext/obsidian-bridge/subscribe` was silently blocked
+  by Chrome's host-permission check — the bridge could never connect. Now declares
+  `http(s)://127.0.0.1/*` and `http(s)://localhost/*` so any localhost Glassy server
+  works. `saveBridgeSettings` requests permissions for BOTH the Obsidian URL and
+  the Glassy server URL when either is localhost.
+
+### Fixed — Offscreen Document Existence Verification
+
+- **`ensureOffscreenForBridge()` and `ensureOffscreen()` now use
+  `chrome.runtime.getContexts({contextTypes:['OFFSCREEN_DOCUMENT']})` to verify
+  the offscreen doc actually exists** before trusting the cached `_offscreenReady`
+  flag. Chrome can tear down the offscreen doc under memory pressure; the stale flag
+  caused `delegateToOffscreen` to silently no-op and the 2-min alarm couldn't
+  recover. The flag now resets on `getContexts` miss and on `sendMessage` `lastError`.
+
+### Fixed — onSuspend No Longer Flips Status to Disconnected
+
+- **The `chrome.runtime.onSuspend` handler no longer flips bridge status to
+  `connected:false`.** The offscreen doc owns the SSE and is NOT evicted on
+  service-worker suspend — flipping status caused a false-negative "Disconnected"
+  in the popup while the bridge was actually alive. `onSuspend` now queries the
+  offscreen doc for real status instead of clobbering it.
+
+### Fixed — Silent Auth Loss on JWT Expiry
+
+- **Offscreen doc uses `peekToken()` (non-destructive) instead of `getToken()`.**
+  `getToken()` calls `clearAuth()` on JWT expiry, silently nuking the token. The
+  offscreen doc can't re-authenticate (no UI), so the bridge died silently with no
+  user feedback. `peekToken()` returns null WITHOUT clearing auth; the offscreen
+  doc sends `BRIDGE_AUTH_EXPIRED` to the service worker, which shows a desktop
+  notification prompting re-login.
+
+### Added — Permission Denial Feedback
+
+- **`saveBridgeSettings` returns `{permissionGranted, missingOrigins}`.** The
+  popup shows a warning banner when localhost host permissions are denied, so
+  the user knows the bridge will start but SSE/fetches will fail.
+
+### Fixed — SSE Auth Migrated to One-Time Ticket
+
+- **SSE auth migrated from `?token=<JWT>` (JWT in URL) to one-time ticket.** The
+  offscreen doc fetches a ticket from `POST /api/ext/obsidian-bridge/ticket` first,
+  falls back to `?token=` for older servers. The JWT no longer leaks into server
+  access logs, proxy logs, or browser history.
+
+### Brand
+
+- Gem logo favicons and AppShell SVG from the Jul 23 brand asset unification.
+
+---
+
 ## [2.13.0] — 2026-07-22 — Obsidian Bridge MV3 Reliability Fix
 
 ### Fixed — Membership Gate Removed from Popup
