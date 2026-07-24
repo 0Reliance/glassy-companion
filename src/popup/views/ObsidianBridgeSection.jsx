@@ -29,6 +29,7 @@ export default function ObsidianBridgeSection() {
   const [saved, setSaved] = useState(false)
   const [connected, setConnected] = useState(false)
   const [statusError, setStatusError] = useState(null)
+  const [permissionWarning, setPermissionWarning] = useState(null)
 
   // Load settings on mount
   useEffect(() => {
@@ -65,17 +66,27 @@ export default function ObsidianBridgeSection() {
 
   const handleSave = useCallback(async () => {
     setSaving(true)
+    setPermissionWarning(null)
     const updates = { enabled, url }
     // Only update the token if the user typed a new one
     if (token) {
       updates.token = token
     }
-    await saveBridgeSettings(updates)
+    const result = await saveBridgeSettings(updates)
     setToken('')
     setHasToken(true)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
+    // Surface missing localhost host permissions — the bridge will start but
+    // SSE to a localhost Glassy server or fetches to Obsidian will fail silently
+    // without them. This is the most common self-host WSL2 setup gotcha.
+    if (result && !result.permissionGranted && result.missingOrigins?.length) {
+      setPermissionWarning(
+        `Permission denied for: ${result.missingOrigins.join(', ')}. ` +
+        'The bridge needs host permission to reach localhost. Re-save to prompt again.'
+      )
+    }
   }, [enabled, url, token])
 
   return (
@@ -126,6 +137,17 @@ export default function ObsidianBridgeSection() {
             flexShrink: 0,
           }} />
           {connected ? 'Bridge connected' : statusError || 'Disconnected'}
+        </div>
+      )}
+
+      {/* Missing localhost host permission warning */}
+      {permissionWarning && (
+        <div style={{
+          fontSize: 10, padding: '6px 8px', borderRadius: 6,
+          background: 'rgba(252,165,165,0.08)', border: '1px solid rgba(252,165,165,0.2)',
+          color: '#fca5a5', lineHeight: 1.4,
+        }}>
+          ⚠ {permissionWarning}
         </div>
       )}
 

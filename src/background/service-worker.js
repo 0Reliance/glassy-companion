@@ -112,9 +112,26 @@ let _offscreenReady = false
 /**
  * Ensure the offscreen document exists. Chrome MV3 allows one offscreen doc
  * per extension. We create it on first save and keep it alive.
+ *
+ * Per Chrome MV3 docs, the offscreen document can be torn down by Chrome under
+ * memory pressure even though our module-level flag says it's alive. We verify
+ * existence with chrome.runtime.getContexts() before trusting the flag.
+ * https://developer.chrome.com/docs/extensions/reference/api/offscreen
  */
 async function ensureOffscreen() {
-  if (_offscreenReady) return
+  if (_offscreenReady) {
+    try {
+      const existing = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+      })
+      if (existing && existing.length > 0) return
+      // Doc was torn down — reset the flag and recreate below
+      _offscreenReady = false
+    } catch {
+      // getContexts unavailable (older Chrome / Firefox) — trust the flag
+      return
+    }
+  }
   try {
     await chrome.offscreen.createDocument({
       url: 'src/offscreen/index.html',
@@ -269,24 +286,28 @@ ensureOfflineSyncAlarm().catch(() => {})
 // Best-effort bridge connect on SW wake
 startObsidianBridge().catch(() => {})
 
-// ── MV3 Service Worker lifecycle — keep bridge status honest ──────────────────n// When Chrome evicts the service worker, chrome.runtime.onSuspend fires. The
+// ── MV3 Service Worker lifecycle — keep bridge status honest ──────────────────
+// When Chrome evicts the service worker, chrome.runtime.onSuspend fires. The
 // actual SSE connection lives in the offscreen document (which is never evicted),
-// so the bridge stays alive. But if the offscreen doc was ALSO torn down under
-// memory pressure, the status in chrome.storage.local would be stale. We flip
-// it to connected:false here as a belt-and-braces safety net — the next alarm
-// tick (within 2 min) re-establishes the offscreen doc and SSE, flipping it
-// back to true if the connection succeeds.
+// so the bridge stays alive — we must NOT flip status to connected:false here,
+// because that would make the popup show "Disconnected" even though the SSE
+// bridge is actually alive in the offscreen doc (a false negative).
+//
+// Instead, we query the offscreen doc for its actual status. If the offscreen
+// doc is unreachable (also torn down), THEN the status is genuinely unknown
+// and the 2-min alarm will re-establish it on the next SW wake. We leave the
+// stored status untouched on suspend — the offscreen doc is the source of
+// truth and updates it via updateBridgeStatus() on connect/disconnect.
 chrome.runtime.onSuspend?.(() => {
   if (isBridgeStarted()) {
-    chrome.storage.local.get('glassy_obsidian_bridge_status').then((result) => {
-      const status = result.glassy_obsidian_bridge_status || {}
-      // Only flip if we were connected — don't clobber an already-disconnected state
-      if (status.connected) {
-        chrome.storage.local.set({
-          glassy_obsidian_bridge_status: { ...status, connected: false, error: 'Service worker suspended' },
-        }).catch(() => {})
-      }
-    }).catch(() => {})
+    // Query the offscreen doc for the real bridge status. If it responds,
+    // it owns the SSE and we trust its answer — do NOT overwrite it here.
+    // If it doesn't respond (torn down), the next alarm tick will recreate
+    // it and re-establish the SSE, updating status correctly.
+    chrome.runtime.sendMessage({ type: 'OFFSCREEN_BRIDGE_STATUS' }).catch(() => {
+      // Offscreen doc unreachable on suspend — leave stored status as-is.
+      // The alarm will re-establish the bridge on the next SW wake.
+    })
   }
 })
 
@@ -648,6 +669,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function handleMessage(message) {
   switch (message.type) {
+    // The offscreen doc detected that the Glassy JWT expired while the user
+    // wasn't looking. The offscreen doc can't show UI, so it asks us (the SW)
+    // to surface a desktop notification prompting the user to re-login.
+    case 'BRIDGE_AUTH_EXPIRED': {
+      try {
+        await chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'assets/icon-128.png',
+          title: 'Glassy — Re-login required',
+          message: 'Your Glassy session expired. Open the Glassy extension popup to log in again so the Obsidian Bridge can reconnect.',
+          priority: 2,
+        })
+      } catch { /* notifications may be unavailable */ }
+      return { ok: true }
+    }
+
     case 'SAVE_PAGE':
       return savePageFromPopup(message.payload)
 

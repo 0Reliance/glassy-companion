@@ -72,35 +72,81 @@ export async function getBridgeSettings() {
 }
 
 /**
+ * Compute the chrome.permissions origins needed for a given URL.
+ * Returns an origin string like "http://localhost:3010/" or null if the URL
+ * is not a localhost/loopback address (no permission needed for public hosts
+ * already covered by host_permissions, or for URLs we can't parse).
+ * @param {string} url
+ * @returns {string|null}
+ */
+function originForLocalhostUrl(url) {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost' || parsed.hostname === '::1') {
+      return `${parsed.protocol}//${parsed.host}/`
+    }
+  } catch { /* invalid URL */ }
+  return null
+}
+
+/**
  * Save Obsidian bridge settings to chrome.storage.local.
  * When enabling the bridge, requests the optional localhost host permissions
- * (declared in optional_host_permissions in the manifest) so the extension
- * can fetch from 127.0.0.1:27123/27124. This must be called from a user
- * gesture (button click) per Chrome's optional permissions API.
+ * for BOTH the Obsidian URL (e.g. https://127.0.0.1:27124) AND the Glassy
+ * server URL (e.g. http://localhost:3010 for a self-host appliance). Both are
+ * needed: the offscreen doc opens SSE to the Glassy server and fetches from
+ * Obsidian — if either lacks host permission, the bridge silently fails.
+ *
+ * This must be called from a user gesture (button click) per Chrome's
+ * optional permissions API.
+ *
  * @param {Partial<ObsidianBridgeSettings>} partial
+ * @returns {Promise<{permissionGranted: boolean, missingOrigins: string[]}>}
  */
 export async function saveBridgeSettings(partial) {
   const current = await getBridgeSettings()
   const updated = { ...current, ...partial }
   await chrome.storage.local.set({ [BRIDGE_SETTINGS_KEY]: updated })
-  // If enabling, request the optional localhost permissions
-  if (partial.enabled && !current.enabled) {
+
+  let permissionGranted = true
+  const missingOrigins = []
+
+  // Collect all localhost origins we need permission for:
+  // 1. The Obsidian URL (the extension calls Obsidian directly)
+  // 2. The Glassy server URL (the offscreen doc opens SSE to the server)
+  const neededOrigins = new Set()
+  if (updated.url) {
+    const obsOrigin = originForLocalhostUrl(updated.url)
+    if (obsOrigin) neededOrigins.add(obsOrigin)
+  }
+  const serverBaseUrl = await getBaseUrl()
+  if (serverBaseUrl) {
+    const serverOrigin = originForLocalhostUrl(serverBaseUrl)
+    if (serverOrigin) neededOrigins.add(serverOrigin)
+  }
+
+  // If enabling or if new localhost origins appeared, request permissions.
+  // Chrome's permissions.request() is additive — requesting already-granted
+  // origins is a no-op (returns true immediately).
+  const needsPermissionRequest =
+    (partial.enabled && !current.enabled) || neededOrigins.size > 0
+
+  if (needsPermissionRequest && neededOrigins.size > 0) {
     try {
-      await chrome.permissions.request({
-        origins: [
-          'http://127.0.0.1:27123/',
-          'https://127.0.0.1:27124/',
-          'http://localhost:27123/',
-          'https://localhost:27124/',
-        ],
-      })
+      const origins = Array.from(neededOrigins)
+      permissionGranted = await chrome.permissions.request({ origins })
+      if (!permissionGranted) {
+        missingOrigins.push(...origins)
+        console.warn('[Obsidian Bridge] Optional permission request denied for origins:', origins)
+      }
     } catch (err) {
-      // Permission denied — the user can still enable the bridge, but
-      // fetch calls to Obsidian will fail with a CORS/permission error.
-      // The test connection button will surface this clearly.
+      permissionGranted = false
+      missingOrigins.push(...Array.from(neededOrigins))
       console.warn('[Obsidian Bridge] Optional permission request failed:', err.message)
     }
   }
+
   // If enable/disable changed, start or stop the bridge
   if (partial.enabled !== undefined) {
     if (partial.enabled) {
@@ -114,6 +160,8 @@ export async function saveBridgeSettings(partial) {
       await reconnectBridge()
     }
   }
+
+  return { permissionGranted, missingOrigins }
 }
 
 /**
@@ -279,7 +327,23 @@ async function connectSSEInServiceWorker() {
   }
 
   const sseUrl = `${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/subscribe`
-  const url = `${sseUrl}?token=${encodeURIComponent(token)}`
+  // Use a one-time SSE ticket if the server supports it (avoids JWT in URL).
+  // Falls back to ?token= for older servers.
+  let url = sseUrl
+  try {
+    const ticketResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/ticket`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (ticketResponse.ok) {
+      const { ticket } = await ticketResponse.json()
+      if (ticket) url += `?ticket=${encodeURIComponent(ticket)}`
+    } else {
+      url += `?token=${encodeURIComponent(token)}`
+    }
+  } catch {
+    url += `?token=${encodeURIComponent(token)}`
+  }
   // Note: EventSource in the SW is fragile (MV3 eviction) — only used as fallback
   // eslint-disable-next-line no-undef
   const sseConnection = new EventSource(url)
@@ -387,6 +451,11 @@ async function delegateToOffscreen(type, payload = {}) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type, payload }, (response) => {
       if (chrome.runtime.lastError) {
+        // The offscreen doc is unreachable — Chrome tore it down under memory
+        // pressure. Reset the cached-ready flag so the next call verifies
+        // existence with getContexts() and recreates it instead of trusting
+        // a stale flag.
+        _offscreenReadyForBridge = false
         resolve({ ok: false, error: chrome.runtime.lastError.message })
       } else {
         resolve(response || { ok: false, error: 'No response from offscreen' })
@@ -396,7 +465,24 @@ async function delegateToOffscreen(type, payload = {}) {
 }
 
 async function ensureOffscreenForBridge() {
-  if (_offscreenReadyForBridge) return
+  // Per Chrome MV3 docs, the offscreen document can be torn down by Chrome
+  // under memory pressure even though our module-level flag says it's alive.
+  // Use chrome.runtime.getContexts() to verify it actually exists before
+  // trusting the cached flag. This is the Chrome-recommended pattern.
+  // https://developer.chrome.com/docs/extensions/reference/api/offscreen
+  if (_offscreenReadyForBridge) {
+    try {
+      const existing = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+      })
+      if (existing && existing.length > 0) return
+      // Doc was torn down — reset the flag and recreate below
+      _offscreenReadyForBridge = false
+    } catch {
+      // getContexts unavailable (older Chrome / Firefox) — trust the flag
+      return
+    }
+  }
   try {
     await chrome.offscreen.createDocument({
       url: 'src/offscreen/index.html',

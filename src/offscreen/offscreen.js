@@ -23,7 +23,7 @@
 
 import { saveCapture, saveBookmark, saveDocument, saveNote } from '../lib/api.js'
 import { enqueue } from '../lib/offlineQueue.js'
-import { getToken } from '../lib/auth.js'
+import { getToken, peekToken } from '../lib/auth.js'
 import { planBackgroundSaveFailure, planQueueFailure } from '../background/savePolicy.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
 import { obsidianFetch } from '../lib/obsidianFetch.js'
@@ -94,20 +94,58 @@ async function stopBridgeSSE() {
 
 /**
  * Open the SSE connection to the Glassy server and listen for proxy requests.
+ *
+ * Uses peekToken() (non-destructive) instead of getToken() because the offscreen
+ * document has no UI to re-authenticate. If the JWT expired, getToken() would
+ * call clearAuth() and silently nuke the token — the user would get no feedback
+ * and the bridge would die silently. peekToken() returns null on expiry WITHOUT
+ * clearing auth, and we report the expiry to the service worker so it can show
+ * a notification prompting the user to log in again.
+ *
+ * Auth: uses a one-time SSE ticket (POST /ticket → GET /subscribe?ticket=)
+ * instead of passing the JWT in the URL. The JWT never appears in server logs,
+ * proxy logs, or browser history. The ticket is short-lived (60s) and one-use.
  */
 async function connectBridgeSSE() {
   if (bridgeSseConnection || bridgeIntentionallyDisconnected) return
 
   const baseUrl = await getBaseUrl()
-  const token = await getToken()
+  const token = await peekToken()
 
   if (!token) {
-    await updateBridgeStatus({ connected: false, error: 'Not authenticated with Glassy' })
+    await updateBridgeStatus({ connected: false, error: 'Not authenticated with Glassy — open the extension popup to log in' })
+    // Notify the service worker so it can show a desktop notification.
+    // The user must re-authenticate via the popup (the offscreen doc can't).
+    try {
+      await chrome.runtime.sendMessage({ type: 'BRIDGE_AUTH_EXPIRED' })
+    } catch { /* SW may be suspended — the status update is the durable signal */ }
     return
   }
 
-  const sseUrl = `${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/subscribe`
-  const url = `${sseUrl}?token=${encodeURIComponent(token)}`
+  // Exchange the JWT for a one-time SSE ticket so the JWT doesn't leak in the URL.
+  // Falls back to ?token= if the ticket endpoint is unavailable (older servers).
+  let sseUrl = `${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/subscribe`
+  let usedTicket = false
+  try {
+    const ticketResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/ticket`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (ticketResponse.ok) {
+      const { ticket } = await ticketResponse.json()
+      if (ticket) {
+        sseUrl += `?ticket=${encodeURIComponent(ticket)}`
+        usedTicket = true
+      }
+    }
+  } catch {
+    // Ticket endpoint unavailable (older server) — fall back to ?token=
+  }
+  if (!usedTicket) {
+    sseUrl += `?token=${encodeURIComponent(token)}`
+  }
+
+  const url = sseUrl
 
   try {
     bridgeSseConnection = new EventSource(url)

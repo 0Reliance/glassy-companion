@@ -66,6 +66,44 @@ export async function setToken(token) {
   await chrome.storage.local.set({ [STORAGE_KEYS.token]: token })
 }
 
+/**
+ * Peek at the stored JWT token WITHOUT clearing it on expiry.
+ *
+ * `getToken()` calls `clearAuth()` when the JWT is expired, which is correct
+ * for interactive contexts (popup, save flows) — the user will be prompted to
+ * log in again. But the offscreen document holds the Obsidian Bridge SSE
+ * connection and has no UI to re-authenticate. If it calls `getToken()` and the
+ * JWT expired, `clearAuth()` would nuke the token and the offscreen doc would
+ * silently fail with "Not authenticated" — the user gets no feedback.
+ *
+ * This non-destructive variant returns the token (or null if expired) WITHOUT
+ * clearing auth. Callers that detect expiry should report it via a message to
+ * the service worker (which can show a notification) rather than clearing auth
+ * silently from a headless context.
+ *
+ * @returns {Promise<string|null>} The stored JWT, or null if absent/expired.
+ */
+export async function peekToken() {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.token)
+  let token = result[STORAGE_KEYS.token] || null
+  if (!token) {
+    // Same legacy migration as getToken(), but non-destructive.
+    try {
+      const legacy = await chrome.storage.session.get(STORAGE_KEYS.token)
+      const legacyToken = legacy?.[STORAGE_KEYS.token]
+      if (legacyToken) {
+        await chrome.storage.local.set({ [STORAGE_KEYS.token]: legacyToken })
+        await chrome.storage.session.remove(STORAGE_KEYS.token)
+        token = legacyToken
+      }
+    } catch { /* session storage unavailable */ }
+  }
+  if (token && isTokenExpired(token)) {
+    return null // expired — do NOT clearAuth() from a headless context
+  }
+  return token
+}
+
 /** Clear auth state — token, cached user, and active account selection. */
 export async function clearAuth() {
   await chrome.storage.local.remove(STORAGE_KEYS.token)

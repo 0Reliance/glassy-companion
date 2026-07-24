@@ -116,14 +116,27 @@ export default function AppShell({ activeView, onNavigate, user, showSettings, o
 
 function GlassyLogo() {
   return (
-    <div className="luminous" style={{
-      width: 24, height: 24, borderRadius: 7,
-      background: 'linear-gradient(135deg, #6366f1, #7c3aed)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 12, flexShrink: 0, color: '#fff',
-      boxShadow: '0 0 15px rgba(99,102,241,0.4)'
-    }}>
-      ✦
-    </div>
+    <svg width="24" height="24" viewBox="0 0 120 120" aria-label="Glassy" style={{ flexShrink: 0, borderRadius: 6 }}>
+      <defs>
+        <linearGradient id="gLogoTop" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#a8b1ff" />
+          <stop offset="100%" stopColor="#563b9e" />
+        </linearGradient>
+        <linearGradient id="gLogoLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4df0ff" />
+          <stop offset="100%" stopColor="#1b4b82" />
+        </linearGradient>
+        <linearGradient id="gLogoRight" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#d661ff" />
+          <stop offset="100%" stopColor="#3a1d63" />
+        </linearGradient>
+      </defs>
+      <rect width="120" height="120" rx="26" fill="#0c0c14" />
+      <polygon points="60,20 95,40 60,60 25,40" fill="url(#gLogoTop)" opacity="0.95" />
+      <polygon points="25,40 60,60 60,100 25,80" fill="url(#gLogoLeft)" opacity="0.95" />
+      <polygon points="95,40 95,80 60,100 60,60" fill="url(#gLogoRight)" opacity="0.95" />
+      <polyline points="25,40 60,60 95,40" fill="none" stroke="#fff" strokeWidth="1.5" strokeOpacity="0.6" />
+      <line x1="60" y1="60" x2="60" y2="100" stroke="#fff" strokeWidth="1.5" strokeOpacity="0.6" />
+    </svg>
   )
 }
