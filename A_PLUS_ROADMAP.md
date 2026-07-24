@@ -1,8 +1,9 @@
-# Glassy Companion — A+ Extension Roadmap (Updated July 22, 2026 — v2.13.0 shipped)
+# Glassy Companion — A+ Extension Roadmap (Updated July 24, 2026 — v2.14.0 shipped)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
 
+> **July 24 update:** v2.14.0 ships the Obsidian Bridge deep-fix — 8 bugs that unblock self-host WSL2 connectivity. The prime blocker was `optional_host_permissions` only covering Obsidian ports (27123/27124), silently blocking SSE to a localhost self-host Glassy server. Also: offscreen doc existence verified via `getContexts`, `onSuspend` no longer false-flips status, `peekToken()` prevents silent auth loss, permission denial feedback in popup, SSE auth migrated to one-time ticket. Server-side: bridge-first routing on self-host (20 route guards + aiContext + MCP proxy fixed). Grade: A-.
 > **June 15 update:** v2.11.1 hotfix closes the stale-draft race condition in `BookmarkCard` and `NoteView` (drafts now store page URL and discard mismatches on restore). Server-side MCP SDK upgrade (glassy-dash v2.34.1) ships real `@modelcontextprotocol/sdk` with 10 tools, 3 prompts, 3 resources, and local on-device embeddings. Grade: A-.
 
 ## Original Critical Issues (Hotfix Tier) — v2.5.0–v2.11.0 Status
