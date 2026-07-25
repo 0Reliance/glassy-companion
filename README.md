@@ -66,8 +66,8 @@
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.13.0.zip`.
-- **Firefox 121+**: install from `glassy-companion-v2.13.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.14.0.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.14.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 
