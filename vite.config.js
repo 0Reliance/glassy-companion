@@ -28,27 +28,22 @@ export default defineConfig(({ mode }) => {
           offscreen: resolve(__dirname, 'src/offscreen/index.html'),
         },
         output: {
-          // Manual chunk splitting to keep all chunks under 200KB
-          // (Chrome Web Store requirement for extension submissions)
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-state': ['zustand'],
-            'ui-components': [
-              resolve(__dirname, 'src/popup/components/AppShell.jsx'),
-              resolve(__dirname, 'src/popup/components/SaveCard.jsx'),
-              resolve(__dirname, 'src/popup/components/ContentPreview.jsx'),
-              resolve(__dirname, 'src/popup/components/SummaryCard.jsx'),
-              resolve(__dirname, 'src/popup/components/LoginCard.jsx'),
-              resolve(__dirname, 'src/popup/components/TagEditor.jsx'),
-              resolve(__dirname, 'src/popup/components/CollectionPicker.jsx'),
-              resolve(__dirname, 'src/popup/components/AccountPicker.jsx'),
-              resolve(__dirname, 'src/popup/components/QuickActions.jsx'),
-              resolve(__dirname, 'src/popup/components/SaveToast.jsx'),
-              resolve(__dirname, 'src/popup/components/Skeleton.jsx'),
-            ],
-            'kb-view': [
-              resolve(__dirname, 'src/popup/views/KbSearchView.jsx'),
-            ],
+          // NOTE: Do NOT pin src/popup/components/* into manual chunks.
+          // The previous config (v2.11.0–v2.14.0) listed popup component files
+          // here, which caused rollup to hoist React core + shared lib modules
+          // (auth/api/cache) INTO the ui-components chunk. The service worker
+          // then imported those libs THROUGH that chunk, forcing React/DOM code
+          // to evaluate in a WorkerGlobalScope — producing
+          // "M.call is not a function" + "Status code: 15" install failure.
+          //
+          // If chunk-size splitting is needed later, use the function form and
+          // ONLY split node_modules — never source files that share deps with
+          // the service worker.
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('scheduler')) return 'vendor-react'
+              if (id.includes('zustand')) return 'vendor-state'
+            }
           },
         },
       },
@@ -56,8 +51,10 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       sourcemap: mode === 'development',
       minify: mode !== 'development',
-      // Warn on chunks over 200KB (store requirement)
-      chunkSizeWarningLimit: 200,
+      // Warn on chunks over 200KB (Chrome Web Store soft requirement).
+      // Vite's limit is in BYTES, not KB — the previous value (200) warned on
+      // every chunk. Use 200 * 1024 for the intended 200KB threshold.
+      chunkSizeWarningLimit: 200 * 1024,
     },
   }
 })
