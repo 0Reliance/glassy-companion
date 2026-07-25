@@ -298,18 +298,27 @@ startObsidianBridge().catch(() => {})
 // and the 2-min alarm will re-establish it on the next SW wake. We leave the
 // stored status untouched on suspend — the offscreen doc is the source of
 // truth and updates it via updateBridgeStatus() on connect/disconnect.
-chrome.runtime.onSuspend?.(() => {
-  if (isBridgeStarted()) {
-    // Query the offscreen doc for the real bridge status. If it responds,
-    // it owns the SSE and we trust its answer — do NOT overwrite it here.
-    // If it doesn't respond (torn down), the next alarm tick will recreate
-    // it and re-establish the SSE, updating status correctly.
-    chrome.runtime.sendMessage({ type: 'OFFSCREEN_BRIDGE_STATUS' }).catch(() => {
-      // Offscreen doc unreachable on suspend — leave stored status as-is.
-      // The alarm will re-establish the bridge on the next SW wake.
-    })
-  }
-})
+// Register the suspend listener via addListener — NOT onSuspend?.().
+// chrome.runtime.onSuspend is a ChromeEvent OBJECT, not a function.
+// Writing `onSuspend?.(callback)` compiles to `M.call(onSuspend, callback)`
+// which throws "M.call is not a function" (Event objects have no .call method)
+// → the service worker fails to register → "Status code: 15" → extension
+// will not install. This was the actual root cause of the v2.13.0–v2.14.0
+// install failure (introduced by commit 40e8a28).
+if (chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    if (isBridgeStarted()) {
+      // Query the offscreen doc for the real bridge status. If it responds,
+      // it owns the SSE and we trust its answer — do NOT overwrite it here.
+      // If it doesn't respond (torn down), the next alarm tick will recreate
+      // it and re-establish the SSE, updating status correctly.
+      chrome.runtime.sendMessage({ type: 'OFFSCREEN_BRIDGE_STATUS' }).catch(() => {
+        // Offscreen doc unreachable on suspend — leave stored status as-is.
+        // The alarm will re-establish the bridge on the next SW wake.
+      })
+    }
+  })
+}
 
 async function ensureOfflineSyncAlarm() {
   const existingAlarm = await chrome.alarms.get(ALARM_OFFLINE_SYNC)
