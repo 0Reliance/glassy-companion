@@ -2,13 +2,14 @@
 
 **Version:** 2.14.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** July 24, 2026
+**Last Updated:** July 25, 2026
 
+> **v2.14.0 install fix (2026-07-25):** The v2.14.0 release shipped with a critical install failure — `Service worker registration failed. Status code: 15` + `Uncaught TypeError: M.call is not a function`. THREE root causes, all fixed: (1) `service-worker.js` used `chrome.runtime.onSuspend?.(callback)` — this invokes the `ChromeEvent` OBJECT as a function via optional-call. esbuild compiles `?.()` to `M.call(...)`, and Event objects have no `.call` method → the SW throws on every startup. Fixed by using `onSuspend.addListener(callback)` (the standard pattern). (2) `vite.config.js` `manualChunks.ui-components` pinned popup source files → rollup hoisted React core into the SW's import graph → SW tried to evaluate React/DOM in WorkerGlobalScope. Fixed by function-form `manualChunks(id)` that only splits `node_modules`. (3) `obsidianBridge.js` had 3 `await import()` dynamic imports → Vite injected a side-effect `import"./preload-helper-*.js"` (DOM-touching) into the SW bundle. Fixed by converting to static imports. See **Build System Safety Rules** at the end of this doc.
 > **v2.14.0 fixes:** Obsidian Bridge deep-fix for self-host WSL2. 8 bugs fixed: (1) `optional_host_permissions` broadened from Obsidian-only ports to any localhost port — was the prime WSL blocker; (2) offscreen doc existence now verified via `chrome.runtime.getContexts()` instead of trusting a stale cached flag; (3) `onSuspend` no longer false-flips status to disconnected (offscreen doc owns the SSE, isn't evicted on SW suspend); (4) offscreen doc uses `peekToken()` (non-destructive) instead of `getToken()` which silently cleared auth on JWT expiry; (5) permission denial now surfaces a warning banner in the popup; (6) SSE auth migrated from `?token=JWT` to one-time ticket via `POST /api/ext/obsidian-bridge/ticket`. Server-side: bridge-first routing on self-host (20 route guards + aiContext + MCP proxy fixed — they bailed before checking the bridge, making it dead code when `obsidian_token` is NULL). See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.13.0 fixes:** Obsidian Bridge MV3 reliability — SSE EventSource moved from the service worker to a persistent offscreen document (Chrome MV3 evicts SWs after ~30s, silently killing the bridge). `connectSSEInServiceWorker()` retained as legacy fallback for Firefox <120. Test Connection now delegates to the offscreen document, reporting both SSE bridge status AND direct Obsidian fetch result. `POST /api/ext/obsidian-bridge/settings` syncs the extension's Obsidian URL to the server's `users.obsidian_url` on connect. `saveBridgeSettings()` triggers reconnect on URL/token change. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.12.0 adds:** Unified Save Card — `BookmarkCard.jsx` and `SmartSavePanel.jsx` are merged into a single `SaveCard.jsx` with progressive disclosure. The "⚙ Smart capture" toggle pill replaces the buried "Switch to Smart Save" button. Draft persistence extended with `contentType`, `isPublic`, `isPinned`, `aiAutoTag`, `smartExpanded` fields. Obsidian Bridge + push-to-vault, self-host CSP/LAN/Tailscale support. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.11.1 fixes:** Draft stale-data race in the save card and `NoteView`. Drafts now store `url` and are discarded when the saved URL differs from the current active tab, preventing the preview card from showing the previous page's title/image. See [CHANGELOG.md](../CHANGELOG.md) for details.
-> **v2.11.0 adds:** Firefox Content Security Policy (matches Chrome without `wasm-unsafe-eval`), `STORAGE_QUOTA_ALARM` 6-hourly quota check with 80% warn / 95% critical auto-trim, and `manualChunks` bundle splitting (vendor-react, vendor-state, ui-components, kb-view) with `chunkSizeWarningLimit: 200`. See [CHANGELOG.md](../CHANGELOG.md) for details.
+> **v2.11.0 adds:** Firefox Content Security Policy (matches Chrome without `wasm-unsafe-eval`), `STORAGE_QUOTA_ALARM` 6-hourly quota check with 80% warn / 95% critical auto-trim. See [CHANGELOG.md](../CHANGELOG.md) for details. NOTE: the `manualChunks` bundle splitting added in v2.11.0 was the source of install-failure root cause #2 above and has been replaced with function-form `manualChunks(id)`.
 > **v2.10.0 adds:** KB 🧠 tab in the popup — `KbSearchView.jsx` with debounced hybrid search, source filter tabs (All / Bookmarks / Notes / Vault), corpus status banner, and relevance scores. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.9.0 adds:** Two-button main bar (Save Page + Screenshot), structured capture pipeline with 4 content types, direct service-worker screenshot routing, `ensureContentScript` fallback, and interpreter re-run on type change. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.8.0 adds:** Screenshot opens Smart Save immediately, SPA/app-page quality gate (200-char threshold), decorative image filtering. See [CHANGELOG.md](../CHANGELOG.md) for details.
@@ -171,5 +172,74 @@ Captures now carry a structured image manifest so visual content becomes a first
 **Framework:** Vitest 2
 **Verification:** Playwright (Mock Chrome environment)
 
-Total Tests: **168** (13 test files)
+Total Tests: **170** (13 test files)
 Coverage: API, Auth, Cache, Offline Queue (`applyFlushOutcomes` batch flush), Save Policy, Extractor + error telemetry, Formatter, Bridge, Screenshot upload pipeline, Offscreen document lifecycle.
+
+---
+
+## 9. Build System Safety Rules (learned from v2.14.0 install failure)
+
+The v2.14.0 release shipped with a critical install failure caused by THREE separate bugs. All three were real and all three had to be fixed. These rules prevent recurrence.
+
+### Rule 1: NEVER use `?.()` on Chrome event objects — use `.addListener()`
+
+`chrome.runtime.onSuspend`, `onInstalled`, `onStartup`, `onMessage`, `contextMenus.onClicked`, `alarms.onAlarm`, `tabs.onActivated`, etc. are all `ChromeEvent` OBJECTS, not functions. They have a `.addListener()` method, not a `.call()` method.
+
+Writing `chrome.runtime.onSuspend?.(callback)` compiles (via esbuild) to:
+```js
+(M = chrome.runtime.onSuspend) == null || M.call(onSuspend, callback)
+```
+At runtime, `M` is the Event object (not null), so `?.` does not short-circuit. `M.call(...)` throws `TypeError: M.call is not a function` because Event objects have no `.call` method. The SW fails to register → `Status code: 15` → the extension will not install.
+
+**Always use:** `chrome.runtime.onSuspend.addListener(callback)` with a truthiness guard if the API may be absent.
+
+### Rule 2: NEVER pin `src/popup/components/*` into `manualChunks`
+
+Object-form `manualChunks` that lists source files (e.g. `ui-components: [resolve(..., 'AppShell.jsx'), ...]`) causes rollup to hoist shared dependencies (React core, lib functions like auth/api/cache) INTO that chunk. The service worker then imports its own lib helpers THROUGH that UI chunk, forcing React and DOM-touching UI code to evaluate in `WorkerGlobalScope` — which throws.
+
+**Safe pattern:** function-form `manualChunks(id)` that ONLY splits `node_modules`:
+```js
+manualChunks(id) {
+  if (id.includes('node_modules')) {
+    if (id.includes('react') || id.includes('scheduler')) return 'vendor-react'
+    if (id.includes('zustand')) return 'vendor-state'
+  }
+  // Never pin src/ files — let rollup place them with their importer
+}
+```
+
+### Rule 3: NEVER use dynamic `import()` in code that ends up in the service worker bundle
+
+Vite's `build-import-analysis` plugin sees dynamic `import()` calls and injects a side-effect `import"./preload-helper-*.js"` into the chunk. The preload-helper's top-level code calls `document.getElementsByTagName("link")` and `document.head.appendChild(...)` — DOM APIs that throw `ReferenceError: document is not defined` in `WorkerGlobalScope` → SW fails to register → `Status code: 15`.
+
+`build.modulePreload: false` does NOT prevent this — that only controls the HTML-side polyfill, not the chunk-level `__vitePreload` injection. Vite's `getInsertPreload` gates on `!config.isWorker`, but CRXJS registers the SW as a regular Vite entry (not a Vite Worker), so `isWorker` is false and the helper IS injected.
+
+**Fix:** convert all `await import()` in SW-reachable code to static imports. Safe as long as no circular dependency exists (verify before converting).
+
+### Rule 4: ALWAYS verify the SW bundle after every rebuild
+
+```sh
+# SW must have ZERO 'M.call' (the onSuspend error)
+grep -c 'M\.call' dist/assets/service-worker.js-*.js              # → 0
+# SW must have onSuspend.addListener (correct event registration)
+grep -oE 'onSuspend.*addListener' dist/assets/service-worker.js-*.js  # → present
+# SW must have ZERO preload-helper references
+grep -c 'preload-helper' dist/assets/service-worker.js-*.js   # → 0
+# SW must have ZERO document./window. references
+grep -cE 'document\.|window\.' dist/assets/service-worker.js-*.js  # → 0
+# SW must have ZERO side-effect (bare) imports — grep for import" NOT just from"
+grep -oE 'import"[^"]*"' dist/assets/service-worker.js-*.js | sort -u  # → empty
+# Popup/sidepanel/offscreen HTML MUST keep modulepreload links (regression check)
+grep -c 'rel="modulepreload"' dist/src/popup/index.html       # → 6
+```
+
+### Rule 5: Verify against the PUBLISHED artifact, not just the local dist
+
+After `gh release upload --clobber`, download the asset from GitHub and re-verify. The local `dist/` and the published zip can diverge if the upload failed silently.
+
+```sh
+curl -sL -o check.zip "https://github.com/0Reliance/glassy-companion/releases/download/v2.14.0/glassy-companion-v2.14.0.zip"
+unzip -q check.zip -d check
+grep -c 'M\.call' check/assets/service-worker.js-*.js  # → 0
+sha256sum check.zip  # must match local
+```

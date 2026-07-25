@@ -7,6 +7,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2.14.0] — 2026-07-24 — Obsidian Bridge Deep-Fix (Self-Host WSL2 Unblocked)
 
+### Fixed — Install Failure (Service Worker Registration Status code: 15)
+
+Three root causes, all fixed on 2026-07-25. The extension would not install on any
+Chrome/Edge version — `chrome://extensions` showed "Service worker registration
+failed. Status code: 15" and the SW console showed
+`Uncaught TypeError: M.call is not a function`.
+
+1. **`onSuspend?.()` invoked a ChromeEvent object as a function** (THE PRIMARY BLOCKER).
+   `service-worker.js` line 301 used `chrome.runtime.onSuspend?.(callback)` to
+   register a suspend listener. `onSuspend` is a `ChromeEvent` OBJECT (with
+   `.addListener`), NOT a function. It is always defined, so `?.` did not
+   short-circuit. esbuild compiled `?.()` to `M.call(onSuspend, callback)` —
+   Event objects have no `.call` method → `M.call is not a function` → SW
+   evaluation failed → `Status code: 15`. Introduced by commit `40e8a28`
+   (v2.13.0). Fixed by using `chrome.runtime.onSuspend.addListener(callback)`
+   with a truthiness guard, matching the pattern used for every other event
+   in the file.
+
+2. **`vite.config.js` `manualChunks` pinned popup source files** (secondary).
+   The object-form `manualChunks.ui-components` listed 9+ `src/popup/components/*.jsx`
+   files. Rollup hoisted `react` core + shared lib deps (auth/api/cache) INTO that
+   chunk. The service worker then imported its own lib helpers THROUGH that
+   chunk, forcing React + DOM code to evaluate in WorkerGlobalScope. Introduced
+   by commit `6e947c0` (v2.11.0 "store-readiness hardening"). Fixed by replacing
+   with function-form `manualChunks(id)` that only splits `node_modules`.
+
+3. **Vite `__vitePreload` helper injection via dynamic imports** (secondary).
+   `obsidianBridge.js` had 3 `await import()` dynamic imports for legacy fallback
+   paths. Vite's `build-import-analysis` plugin sees dynamic imports and injects a
+   side-effect `import"./preload-helper-*.js"` into the chunk. The preload-helper's
+   top-level code calls `document.getElementsByTagName("link")` — a DOM API that
+   does not exist in WorkerGlobalScope → `ReferenceError: document is not defined`.
+   `build.modulePreload: false` does NOT help — that only controls the HTML-side
+   polyfill, not chunk-level `__vitePreload` injection. Fixed by converting the 3
+   dynamic imports to static imports (safe: no circular deps exist, and both
+   modules were already in the SW's bundle graph via other static imports).
+
+All 170 tests pass. Pre-flight passes for v2.14.0. The published GitHub release
+assets were swapped in place (same filenames, same URLs) so all existing site/dash
+links continue to resolve.
+
 ### Fixed — localhost Host Permissions (the prime WSL blocker)
 
 - **`optional_host_permissions` broadened from Obsidian-only ports to any localhost port.**
@@ -28,13 +69,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   caused `delegateToOffscreen` to silently no-op and the 2-min alarm couldn't
   recover. The flag now resets on `getContexts` miss and on `sendMessage` `lastError`.
 
-### Fixed — onSuspend No Longer Flips Status to Disconnected
+### Fixed — onSuspend Registration Corrected + No Longer Flips Status to Disconnected
 
-- **The `chrome.runtime.onSuspend` handler no longer flips bridge status to
-  `connected:false`.** The offscreen doc owns the SSE and is NOT evicted on
-  service-worker suspend — flipping status caused a false-negative "Disconnected"
-  in the popup while the bridge was actually alive. `onSuspend` now queries the
-  offscreen doc for real status instead of clobbering it.
+- **The `chrome.runtime.onSuspend` handler is now registered via
+  `.addListener()` (not `onSuspend?.()` which threw `M.call is not a function`).**
+  It also no longer flips bridge status to `connected:false`. The offscreen doc
+  owns the SSE and is NOT evicted on service-worker suspend — flipping status
+  caused a false-negative "Disconnected" in the popup while the bridge was
+  actually alive. `onSuspend` now queries the offscreen doc for real status
+  instead of clobbering it.
 
 ### Fixed — Silent Auth Loss on JWT Expiry
 
