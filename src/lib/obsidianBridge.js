@@ -27,7 +27,8 @@
  */
 
 import { getSettings } from './cache.js'
-import { getBaseUrl } from './auth.js'
+import { getBaseUrl, getToken } from './auth.js'
+import { obsidianFetch } from './obsidianFetch.js'
 
 const BRIDGE_SETTINGS_KEY = 'glassy_obsidian_bridge_settings'
 const BRIDGE_STATUS_KEY = 'glassy_obsidian_bridge_status'
@@ -234,7 +235,6 @@ export async function testObsidianConnection(url, token) {
     // Offscreen doc unreachable — fall back to a direct extension→Obsidian test
     // so the user still gets feedback. This is the legacy path.
     try {
-      const { obsidianFetch } = await import('./obsidianFetch.js')
       const result = await obsidianFetch(`${url.replace(/\/$/, '')}/`, {
         token,
         method: 'GET',
@@ -316,9 +316,7 @@ export function isBridgeStarted() {
  */
 async function connectSSEInServiceWorker() {
   // Legacy fallback — only used when offscreen is unavailable
-  const { obsidianFetch } = await import('./obsidianFetch.js')
   const baseUrl = await getBaseUrl()
-  const { getToken } = await import('./auth.js')
   const token = await getToken()
 
   if (!token) {
