@@ -32,6 +32,10 @@ export const API_PATHS = {
   obsidianRender: '/api/obsidian/render',
   obsidianOpen: '/api/obsidian/open',
   obsidianStatus: '/api/obsidian/status',
+  // Obsidian daily note — Phase B: Quick Note + Daily Note
+  obsidianDaily: '/api/obsidian/daily',
+  obsidianDailyAppend: '/api/obsidian/daily/append',
+  obsidianPush: '/api/obsidian/push',
 }
 
 export const STORAGE_KEYS = {

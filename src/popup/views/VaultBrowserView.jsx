@@ -7,6 +7,7 @@ import {
   getObsidianStatus,
   ApiError,
 } from '../../lib/api.js'
+import QuickNoteView from './QuickNoteView.jsx'
 
 /**
  * VaultBrowserView — Phase A: browse the Obsidian vault from the extension popup.
@@ -29,6 +30,7 @@ const MAX_PREVIEW_BYTES = 200_000 // cap rendered HTML we keep in memory
 
 export default function VaultBrowserView() {
   const [status, setStatus] = useState(null)        // bridge/plugin connection
+  const [subTab, setSubTab] = useState('browse')    // 'browse' | 'notes' (Phase B)
   const [currentPath, setCurrentPath] = useState('')  // vault-relative folder path
   const [selectedFile, setSelectedFile] = useState(null) // vault-relative file path
   const [listing, setListing] = useState(null)       // { type, files: [] }
@@ -172,6 +174,43 @@ export default function VaultBrowserView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 320 }}>
+      {/* Sub-tab switcher — Browse (Phase A) / Notes (Phase B) */}
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 10,
+        background: 'rgba(255,255,255,0.02)', borderRadius: 9, padding: 3,
+      }}>
+        <button
+          onClick={() => setSubTab('browse')}
+          style={{
+            flex: 1, padding: '7px 8px', border: 'none', borderRadius: 7,
+            background: subTab === 'browse' ? 'rgba(255,255,255,0.06)' : 'transparent',
+            color: subTab === 'browse' ? '#fff' : 'rgba(255,255,255,0.4)',
+            fontSize: 11, fontWeight: subTab === 'browse' ? 600 : 500, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          📁 Browse
+        </button>
+        <button
+          onClick={() => setSubTab('notes')}
+          style={{
+            flex: 1, padding: '7px 8px', border: 'none', borderRadius: 7,
+            background: subTab === 'notes' ? 'rgba(255,255,255,0.06)' : 'transparent',
+            color: subTab === 'notes' ? '#fff' : 'rgba(255,255,255,0.4)',
+            fontSize: 11, fontWeight: subTab === 'notes' ? 600 : 500, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          📝 Notes
+        </button>
+      </div>
+
+      {/* Phase B: Quick Note + Daily Note */}
+      {subTab === 'notes' && <QuickNoteView />}
+
+      {/* Phase A: Vault Browser */}
+      {subTab === 'browse' && (
+        <>
       {/* Breadcrumb / back */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
@@ -318,6 +357,8 @@ export default function VaultBrowserView() {
             </button>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   )

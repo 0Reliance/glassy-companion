@@ -396,3 +396,35 @@ export function openInObsidian(filePath) {
 export function getObsidianStatus() {
   return apiFetch(API_PATHS.obsidianStatus)
 }
+
+// ── Phase B: Quick Note + Daily Note ─────────────────────────────────────────
+
+/**
+ * GET /api/obsidian/daily — Fetch today's daily note content.
+ * @returns {Promise<{content:?string, date:string, exists?:boolean}>}
+ *   content is null when no daily note exists yet (404 from the plugin).
+ */
+export function getDailyNote() {
+  return apiFetch(API_PATHS.obsidianDaily)
+}
+
+/**
+ * POST /api/obsidian/daily/append — Append text to today's daily note.
+ * @param {string} content - markdown text to append
+ * @returns {Promise<{ok:boolean, message:string}>}
+ */
+export function appendDailyNote(content) {
+  return apiFetch(API_PATHS.obsidianDailyAppend, {
+    method: 'POST',
+    body: { content },
+  })
+}
+
+/**
+ * POST /api/obsidian/push — Push a Glassy note to the vault as a .md file.
+ * @param {string} noteId - the Glassy note id returned by saveNote()
+ * @returns {Promise<{ok:boolean, message:string, filename:string}>}
+ */
+export function pushNoteToVault(noteId) {
+  return apiFetch(API_PATHS.obsidianPush, { method: 'POST', body: { noteId } })
+}
