@@ -12,6 +12,7 @@ import useAppState from './hooks/useAppState.js'
 const SaveView = lazy(() => import('./views/SaveView.jsx'))
 const NoteView = lazy(() => import('./views/NoteView.jsx'))
 const SearchView = lazy(() => import('./views/SearchView.jsx'))
+const VaultBrowserView = lazy(() => import('./views/VaultBrowserView.jsx'))
 const KbSearchView = lazy(() => import('./views/KbSearchView.jsx'))
 const SettingsView = lazy(() => import('./views/SettingsView.jsx'))
 
@@ -102,6 +103,12 @@ export default function Popup() {
           {view === 'search' && (
             <Suspense fallback={<Skeleton variant="search" />}>
               <SearchView />
+            </Suspense>
+          )}
+
+          {view === 'vault' && (
+            <Suspense fallback={<Skeleton variant="vault" />}>
+              <VaultBrowserView />
             </Suspense>
           )}
 

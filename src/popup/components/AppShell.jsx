@@ -4,11 +4,12 @@ const TABS = [
   { id: 'save', label: 'Save', icon: '🔖' },
   { id: 'note', label: 'Note', icon: '📝' },
   { id: 'search', label: 'Search', icon: '🔍' },
+  { id: 'vault', label: 'Vault', icon: '📁' },
   { id: 'kb', label: 'KB', icon: '🧠' },
 ]
 
 export default function AppShell({ activeView, onNavigate, user, showSettings, onToggleSettings, children }) {
-  const isContentView = ['save', 'note', 'search', 'kb'].includes(activeView)
+  const isContentView = ['save', 'note', 'search', 'vault', 'kb'].includes(activeView)
 
   return (
     <div className="popup-root" style={{

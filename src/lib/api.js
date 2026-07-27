@@ -342,3 +342,57 @@ export function getKbStatus() {
 export function getMcpToken() {
   return apiFetch(API_PATHS.kbMcpToken, { method: 'POST' })
 }
+
+// ── Obsidian Vault (Phase A: Vault Browser) ───────────────────────────────────
+// All endpoints are server-side and route through the bridge when the user is
+// on self-host/WSL2. The extension never talks to the Obsidian Local REST API
+// directly for vault browsing — the server proxies via the bridge SSE.
+// These return the JSON body from apiFetch (which already parsed it).
+
+/**
+ * GET /api/obsidian/vault[/:path] — List a vault directory.
+ * @param {string} [path] - vault-relative path ('' for root)
+ * @returns {Promise<{type:'directory', path:string, files:string[]}|{type:'file', path:string, content:string}>}
+ *   files is an array of strings; folders end with '/'.
+ */
+export function listVault(path = '') {
+  const p = path ? `/${path}` : ''
+  return apiFetch(`${API_PATHS.obsidianVault}${p}`)
+}
+
+/**
+ * GET /api/obsidian/vault-file/*path?meta=true — Read a file + metadata.
+ * @param {string} filePath - vault-relative file path
+ * @param {boolean} [withMeta] - include links/backlinks/tags/frontmatter
+ * @returns {Promise<{path:string, content:string, meta:?{links:[],backlinks:[],tags:[],frontmatter:{}}}>}
+ */
+export function readVaultFile(filePath, withMeta = true) {
+  const params = withMeta ? '?meta=true' : ''
+  return apiFetch(`${API_PATHS.obsidianVaultFile}/${filePath}${params}`)
+}
+
+/**
+ * GET /api/obsidian/render/*path — Rendered HTML for a vault file.
+ * @param {string} filePath - vault-relative file path
+ * @returns {Promise<{path:string, html:string, raw:string}>}
+ */
+export function renderVaultFile(filePath) {
+  return apiFetch(`${API_PATHS.obsidianRender}/${filePath}`)
+}
+
+/**
+ * POST /api/obsidian/open — Open a file in the Obsidian desktop app.
+ * @param {string} filePath - vault-relative file path
+ * @returns {Promise<{ok:boolean, message:string}>}
+ */
+export function openInObsidian(filePath) {
+  return apiFetch(API_PATHS.obsidianOpen, { method: 'POST', body: { path: filePath } })
+}
+
+/**
+ * GET /api/obsidian/status — Bridge + plugin connection status.
+ * @returns {Promise<{connected:boolean, authenticated:boolean, status:string, pluginVersion:?string, pluginWarning:?*>}>}
+ */
+export function getObsidianStatus() {
+  return apiFetch(API_PATHS.obsidianStatus)
+}

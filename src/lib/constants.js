@@ -26,6 +26,12 @@ export const API_PATHS = {
   kbSearch: '/api/kb/query',
   kbStatus: '/api/kb/status',
   kbMcpToken: '/api/ext/mcp-token',
+  // Obsidian vault — Phase A: Vault Browser (all routed through the server bridge)
+  obsidianVault: '/api/obsidian/vault',
+  obsidianVaultFile: '/api/obsidian/vault-file',
+  obsidianRender: '/api/obsidian/render',
+  obsidianOpen: '/api/obsidian/open',
+  obsidianStatus: '/api/obsidian/status',
 }
 
 export const STORAGE_KEYS = {

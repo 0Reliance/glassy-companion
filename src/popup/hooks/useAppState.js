@@ -29,13 +29,14 @@ export default function useAppState() {
     const hash = window.location.hash
     if (hash === '#note') return 'note'
     if (hash === '#search') return 'search'
+    if (hash === '#vault') return 'vault'
     if (hash === '#kb') return 'kb'
     try {
       const result = await new Promise((resolve) => {
         chrome.storage.session.get('glassy_open_view', resolve)
       })
       const target = result?.glassy_open_view
-      if (target === 'note' || target === 'search' || target === 'kb' || target === 'save') {
+      if (target === 'note' || target === 'search' || target === 'vault' || target === 'kb' || target === 'save') {
         chrome.storage.session.remove('glassy_open_view')
         return target
       }
