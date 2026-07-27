@@ -27,19 +27,22 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
         if (glassyTags.status === 'fulfilled' && Array.isArray(glassyTags.value)) {
           glassyTags.value.forEach((t) => merged.push({ raw: t, origin: 'glassy' }))
         }
-        // Vault tags come as {tag, count} objects — fetch only if bridge is connected
+        // Vault tags come as {tag, count} objects — fetch only if bridge is connected.
+        // The server's /api/obsidian/tags passes through Obsidian's /tags/ response
+        // verbatim, which is a BARE ARRAY (not {tags:[...]}). Handle both shapes.
         if (bridgeStatus.status === 'fulfilled' && bridgeStatus.value?.connected) {
           try {
             const vaultTags = await getVaultTags()
-            if (Array.isArray(vaultTags?.tags)) {
-              vaultTags.tags.forEach((t) => {
-                // Avoid duplicates by exact string match (after normalization)
-                const name = normalizeTag(t)
-                if (!merged.some((m) => normalizeTag(m.raw) === name)) {
-                  merged.push({ raw: t, origin: 'vault' })
-                }
-              })
-            }
+            const tagList = Array.isArray(vaultTags) ? vaultTags
+              : Array.isArray(vaultTags?.tags) ? vaultTags.tags
+              : []
+            tagList.forEach((t) => {
+              // Avoid duplicates by exact string match (after normalization)
+              const name = normalizeTag(t)
+              if (name && !merged.some((m) => normalizeTag(m.raw) === name)) {
+                merged.push({ raw: t, origin: 'vault' })
+              }
+            })
           } catch { /* vault tags best-effort */ }
         }
         if (!cancelled) setAllTags(merged)

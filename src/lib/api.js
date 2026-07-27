@@ -356,7 +356,7 @@ export function getMcpToken() {
  *   files is an array of strings; folders end with '/'.
  */
 export function listVault(path = '') {
-  const p = path ? `/${path}` : ''
+  const p = path ? `/${encodeURIComponent(path)}` : ''
   return apiFetch(`${API_PATHS.obsidianVault}${p}`)
 }
 
@@ -368,7 +368,7 @@ export function listVault(path = '') {
  */
 export function readVaultFile(filePath, withMeta = true) {
   const params = withMeta ? '?meta=true' : ''
-  return apiFetch(`${API_PATHS.obsidianVaultFile}/${filePath}${params}`)
+  return apiFetch(`${API_PATHS.obsidianVaultFile}/${encodeURIComponent(filePath)}${params}`)
 }
 
 /**
@@ -377,7 +377,7 @@ export function readVaultFile(filePath, withMeta = true) {
  * @returns {Promise<{path:string, html:string, raw:string}>}
  */
 export function renderVaultFile(filePath) {
-  return apiFetch(`${API_PATHS.obsidianRender}/${filePath}`)
+  return apiFetch(`${API_PATHS.obsidianRender}/${encodeURIComponent(filePath)}`)
 }
 
 /**
@@ -443,9 +443,11 @@ export function searchVault(query) {
 
 /**
  * GET /api/obsidian/tags — List all tags in the vault.
- * @returns {Promise<{tags:Array<{tag:string, count:number}>}>}
- *   Passes through the Obsidian Local REST API /tags response.
- *   Tags use the `.tag` key (not `.name` like Glassy tags).
+ * @returns {Promise<Array<{tag:string, count:number}>|{tags:Array}>}
+ *   Passes through the Obsidian Local REST API /tags response, which is a
+ *   BARE ARRAY of {tag, count} objects (not {tags:[...]}). Tags use the
+ *   `.tag` key (not `.name` like Glassy tags). Consumers should handle both
+ *   shapes via Array.isArray(result) || result?.tags.
  */
 export function getVaultTags() {
   return apiFetch(API_PATHS.obsidianTags)

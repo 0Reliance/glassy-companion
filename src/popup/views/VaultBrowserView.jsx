@@ -70,7 +70,16 @@ export default function VaultBrowserView() {
     }
   }, [])
 
-  useEffect(() => { loadListing(currentPath) }, [currentPath, loadListing])
+  // ── Load directory listing when path changes ───────────────────────────────
+  // Gate on bridge connection — don't fire loadListing until we know the
+  // bridge is connected (status === null means the status check is still in
+  // flight; loading the listing prematurely would show a confusing error
+  // instead of the clean "not connected" empty state).
+  useEffect(() => {
+    if (status === null) return // still checking connection — wait
+    if (!status?.connected) return // not connected — the empty state handles it
+    loadListing(currentPath)
+  }, [currentPath, status, loadListing])
 
   // ── Load file content + rendered HTML when a file is selected ─────────────
   useEffect(() => {
