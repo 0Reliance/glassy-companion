@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import SaveCard from '../components/SaveCard.jsx'
 import SaveToast from '../components/SaveToast.jsx'
 import AccountPicker from '../components/AccountPicker.jsx'
+import RelatedInVaultPanel from '../components/RelatedInVaultPanel.jsx'
 import { saveBookmark, saveNote, saveAllTabs, checkDuplicateUrl } from '../hooks/useExtensionBridge.js'
 import { isUnsavableUrl } from '../../lib/urlUtils.js'
 
@@ -209,6 +210,10 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         pendingScreenshot={effectivePendingScreenshot}
         onClearPending={() => { setLiveScreenshot(null); clearPending?.() }}
       />
+
+      {/* Phase C: Related notes in the vault for the current page.
+          Collapsible, only renders when the bridge is connected. */}
+      <RelatedInVaultPanel pageTitle={pageMeta?.title} />
 
       <button
         onClick={handleSaveAllTabs}

@@ -23,6 +23,8 @@ export default function ObsidianBridgeSection() {
   const [url, setUrl] = useState(DEFAULT_URL)
   const [token, setToken] = useState('')
   const [hasToken, setHasToken] = useState(false)
+  const [autoPush, setAutoPush] = useState(true)  // Phase C: capture auto-push toggle
+  const [clipsPath, setClipsPath] = useState('Glassy/Clips/')  // Phase C: vault folder
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -38,6 +40,8 @@ export default function ObsidianBridgeSection() {
       setUrl(s.url || DEFAULT_URL)
       setHasToken(!!s.token)
       setToken('')
+      setAutoPush(s.autoPushToVault !== false)  // Phase C: default ON
+      setClipsPath(s.clipsPath || 'Glassy/Clips/')
     }).catch(() => {})
 
     // Poll bridge status every 3s while the section is mounted
@@ -67,7 +71,7 @@ export default function ObsidianBridgeSection() {
   const handleSave = useCallback(async () => {
     setSaving(true)
     setPermissionWarning(null)
-    const updates = { enabled, url }
+    const updates = { enabled, url, autoPushToVault: autoPush, clipsPath }
     // Only update the token if the user typed a new one
     if (token) {
       updates.token = token
@@ -178,6 +182,40 @@ export default function ObsidianBridgeSection() {
               placeholder={hasToken ? '•••••••• (saved — type to replace)' : 'Paste API key'}
               style={{ fontSize: 12 }}
             />
+          </div>
+
+          {/* Phase C: Capture Controls */}
+          <div style={{ marginTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={labelStyle}>Auto-push captures to vault</label>
+              <button
+                onClick={() => setAutoPush(!autoPush)}
+                style={{
+                  position: 'relative', width: 34, height: 18, borderRadius: 9,
+                  border: 'none', cursor: 'pointer', padding: 0,
+                  background: autoPush ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.12)',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2,
+                  left: autoPush ? 18 : 3,
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: '#fff', transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+            <input
+              className="glass-input"
+              value={clipsPath}
+              onChange={(e) => setClipsPath(e.target.value)}
+              placeholder="Glassy/Clips/"
+              style={{ fontSize: 12 }}
+              disabled={!autoPush}
+            />
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 3 }}>
+              Vault folder for auto-pushed captures (must end with /)
+            </div>
           </div>
 
           {/* Test + Save buttons */}

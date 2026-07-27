@@ -68,6 +68,9 @@ export async function getBridgeSettings() {
     enabled: false,
     url: DEFAULT_OBSIDIAN_URL,
     token: '',
+    // Phase C: Capture Controls — gate the auto-push to the vault
+    autoPushToVault: true,       // default ON to preserve existing behavior
+    clipsPath: 'Glassy/Clips/',  // vault-relative folder for auto-pushed captures
     ...stored,
   }
 }

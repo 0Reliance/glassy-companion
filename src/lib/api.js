@@ -428,3 +428,25 @@ export function appendDailyNote(content) {
 export function pushNoteToVault(noteId) {
   return apiFetch(API_PATHS.obsidianPush, { method: 'POST', body: { noteId } })
 }
+
+// ── Phase C/D: Vault search + tags ────────────────────────────────────────────
+
+/**
+ * GET /api/obsidian/search?q= — Search vault contents.
+ * @param {string} query - search query
+ * @returns {Promise<Array<{filename:string, matches:Array, score:number}>>}
+ *   Passes through the Obsidian Local REST API search/simple response.
+ */
+export function searchVault(query) {
+  return apiFetch(`${API_PATHS.obsidianSearch}?q=${encodeURIComponent(query)}`)
+}
+
+/**
+ * GET /api/obsidian/tags — List all tags in the vault.
+ * @returns {Promise<{tags:Array<{tag:string, count:number}>}>}
+ *   Passes through the Obsidian Local REST API /tags response.
+ *   Tags use the `.tag` key (not `.name` like Glassy tags).
+ */
+export function getVaultTags() {
+  return apiFetch(API_PATHS.obsidianTags)
+}

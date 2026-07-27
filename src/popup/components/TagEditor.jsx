@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { getTags } from '../../lib/cache.js'
+import { getVaultTags, getObsidianStatus } from '../../lib/api.js'
 
 export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
   const [input, setInput] = useState('')
@@ -10,11 +11,41 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
   const inputRef = useRef(null)
   const wrapperRef = useRef(null)
 
-  // Load all tags on mount
+  // Load all tags on mount — merge Glassy tags + vault tags (Phase D)
   useEffect(() => {
-    getTags().then(tags => {
-      if (Array.isArray(tags)) setAllTags(tags)
-    }).catch(() => {})
+    let cancelled = false
+    ;(async () => {
+      try {
+        // Fetch Glassy tags (cached) + vault tags (if bridge connected)
+        const [glassyTags, bridgeStatus] = await Promise.allSettled([
+          getTags(),
+          getObsidianStatus(),
+        ])
+        if (cancelled) return
+        const merged = []
+        // Glassy tags come as {name, count} objects or strings
+        if (glassyTags.status === 'fulfilled' && Array.isArray(glassyTags.value)) {
+          glassyTags.value.forEach((t) => merged.push({ raw: t, origin: 'glassy' }))
+        }
+        // Vault tags come as {tag, count} objects — fetch only if bridge is connected
+        if (bridgeStatus.status === 'fulfilled' && bridgeStatus.value?.connected) {
+          try {
+            const vaultTags = await getVaultTags()
+            if (Array.isArray(vaultTags?.tags)) {
+              vaultTags.tags.forEach((t) => {
+                // Avoid duplicates by exact string match (after normalization)
+                const name = normalizeTag(t)
+                if (!merged.some((m) => normalizeTag(m.raw) === name)) {
+                  merged.push({ raw: t, origin: 'vault' })
+                }
+              })
+            }
+          } catch { /* vault tags best-effort */ }
+        }
+        if (!cancelled) setAllTags(merged)
+      } catch {}
+    })()
+    return () => { cancelled = true }
   }, [])
 
   // Filter suggestions based on input
@@ -26,7 +57,7 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
     }
     const filtered = allTags
       .filter(t => {
-        const name = normalizeTag(t)
+        const name = normalizeTag(t.raw)
         return name && name.includes(input.trim().toLowerCase()) && !tags.includes(name)
       })
       .slice(0, 8)
@@ -47,7 +78,10 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
   }, [])
 
   function normalizeTag(raw) {
-    return (typeof raw === 'string' ? raw : raw.name).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '')
+    // Phase D: preserve / for nested Obsidian tags (type/reference) — don't strip it.
+    // Handle both Glassy {name} and Obsidian {tag} object shapes.
+    const str = typeof raw === 'string' ? raw : (raw.name || raw.tag || '')
+    return str.trim().toLowerCase().replace(/[^a-z0-9-/_]/g, '')
   }
 
   function addTag(value) {
@@ -141,18 +175,22 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
           boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
         }}>
           {suggestions.map((s, i) => {
-            const name = typeof s === 'string' ? s : s.name
+            const name = normalizeTag(s.raw)
+            const isVault = s.origin === 'vault'
             return (
               <div
                 key={name}
-                onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s) }}
+                onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s.raw) }}
                 style={{
                   padding: '6px 10px', fontSize: 12, cursor: 'pointer',
                   color: i === highlightIdx ? '#fff' : 'rgba(255,255,255,0.7)',
                   background: i === highlightIdx ? 'rgba(99,102,241,0.3)' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
+                {isVault && <span style={{ fontSize: 9, opacity: 0.6 }}>#</span>}
                 {name}
+                {isVault && <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', marginLeft: 'auto' }}>vault</span>}
               </div>
             )
           })}

@@ -28,18 +28,21 @@ import { getBridgeSettings } from './obsidianBridge.js'
  * @param {string} [targetPath] - Optional vault path (default: Glassy/Clips/)
  * @returns {Promise<{ok: boolean, path: string|null, error: string|null}>}
  */
-export async function pushCaptureToVault(capture, targetPath = 'Glassy/Clips/') {
+export async function pushCaptureToVault(capture, targetPath = null) {
   const settings = await getBridgeSettings()
   if (!settings.enabled || !settings.url || !settings.token) {
     return { ok: false, path: null, error: 'Obsidian bridge not configured' }
   }
+  // Phase C: use the user-configured clips path (default: Glassy/Clips/)
+  // when the caller doesn't pass an explicit targetPath.
+  const clipsFolder = targetPath || settings.clipsPath || 'Glassy/Clips/'
 
   // Build a safe filename from the title
   const safeName = sanitizeFilename(capture.title || 'untitled')
   const timestamp = new Date().toISOString().slice(0, 10)
   const filename = `${safeName}-${timestamp}.md`
-  // Ensure targetPath ends with /
-  const dir = targetPath.endsWith('/') ? targetPath : targetPath + '/'
+  // Ensure clipsFolder ends with /
+  const dir = clipsFolder.endsWith('/') ? clipsFolder : clipsFolder + '/'
   const vaultPath = `${dir}${filename}`
 
   // Build the markdown content with YAML frontmatter
@@ -108,5 +111,7 @@ function sanitizeFilename(name) {
  */
 export async function isPushAvailable() {
   const settings = await getBridgeSettings()
-  return settings.enabled && !!settings.url && !!settings.token
+  // Phase C: respect the autoPushToVault toggle — the user may have the bridge
+  // enabled (for browsing/daily-notes) but not want captures auto-pushed.
+  return settings.enabled && !!settings.url && !!settings.token && settings.autoPushToVault !== false
 }

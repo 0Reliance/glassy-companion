@@ -36,6 +36,9 @@ export const API_PATHS = {
   obsidianDaily: '/api/obsidian/daily',
   obsidianDailyAppend: '/api/obsidian/daily/append',
   obsidianPush: '/api/obsidian/push',
+  // Obsidian search + tags — Phase C/D
+  obsidianSearch: '/api/obsidian/search',
+  obsidianTags: '/api/obsidian/tags',
 }
 
 export const STORAGE_KEYS = {
