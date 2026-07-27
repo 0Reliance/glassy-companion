@@ -5,6 +5,83 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.15.0] — 2026-07-27 — Obsidian Vault Companion (Phases A–D)
+
+> The extension becomes an Obsidian companion, not just a capture tool. A new
+> **Vault** tab lets you browse your vault, read notes with backlinks and tags,
+> append to your daily note, create new notes, find related vault content when
+> saving a bookmark, and merge vault + Glassy tags in autocomplete. All using
+> existing server endpoints — no new server code, no new permissions. The
+> beta.9 bridge fix makes all of this reliable.
+
+### Added — Phase A: Vault Browser `[both]`
+
+- **New "Vault" tab** in the popup — browse your Obsidian folder structure with
+  breadcrumb navigation (folders first, alphabetical).
+- **File preview** — rendered HTML (sanitized server-side via DOMPurify) with
+  raw markdown fallback. Metadata chips show backlink count + tags.
+- **"Open in Obsidian"** button — opens the file in the Obsidian desktop app
+  via `POST /api/obsidian/open`.
+- Connection-gated: shows "enable the bridge" prompt when not connected.
+- `VaultBrowserView.jsx` (new, ~450 lines), code-split as its own chunk (8.5 kB).
+
+### Added — Phase B: Quick Note + Daily Note `[both]`
+
+- **"Notes" sub-tab** inside the Vault tab with two surfaces:
+- **Today's Note card** — fetches the daily note, shows a preview (600 char cap),
+  quick-append textarea (Shift+Enter) via `POST /api/obsidian/daily/append`.
+  Graceful "no daily note yet" state — append creates it.
+- **New Note composer** — title + markdown body, Shift+Enter to save. Two-step
+  flow: creates a Glassy note (`POST /api/ext/notes`) then pushes it to the vault
+  as a `.md` file (`POST /api/obsidian/push`). 10k char limit with live counter.
+
+### Added — Phase C: Capture Controls `[both]`
+
+- **Auto-push toggle** (`autoPushToVault`) + **configurable folder** (`clipsPath`)
+  in Settings → Obsidian Bridge. Previously the extension silently pushed captures
+  to a hardcoded `Glassy/Clips/` with no control. Default ON to preserve behavior.
+- **"Related in your vault" panel** in the Save tab — collapsible, debounced
+  vault search (`GET /api/obsidian/search`) that shows related notes when saving a
+  bookmark. Click to open in Obsidian. Only renders when bridge connected.
+
+### Added — Phase D: Tag Bridge `[both]`
+
+- **Vault tags merged into autocomplete** — `TagEditor` now fetches vault tags
+  (`GET /api/obsidian/tags`) when the bridge is connected, merges them with
+  Glassy tags, and shows source badges (`#` prefix + "vault" label) to distinguish.
+- **Critical fix: nested tag preservation** — `normalizeTag` was stripping `/`,
+  silently destroying Obsidian nested tags (`type/reference` → `typereference`).
+  Now preserves `/`. Server `sanitizeTags` aligned in both `extensionRoutes.js`
+  and `captureRoutes.js` (glassy-dash `c51fe78`).
+- **Bidirectional tag sync deferred** — too risky without conditional writes in
+  the Obsidian Local REST API (frontmatter rewrite race).
+
+### Fixed — Code Review P1s `[both]`
+
+- Vault tags never appeared in autocomplete — `getVaultTags()` returns a bare array
+  (Obsidian `/tags/` passes through verbatim), but the consumer expected
+  `{tags:[...]}`. Now handles both shapes.
+- Vault file paths now URL-encoded (files with spaces/non-ASCII were 404ing).
+- `VaultBrowserView` gates `loadListing` on `status?.connected` (no confusing
+  loading flash when bridge is down).
+
+### Verified
+
+- Chrome + Firefox builds clean. 170/170 tests pass. Pre-flight release checks pass.
+- Bundle safety (v2.14.0 hard-won rules): SW 0 preload-helper, 0 document/window,
+  0 side-effect imports, 0 M.call; all new code in separate chunks NOT in the SW;
+  popup keeps 6 modulepreload links.
+- Security: `dangerouslySetInnerHTML` backed by server-side DOMPurify; no token
+  leaks; no sensitive-data exfiltration; `clipsPath` confined by Obsidian vault root.
+
+### No new server code, no new permissions required
+
+All Phase A–D endpoints are existing server routes routed through the bridge.
+The companion requires Glassy server v2.35.0-beta.9+ (bridge SSE auth fix) for
+reliable operation on self-host.
+
+---
+
 ## [2.14.0] — 2026-07-24 — Obsidian Bridge Deep-Fix (Self-Host WSL2 Unblocked)
 
 ### Fixed — Install Failure (Service Worker Registration Status code: 15)

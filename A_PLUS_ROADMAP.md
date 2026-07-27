@@ -1,4 +1,4 @@
-# Glassy Companion — A+ Extension Roadmap (Updated July 24, 2026 — v2.14.0 shipped)
+# Glassy Companion — A+ Extension Roadmap (Updated July 27, 2026 — v2.15.0 shipped)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
