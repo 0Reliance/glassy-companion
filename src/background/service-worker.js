@@ -18,7 +18,7 @@ import {
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
-import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge, isBridgeStarted } from '../lib/obsidianBridge.js'
+import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge, isBridgeStarted, recordHeartbeat } from '../lib/obsidianBridge.js'
 import { pushCaptureToVault, isPushAvailable } from '../lib/obsidianPush.js'
 
 // ── Storage Quota Monitoring alarm name ────────────────────────────────────
@@ -693,6 +693,14 @@ async function handleMessage(message) {
       } catch { /* notifications may be unavailable */ }
       return { ok: true }
     }
+
+    // Keep-alive heartbeat from the offscreen document. The offscreen doc
+    // sends this every 15s to prevent Chrome MV3 from evicting it. The SW
+    // just acknowledges — the sendMessage call itself is what keeps the
+    // messaging channel alive from Chrome's perspective.
+    case 'OFFSCREEN_HEARTBEAT':
+      recordHeartbeat()
+      return { ok: true }
 
     case 'SAVE_PAGE':
       return savePageFromPopup(message.payload)

@@ -39,6 +39,32 @@ const BRIDGE_MAX_RECONNECT_DELAY = 30000
 const BRIDGE_SETTINGS_KEY = 'glassy_obsidian_bridge_settings'
 const BRIDGE_STATUS_KEY = 'glassy_obsidian_bridge_status'
 
+// ── Keep-alive heartbeat ──────────────────────────────────────────────────────
+// Chrome MV3 kills offscreen documents that appear idle (~3 seconds of no
+// activity). A periodic message to the service worker keeps the messaging
+// channel active and prevents eviction. Without this, the SSE connection
+// opens successfully but Chrome kills the offscreen doc almost immediately,
+// and the 2-minute alarm is too slow to catch 3-second drops.
+let heartbeatInterval = null
+const HEARTBEAT_INTERVAL_MS = 15000
+
+function startHeartbeat() {
+  if (heartbeatInterval) return
+  heartbeatInterval = setInterval(() => {
+    chrome.runtime.sendMessage({ type: 'OFFSCREEN_HEARTBEAT' }).catch(() => {
+      // SW may be suspended — that's fine, the sendMessage itself keeps
+      // the offscreen doc's messaging channel alive from Chrome's perspective.
+    })
+  }, HEARTBEAT_INTERVAL_MS)
+}
+
+function stopHeartbeat() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval)
+    heartbeatInterval = null
+  }
+}
+
 async function getBridgeSettings() {
   const result = await chrome.storage.local.get(BRIDGE_SETTINGS_KEY)
   const stored = result[BRIDGE_SETTINGS_KEY] || {}
@@ -71,6 +97,7 @@ async function startBridgeSSE() {
   }
 
   bridgeIntentionallyDisconnected = false
+  startHeartbeat()
   await connectBridgeSSE()
   return { ok: true }
 }
@@ -80,6 +107,7 @@ async function startBridgeSSE() {
  */
 async function stopBridgeSSE() {
   bridgeIntentionallyDisconnected = true
+  stopHeartbeat()
   if (bridgeReconnectTimer) {
     clearTimeout(bridgeReconnectTimer)
     bridgeReconnectTimer = null

@@ -14,6 +14,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 > existing server endpoints — no new server code, no new permissions. The
 > beta.9 bridge fix makes all of this reliable.
 
+### Fixed — 2026-07-28 — MV3 Offscreen Eviction (Bridge Keep-Alive)
+
+- **Offscreen doc heartbeat**: sends `OFFSCREEN_HEARTBEAT` to the service worker
+  every 15s, keeping the messaging channel active and preventing Chrome MV3 from
+  evicting the offscreen document after ~3 seconds of idle time.
+- **SW-side heartbeat monitor**: `setInterval` every 35s checks for recent
+  heartbeats. If 2 consecutive heartbeats are missed, the offscreen doc is
+  recreated and the bridge SSE is restarted immediately — no waiting for the
+  next alarm tick.
+- **Alarm period reduced**: 2 min → 30 seconds for faster recovery if the SW
+  itself is evicted.
+- **Root cause**: Chrome MV3 kills offscreen docs that appear idle. The SSE
+  opened successfully (`event: connected`) but the offscreen doc was evicted
+  within ~3 seconds. The extension kept requesting tickets (9×) but couldn't
+  create a new EventSource because the owning offscreen doc was dead.
+
 ### Added — Phase A: Vault Browser `[both]`
 
 - **New "Vault" tab** in the popup — browse your Obsidian folder structure with
