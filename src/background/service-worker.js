@@ -18,7 +18,7 @@ import {
   ALARM_OFFLINE_SYNC,
 } from '../lib/constants.js'
 import { buildCaptureItem } from '../lib/capturePipeline.js'
-import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge, isBridgeStarted, recordHeartbeat } from '../lib/obsidianBridge.js'
+import { startBridge as startObsidianBridge, stopBridge as stopObsidianBridge, isBridgeStarted, recordHeartbeat, checkHeartbeat } from '../lib/obsidianBridge.js'
 import { pushCaptureToVault, isPushAvailable } from '../lib/obsidianPush.js'
 
 // ── Storage Quota Monitoring alarm name ────────────────────────────────────
@@ -594,9 +594,13 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     await checkStorageQuota()
     return
   }
-  // Obsidian bridge reconnect — attempt to re-establish the SSE if it dropped
-  // (the service worker may have been evicted and restarted)
+  // Obsidian bridge — every 30s: check heartbeat AND ensure SSE is alive.
+  // The SW may have been evicted and restarted since the last tick, so we both
+  // check the heartbeat (offscreen doc may have died) AND call startBridge
+  // (which is idempotent — if the offscreen SSE is already connected, the
+  // offscreen doc's connectBridgeSSE() returns early).
   if (alarm.name === 'glassy_obsidian_bridge_reconnect') {
+    await checkHeartbeat().catch(() => {})
     startObsidianBridge().catch(() => {})
     return
   }

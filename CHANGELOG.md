@@ -14,21 +14,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 > existing server endpoints — no new server code, no new permissions. The
 > beta.9 bridge fix makes all of this reliable.
 
-### Fixed — 2026-07-28 — MV3 Offscreen Eviction (Bridge Keep-Alive)
+### Fixed — 2026-07-28 — MV3 Offscreen Eviction + Server Race Condition
 
 - **Offscreen doc heartbeat**: sends `OFFSCREEN_HEARTBEAT` to the service worker
   every 15s, keeping the messaging channel active and preventing Chrome MV3 from
   evicting the offscreen document after ~3 seconds of idle time.
-- **SW-side heartbeat monitor**: `setInterval` every 35s checks for recent
-  heartbeats. If 2 consecutive heartbeats are missed, the offscreen doc is
-  recreated and the bridge SSE is restarted immediately — no waiting for the
-  next alarm tick.
+- **SW-side heartbeat check via chrome.alarms**: the 30s `BRIDGE_RECONNECT_ALARM`
+  now also calls `checkHeartbeat()`. If the offscreen doc has gone silent
+  (2+ missed heartbeats), it is recreated. **Critical**: `setInterval` was wrong
+  — it dies when Chrome evicts the SW. `chrome.alarms` survives eviction and
+  wakes the SW on fire.
 - **Alarm period reduced**: 2 min → 30 seconds for faster recovery if the SW
   itself is evicted.
-- **Root cause**: Chrome MV3 kills offscreen docs that appear idle. The SSE
-  opened successfully (`event: connected`) but the offscreen doc was evicted
-  within ~3 seconds. The extension kept requesting tickets (9×) but couldn't
-  create a new EventSource because the owning offscreen doc was dead.
+- **Root cause (server-side, fixed in glassy-dash)**: the bridge registry had a
+  race condition where a stale `req.on('close')` handler from an OLD SSE
+  connection would delete a NEWER connection from the registry, leaving it empty
+  even though the new SSE was alive. This caused the "cycling every ~60s"
+  disconnect pattern. Fixed by tagging each connection with a unique
+  `connectionId` and only unregistering when the IDs match.
 
 ### Added — Phase A: Vault Browser `[both]`
 

@@ -54,9 +54,10 @@ let intentionallyDisconnected = false
 
 // Heartbeat tracking — the offscreen doc sends a heartbeat every 15s.
 // If we don't receive one within HEARTBEAT_TIMEOUT_MS, the offscreen doc
-// is likely dead and we need to recreate it.
+// is likely dead and we need to recreate it. The check is performed by
+// checkHeartbeat(), called from the SW alarm handler (NOT setInterval,
+// which dies when Chrome evicts the SW).
 let lastHeartbeatTime = 0
-let heartbeatCheckTimer = null
 
 // We share the "offscreen ready" flag with the service worker's own
 // ensureOffscreen() by always recreating if needed. This is idempotent.
@@ -292,16 +293,13 @@ export async function startBridge() {
 
   // Create a periodic alarm (every 30s) to verify the offscreen bridge is
   // still alive and re-establish it if Chrome tore it down. The offscreen doc
-  // sends a heartbeat every 15s; if we miss 2 consecutive heartbeats, the
-  // offscreen doc is dead and we recreate it. Down from 2min which was too
-  // slow to catch Chrome's ~3-second idle eviction.
+  // sends a heartbeat every 15s; the SW alarm handler calls checkHeartbeat()
+  // on every tick — if the heartbeat is stale, the offscreen doc is recreated.
+  // Down from 2min which was too slow to catch Chrome's ~3-second idle eviction.
+  // NOTE: setInterval would die when Chrome evicts the SW, so we use chrome.alarms.
   try {
     await chrome.alarms.create(BRIDGE_RECONNECT_ALARM, { periodInMinutes: BRIDGE_ALARM_PERIOD_MIN })
   } catch { /* no-op — alarm may already exist */ }
-
-  // Start the SW-side heartbeat monitor. If the offscreen doc stops sending
-  // heartbeats, we detect it within HEARTBEAT_TIMEOUT_MS and recreate.
-  startHeartbeatMonitor()
 
   await delegateToOffscreen('OFFSCREEN_BRIDGE_START')
 }
@@ -317,8 +315,7 @@ export async function stopBridge() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
-  stopHeartbeatMonitor()
-  // Clear the reconnect alarm
+  // Clear the reconnect alarm — also stops the heartbeat check
   try { await chrome.alarms.clear(BRIDGE_RECONNECT_ALARM) } catch { /* no-op */ }
   await delegateToOffscreen('OFFSCREEN_BRIDGE_STOP').catch(() => {})
   await updateBridgeStatus({ connected: false, error: null })
@@ -548,8 +545,13 @@ export function getExtensionVersion() {
 // ── Heartbeat Monitor (SW-side) ──────────────────────────────────────────────
 // The offscreen doc sends a heartbeat every 15s via chrome.runtime.sendMessage.
 // If we don't receive one within HEARTBEAT_TIMEOUT_MS, the offscreen doc is
-// likely dead (Chrome MV3 killed it) and we recreate it immediately rather
-// than waiting for the next 30s alarm tick.
+// likely dead (Chrome MV3 killed it) and we recreate it.
+//
+// IMPORTANT: we do NOT use setInterval here. setInterval dies the moment Chrome
+// evicts the service worker (~30s idle). The heartbeat check must be done via
+// chrome.alarms, which survives SW eviction and wakes the SW on fire. We fold
+// the heartbeat check into the existing BRIDGE_RECONNECT_ALARM (every 30s) so
+// we only have one alarm tick — see service-worker.js onAlarm handler.
 
 /**
  * Record a heartbeat from the offscreen document. Called by the SW message
@@ -560,39 +562,28 @@ export function recordHeartbeat() {
 }
 
 /**
- * Start the SW-side heartbeat monitor. Checks every HEARTBEAT_TIMEOUT_MS
- * whether we've received a recent heartbeat. If not, the offscreen doc is
- * dead — recreate it and restart the bridge.
+ * Check whether the offscreen doc is still sending heartbeats. Called by the
+ * service worker's onAlarm handler on every BRIDGE_RECONNECT_ALARM tick (30s).
+ * If the offscreen doc has gone silent, recreate it and restart the bridge.
+ *
+ * This must be called from the SW alarm handler (not setInterval) so it fires
+ * even after the SW has been evicted and restarted.
  */
-function startHeartbeatMonitor() {
-  if (heartbeatCheckTimer) return
-  heartbeatCheckTimer = setInterval(async () => {
-    if (intentionallyDisconnected || !swBridgeStarted) return
-    const elapsed = Date.now() - lastHeartbeatTime
-    if (elapsed > HEARTBEAT_TIMEOUT_MS) {
-      console.warn('[Obsidian Bridge] Offscreen doc heartbeat lost — recreating offscreen and restarting bridge')
-      // Reset the offscreen-ready flag so ensureOffscreenForBridge recreates it
-      _offscreenReadyForBridge = false
-      // Restart the bridge — this will recreate the offscreen doc and SSE
-      try {
-        await delegateToOffscreen('OFFSCREEN_BRIDGE_START')
-        lastHeartbeatTime = Date.now()
-      } catch (err) {
-        console.error('[Obsidian Bridge] Failed to restart bridge after heartbeat loss:', err.message)
-      }
+export async function checkHeartbeat() {
+  if (intentionallyDisconnected || !swBridgeStarted) return
+  const elapsed = Date.now() - lastHeartbeatTime
+  if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+    console.warn('[Obsidian Bridge] Offscreen doc heartbeat lost — recreating offscreen and restarting bridge')
+    // Reset the offscreen-ready flag so ensureOffscreenForBridge recreates it
+    _offscreenReadyForBridge = false
+    // Restart the bridge — this will recreate the offscreen doc and SSE
+    try {
+      await delegateToOffscreen('OFFSCREEN_BRIDGE_START')
+      lastHeartbeatTime = Date.now()
+    } catch (err) {
+      console.error('[Obsidian Bridge] Failed to restart bridge after heartbeat loss:', err.message)
     }
-  }, HEARTBEAT_TIMEOUT_MS)
-}
-
-/**
- * Stop the SW-side heartbeat monitor.
- */
-function stopHeartbeatMonitor() {
-  if (heartbeatCheckTimer) {
-    clearInterval(heartbeatCheckTimer)
-    heartbeatCheckTimer = null
   }
-  lastHeartbeatTime = 0
 }
 
 export {
