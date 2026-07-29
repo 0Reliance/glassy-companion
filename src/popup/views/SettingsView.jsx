@@ -4,6 +4,7 @@ import { getBaseUrl, setBaseUrl } from '../../lib/auth.js'
 import { logout, getQueueLength } from '../hooks/useExtensionBridge.js'
 import AccountPicker from '../components/AccountPicker.jsx'
 import ObsidianBridgeSection from './ObsidianBridgeSection.jsx'
+import McpConnectionSection from './McpConnectionSection.jsx'
 import { reconnectBridge } from '../../lib/obsidianBridge.js'
 
 export default function SettingsView({ user, onClose, onLogout }) {
@@ -129,6 +130,9 @@ export default function SettingsView({ user, onClose, onLogout }) {
         <Toggle label="AI auto-tagging" desc="Tag bookmarks automatically using AI" value={aiTag} onChange={setAiTag} />
         <Toggle label="Desktop notifications" desc="Show notification after saving" value={notifications} onChange={setNotifs} />
       </div>
+
+      {/* MCP Connection — fetch MCP key and config snippet for AI tools */}
+      <McpConnectionSection />
 
       {/* Obsidian Bridge — lets the extension proxy Obsidian requests for
           the server, bypassing WSL2/Docker networking issues. */}
