@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.16.0] — 2026-07-29 — MCP Settings UI
+
+> The extension gains an **AI Tools (MCP)** section in Settings that fetches
+> your MCP key from the server and generates copy-pasteable config snippets for
+> Claude Desktop, Cursor, Windsurf, and any MCP-compatible client. It checks
+> `/mcp/status` before showing the fetch button — if MCP is disabled on the
+> server, it shows clear guidance ("ask your admin to enable MCP") instead of
+> a generic error. Distinguishes 403 (MCP bridge disabled) from network errors.
+
+### Added
+- **McpConnectionSection.jsx** (`src/popup/views/`): MCP key exchange UI with
+  show/hide key, copy-to-clipboard config snippets (Claude Desktop, Cursor,
+  Windsurf), and `/mcp/status` preflight check. Wired into `SettingsView.jsx`
+  between the toggles and the Obsidian Bridge section.
+- **Tailscale architecture docs** in README + `docs/EXTENSION_INTERNALS.md`:
+  documents that `tailscale serve` gives a trusted HTTPS cert on every tailnet
+  device, and that the Obsidian Bridge becomes **optional** when the server
+  and Obsidian are both on the tailnet (the server reaches Obsidian directly
+  via the tailnet IP — eliminating the entire bridge bug surface).
+
+---
+
 ## [2.15.0] — 2026-07-27 — Obsidian Vault Companion (Phases A–D)
 
 > The extension becomes an Obsidian companion, not just a capture tool. A new

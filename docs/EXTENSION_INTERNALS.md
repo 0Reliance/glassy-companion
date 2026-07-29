@@ -1,6 +1,6 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.15.0
+**Version:** 2.16.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
 **Last Updated:** July 25, 2026
 
@@ -20,6 +20,55 @@
 > **v2.3.x adds:** MV3 offscreen document architecture, shared capture modules, Visual element picker, site-specific interpreters, side panel (Chrome only).
 
 Technical specification of every subsystem in the Glassy Companion browser extension.
+
+---
+
+## Tailscale architecture note
+
+[Tailscale](https://tailscale.com/) is a WireGuard mesh VPN. When the Glassy
+server and Obsidian are both on the same tailnet, the server can reach Obsidian
+directly via the tailnet IP — the browser extension **Obsidian Bridge becomes
+optional**, not required. This eliminates the entire bridge bug surface (SSE
+cycling, MV3 service-worker eviction, WSL2 networking, auth-ticket races) for
+tailnet users.
+
+### URL allowlist (shipped v2.12.0)
+
+The extension allows HTTP (no HTTPS required) for these "safe" server URLs:
+`localhost`, `127.0.0.1`, `[::1]`, RFC1918 private ranges
+(`10.x` / `172.16–31.x` / `192.168.x`), Tailscale CGNAT range (`100.64.0.0/10`),
+and `*.ts.net` hostnames. Any other origin must use HTTPS. This is enforced in
+`src/lib/api.js` (`apiFetch`) and `src/lib/auth.js` (`setBaseUrl`). Tests:
+`src/lib/__tests__/api.test.js`, `src/lib/__tests__/auth.test.js`.
+
+### `tailscale serve` and the trusted cert
+
+`sudo tailscale serve --bg --https 443 http://localhost:3000` puts a trusted
+Let's Encrypt cert in front of Glassy on `https://glassy.tailnet.ts.net`. Every
+device on the tailnet gets a green-padlock cert with no Caddy, no public domain,
+no port forwarding. The extension's `fetch()` to Obsidian (when the bridge is in
+use) gets a trusted cert too — no self-signed cert errors, which were the
+second-most-common support issue on WSL2.
+
+### Bridge-optional model
+
+| Path | Bridge needed? | When |
+|------|:---:|------|
+| Server → Obsidian direct via tailnet IP | ❌ | Both machines on the same tailnet |
+| Server → Obsidian direct via `host.docker.internal` | ❌ | Native Linux / macOS (same host) |
+| Server → Obsidian via browser extension bridge | ✅ | WSL2 (container can't reach Windows host), or Obsidian not on tailnet |
+
+When the bridge is not needed, the extension still works for capture — it just
+isn't proxying Obsidian traffic. The extension connects to whatever server URL
+the user enters; `https://glassy.tailnet.ts.net` works identically to
+`http://localhost:3000`.
+
+### Cross-machine use case
+
+Extension on laptop, Glassy server on homelab/NAS — Tailscale makes this
+seamless. Install the extension on the laptop, point it at the homelab's tailnet
+URL, and capture from anywhere on your tailnet. No code changes, no special
+configuration.
 
 ---
 
