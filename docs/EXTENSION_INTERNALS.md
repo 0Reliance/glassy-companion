@@ -207,7 +207,7 @@ Captures now carry a structured image manifest so visual content becomes a first
 - **No silent capture loss:** `offscreen.js` previously called `planBackgroundSaveFailure` without importing it, causing a `ReferenceError` on every online-save failure. The missing import is now in place, so flaky-network failures are reliably queued for retry.
 - **Content-script error telemetry:** `extractor.js` reports handler failures via `reportContentError()` and a `respondSync()` wrapper. A `CONTENT_SCRIPT_ERROR` message reaches a sink in the service worker. `GET_PAGE_META` has a `.catch()` — the popup no longer hangs on extraction failure.
 - **O(n) offline-queue flush:** `applyFlushOutcomes({remove, increment})` applies all outcomes in a single read-modify-write. Items enqueued *during* a flush are preserved because the helper re-reads at apply time. The offscreen flusher is pure; the service worker is the single queue-mutation owner.
-- **Instance-aware screenshot URLs:** `uploadCaptureImage()` resolves the server's host-relative path against the *configured* base URL, so screenshots embed the user's actual instance (glassy.fyi, self-hosted, or dev) rather than a hardcoded host.
+- **Instance-aware screenshot URLs:** `uploadCaptureImage()` resolves the server's host-relative path against the *configured* base URL, so screenshots embed the user's actual instance (glassy.fyi, self-hosted, or dev) rather than a hardcoded host. **CSP note (v2.16.0 fix):** the resulting URL is `http://localhost:PORT/uploads/captures/x.webp` on dev/self-host — `img-src` in the manifest MUST allow `http://localhost:* http://127.0.0.1:* http://*` (mirroring `connect-src`) or Chrome blocks the preview while the save itself succeeds. See Build System Safety Rule 6.
 - **Deferred screenshot upload:** `SaveCard` no longer uploads the screenshot on mount. Upload is deferred to save time with a 3-attempt bounded backoff and inline error surfacing. Cancelling a capture never leaves an orphaned server-side image.
 - **Idempotent premium markdown:** `assemblePremiumMarkdown()` skips re-prepending an already-assembled header and strips duplicate leading H1 from page-extracted content. Canonical and Published metadata lines are added.
 - **Same-document guard:** link saves only request page metadata/content when the target URL matches the active tab, preventing cross-page contamination.
@@ -291,4 +291,26 @@ curl -sL -o check.zip "https://github.com/0Reliance/glassy-companion/releases/do
 unzip -q check.zip -d check
 grep -c 'M\.call' check/assets/service-worker.js-*.js  # → 0
 sha256sum check.zip  # must match local
+```
+
+### Rule 6: Keep `img-src` in lockstep with `connect-src` (learned from v2.16.0 CSP block)
+
+The `extension_pages` CSP governs the popup, side panel, offscreen doc, AND the service worker. Chrome only enforces a *minimum* on `script-src`/`object-src`; every other directive (including `img-src`) is fully authorable. If `connect-src` allows `http://localhost:* http://127.0.0.1:* http://*` so the extension can talk to a self-host/dev server, then `img-src` MUST allow the same origins — because the server returns capture image URLs like `http://localhost:3010/uploads/captures/x.webp`, and the popup renders them via `<img src=...>`.
+
+**Symptom of violation:** save succeeds (the POST is fine — `connect-src` allows it), but the image preview fails to load with `Loading the image 'http://localhost:3010/uploads/captures/...' violates the following Content Security Policy directive: "img-src 'self' https://* data: blob:".` The user perceives this as "save page throwing errors."
+
+**Safe pattern:** whenever you add an origin to `connect-src`, add the same origin to `img-src`. Both manifests (`manifest.json` + `manifest.firefox.json`) must stay in sync:
+```jsonc
+"extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';
+  img-src 'self' https://* http://localhost:* http://127.0.0.1:* http://* data: blob:;
+  connect-src 'self' https://* http://localhost:* http://127.0.0.1:* http://*;
+  style-src 'self' 'unsafe-inline'"
+```
+
+Also: every `<img src={remoteUrl}>` in popup/sidepanel JSX MUST have an `onError` handler that hides or swaps the element. Cross-origin hosts may set `Cross-Origin-Resource-Policy: same-origin`, returning `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` — which Chrome logs but the broken `<img>` stays visible without an `onError` fallback.
+
+**Verify after every manifest change:**
+```sh
+grep -oE 'img-src [^"]*' dist/manifest.json   # must include http://localhost:* http://*
+grep -oE 'connect-src [^"]*' dist/manifest.json  # must match
 ```

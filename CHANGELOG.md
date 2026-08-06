@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-08-06 — CSP fix for capture image preview
+
+### Fixed
+- **CSP `img-src` now allows `http://localhost:* http://127.0.0.1:* http://*`** in
+  both `manifest.json` and `manifest.firefox.json`, mirroring `connect-src`.
+  Previously `img-src` only allowed `'self' https://* data: blob:` — so on dev
+  and self-host instances the server returned capture image URLs like
+  `http://localhost:3010/uploads/captures/x.webp`, and Chrome blocked the
+  popup preview while the save itself succeeded. Symptom: "save page throws
+  errors" with a console message `Loading the image 'http://localhost:3010/...'
+  violates the following Content Security Policy directive: "img-src 'self'
+  https://* data: blob:"`.
+- **`og_image` `<img>` in `SaveCard.jsx` now has an `onError` handler**
+  that hides the element, matching the existing `favicon_url` fallback. Cross-
+  origin hosts that set `Cross-Origin-Resource-Policy: same-origin` (returning
+  `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`) no longer leave a broken image
+  visible in the save card header.
+
+### Documented
+- New **Build System Safety Rule 6** in `docs/EXTENSION_INTERNALS.md`: keep
+  `img-src` in lockstep with `connect-src`, and every remote `<img>` in
+  popup/sidepanel JSX must have an `onError` fallback.
+
+---
+
 ## [2.16.0] — 2026-07-29 — MCP Settings UI
 
 > The extension gains an **AI Tools (MCP)** section in Settings that fetches

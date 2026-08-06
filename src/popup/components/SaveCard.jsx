@@ -322,7 +322,8 @@ export default function SaveCard({
       {/* ── Visual Header ───────────────────────────────────────────────────── */}
       <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: 110, background: '#000' }}>
         {pageMeta.og_image ? (
-          <img src={pageMeta.og_image} className="og-image" style={{ height: 110, opacity: 0.8 }} />
+          <img src={pageMeta.og_image} className="og-image" style={{ height: 110, opacity: 0.8 }}
+               onError={e => { e.target.style.display = 'none' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #1e1b4b, #0f172a)' }} />
         )}
