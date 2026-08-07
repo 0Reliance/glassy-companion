@@ -5,7 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-08-07 — Save card image header layout + favicon fallback
+## [2.17.0] — 2026-08-07 — Save card image preview reliability
+
+> Two user-facing fixes for the save-card visual header. Together they close
+> the "extension shows a broken image on glassy" class of reports: the image
+> now fills the header regardless of aspect ratio, gracefully degrades to the
+> brand gradient when blocked, and the favicon no longer renders a broken-image
+> icon on pages without one. The CSP `img-src` widening (2026-08-06) is also
+> included in this release so dev/self-host capture image previews load.
 
 ### Fixed
 - **Save card `og_image` now fills the header with `object-fit: cover`.**
@@ -30,12 +37,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   when no favicon is available.
 - **All header images now have `alt=""`** (decorative) and use
   `e.currentTarget` in `onError` (React-idiomatic) for the hide-on-fail fallback.
-
-## [Unreleased — superseded] — 2026-08-06 — CSP fix for capture image preview
-
-### Fixed
-- **CSP `img-src` now allows `http://localhost:* http://127.0.0.1:* http://*`** in
-  both `manifest.json` and `manifest.firefox.json`, mirroring `connect-src`.
+- **CSP `img-src` now allows `http://localhost:* http://127.0.0.1:* http://*`**
+  in both `manifest.json` and `manifest.firefox.json`, mirroring `connect-src`.
   Previously `img-src` only allowed `'self' https://* data: blob:` — so on dev
   and self-host instances the server returned capture image URLs like
   `http://localhost:3010/uploads/captures/x.webp`, and Chrome blocked the
@@ -43,11 +46,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   errors" with a console message `Loading the image 'http://localhost:3010/...'
   violates the following Content Security Policy directive: "img-src 'self'
   https://* data: blob:"`.
-- **`og_image` `<img>` in `SaveCard.jsx` now has an `onError` handler**
-  that hides the element, matching the existing `favicon_url` fallback. Cross-
-  origin hosts that set `Cross-Origin-Resource-Policy: same-origin` (returning
-  `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`) no longer leave a broken image
-  visible in the save card header.
+
+### Documented
+- New **Build System Safety Rule 6** in `docs/EXTENSION_INTERNALS.md`: keep
+  `img-src` in lockstep with `connect-src`; every remote `<img>` in popup/
+  sidepanel JSX must have an `onError` fallback.
+- New **Build System Safety Rule 7** in `docs/EXTENSION_INTERNALS.md`:
+  `og:image` previews MUST use `object-fit: cover` because `og:image:width`/
+  `og:image:height` meta tags are advisory and may not match the actual file.
+
+### Server-side companion change (glassy-dash, separate repo)
+- The `glassy-dash` app now overrides `Cross-Origin-Resource-Policy` to
+  `cross-origin` on brand-asset paths (favicons, OG images, PWA icons) via the
+  new `brandAssetCorp` middleware, so the extension can load them for previews
+  on `app.glassy.fyi` / `clear.glassy.fyi` / `glassy.fyi`. Previously Helmet's
+  `same-origin` default blocked the extension popup (`chrome-extension://`
+  origin is never same-origin with any site). User-content uploads keep the
+  strict `same-origin` default. See `glassy-dash` CHANGELOG 2026-08-07.
+
+---
+
+## [2.16.0] — 2026-07-29 — MCP Settings UI
 
 ### Documented
 - New **Build System Safety Rule 6** in `docs/EXTENSION_INTERNALS.md`: keep
