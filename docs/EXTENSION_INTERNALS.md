@@ -314,3 +314,22 @@ Also: every `<img src={remoteUrl}>` in popup/sidepanel JSX MUST have an `onError
 grep -oE 'img-src [^"]*' dist/manifest.json   # must include http://localhost:* http://*
 grep -oE 'connect-src [^"]*' dist/manifest.json  # must match
 ```
+
+### Rule 7: og:image previews MUST use `object-fit: cover` (learned from v2.16.0 layout bug)
+
+A page's `og:image` is **not guaranteed to match its declared `og:image:width`/`og:image:height`** — those meta tags are advisory hints for crawlers and are never validated against the actual file. Sites routinely serve a square or portrait image while declaring 1200×630 (Glassy's own `og-default.png` is 1024×1024 while declaring 1200×630).
+
+If a popup image preview only constrains one dimension (e.g. `style={{ height: 110 }}` with no width and no `object-fit`), a non-16:9 image renders at its scaled natural width, leaving most of the container empty. The user perceives this as a "broken image" even though the image loaded successfully.
+
+**Safe pattern for any header/preview `<img>` rendering a remote og:image or capture image:**
+```jsx
+<img
+  src={pageMeta.og_image}
+  alt=""
+  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+  onError={e => { e.currentTarget.style.display = 'none' }}
+/>
+```
+Plus the container's `background` should be a brand gradient (not solid `#000`) so a hidden/failed image degrades gracefully to the empty-state rather than a black box.
+
+Also: always guard favicon `<img>` with `{favicon_url && (<img .../>)}`. An empty `favicon_url` producing `<img src="">` renders Chrome's broken-image icon and `onError` does not reliably fire for an empty src. (See `NoteView.jsx` for the established pattern; `SaveCard.jsx` was migrated to match in the v2.16.0 layout fix.)

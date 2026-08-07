@@ -320,17 +320,24 @@ export default function SaveCard({
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Visual Header ───────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: 110, background: '#000' }}>
-        {pageMeta.og_image ? (
-          <img src={pageMeta.og_image} className="og-image" style={{ height: 110, opacity: 0.8 }}
-               onError={e => { e.target.style.display = 'none' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #1e1b4b, #0f172a)' }} />
+      <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: 110, background: 'linear-gradient(45deg, #1e1b4b, #0f172a)' }}>
+        {pageMeta.og_image && (
+          <img
+            src={pageMeta.og_image}
+            className="og-image"
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', opacity: 0.8 }}
+            onError={e => { e.currentTarget.style.display = 'none' }}
+          />
         )}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="glass-panel" style={{ width: 20, height: 20, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2, background: 'rgba(255,255,255,0.1)' }}>
-              <img src={pageMeta.favicon_url} style={{ width: 14, height: 14 }} onError={e => e.target.style.display = 'none'} />
+              {pageMeta.favicon_url ? (
+                <img src={pageMeta.favicon_url} alt="" style={{ width: 14, height: 14 }} onError={e => { e.currentTarget.style.display = 'none' }} />
+              ) : (
+                <span style={{ fontSize: 11, opacity: 0.5 }}>▣</span>
+              )}
             </div>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.01em' }}>
               {pageMeta.domain || 'page'}

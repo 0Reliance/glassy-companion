@@ -5,7 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-08-06 — CSP fix for capture image preview
+## [Unreleased] — 2026-08-07 — Save card image header layout + favicon fallback
+
+### Fixed
+- **Save card `og_image` now fills the header with `object-fit: cover`.**
+  Previously the header `<img>` only set `height: 110` (no width, no
+  `object-fit`), so a non-16:9 `og:image` — including Glassy's own
+  `og-default.png` (a 1024×1024 square) — rendered at its scaled width
+  (110px) leaving most of the ~320px header black. Symptom: "the extension
+  shows a broken image for the page when triggered on glassy" — the image
+  loads but appears as a tiny thumbnail at the left edge, visually broken.
+  Fix: `width: '100%', height: '100%', objectFit: 'cover', objectPosition:
+  'center'` so the image always fills the header regardless of aspect ratio.
+- **Header background is now the gradient fallback.** The container's
+  `background` was `#000`; when `og_image` failed to load (or was absent)
+  the user saw a solid black box. Now `background` is the same
+  `linear-gradient(45deg, #1e1b4b, #0f172a)` used by the empty-state, so a
+  failed/hidden image gracefully degrades to the brand gradient.
+- **`favicon_url` `<img>` is now conditional on a non-empty URL.** Previously
+  it rendered unconditionally — an empty `favicon_url` produced
+  `<img src="">` which Chrome renders as the broken-image icon (and `onError`
+  does not always fire for an empty src). Now matches `NoteView.jsx`'s
+  pattern (`{favicon_url && (<img .../>)}`) and adds a `▣` glyph placeholder
+  when no favicon is available.
+- **All header images now have `alt=""`** (decorative) and use
+  `e.currentTarget` in `onError` (React-idiomatic) for the hide-on-fail fallback.
+
+## [Unreleased — superseded] — 2026-08-06 — CSP fix for capture image preview
 
 ### Fixed
 - **CSP `img-src` now allows `http://localhost:* http://127.0.0.1:* http://*`** in
