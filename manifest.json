@@ -26,7 +26,7 @@
     "https://glassy.stanz.info/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; img-src 'self' https://* http://localhost:* http://127.0.0.1:* http://* data: blob:; connect-src 'self' https://* http://localhost:* http://127.0.0.1:* http://*; style-src 'self' 'unsafe-inline"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; img-src 'self' https://* http://localhost:* http://127.0.0.1:* http://* data: blob:; connect-src 'self' https://* http://localhost:* http://127.0.0.1:* http://*; style-src 'self' 'unsafe-inline'"
   },
   "background": {
     "service_worker": "src/background/service-worker.js",
