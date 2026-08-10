@@ -93,6 +93,18 @@ if (existsSync(`glassy-companion-v${version}-firefox.xpi`)) {
   }
 }
 
+// 7. CSP quote-balance check (catches the v2.17.0 regression where a missing
+//    closing single-quote on 'unsafe-inline' broke style-src and prevented
+//    the extension from loading)
+for (const [label, manifest] of [['manifest.json', chrome], ['manifest.firefox.json', firefox]]) {
+  const csp = manifest.content_security_policy?.extension_pages
+  if (!csp) continue
+  const quoteCount = (csp.match(/'/g) || []).length
+  if (quoteCount % 2 !== 0) {
+    errors.push(`${label} CSP has unbalanced single-quotes (${quoteCount}) in extension_pages — every 'token' must have opening AND closing quotes`)
+  }
+}
+
 if (errors.length) {
   console.error('[pre-flight] FAILED — fix before releasing:')
   errors.forEach(e => console.error('  -', e))
