@@ -8,6 +8,11 @@
  */
 import { STORAGE_KEYS, DEFAULT_BASE_URL, API_PATHS } from './constants.js'
 
+// Cap interactive auth requests (login, verify) so an unreachable/hanging
+// server can't leave the popup spinner spinning forever. apiFetch enforces
+// its own 30s cap; these raw fetches previously had none.
+const AUTH_REQUEST_TIMEOUT_MS = 15_000
+
 /**
  * Decode JWT payload (base64url → JSON). Returns null if malformed.
  * @param {string} token
@@ -187,12 +192,15 @@ export async function login(email, password) {
   if (!email || !/.+@.+\..+/.test(email)) {
     return { ok: false, error: 'Please enter a valid email address.' }
   }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
   try {
     const baseUrl = await getBaseUrl()
     const res = await fetch(`${baseUrl}${API_PATHS.login}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      signal: controller.signal,
     })
     const data = await res.json()
     if (!res.ok) return { ok: false, error: data.error || 'Login failed' }
@@ -200,8 +208,13 @@ export async function login(email, password) {
     await setToken(data.token)
     await setCachedUser(data.user)
     return { ok: true, user: data.user, token: data.token }
-  } catch {
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      return { ok: false, error: 'Login timed out. Check the server URL and try again.' }
+    }
     return { ok: false, error: 'Network error. Check your connection.' }
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -213,14 +226,20 @@ export async function verifyToken() {
   const token = await getToken()
   if (!token) return { ok: false }
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
   try {
     const baseUrl = await getBaseUrl()
     const activeAccountId = await getActiveAccountId()
     const headers = { Authorization: `Bearer ${token}` }
     if (activeAccountId) headers['X-Account-Id'] = activeAccountId
-    const res = await fetch(`${baseUrl}${API_PATHS.me}`, { headers })
+    const res = await fetch(`${baseUrl}${API_PATHS.me}`, { headers, signal: controller.signal })
     if (!res.ok) {
-      await clearAuth()
+      // Only a REAL authentication failure (401) may end the session.
+      // Transient server errors (5xx during a deploy/outage) must NOT wipe
+      // the stored token — otherwise a brief backend blip logs every user
+      // out of the extension (and drops their active-account context).
+      if (res.status === 401) await clearAuth()
       return { ok: false }
     }
     const user = await res.json()
@@ -232,5 +251,7 @@ export async function verifyToken() {
     return { ok: true, user }
   } catch {
     return { ok: false }
+  } finally {
+    clearTimeout(timer)
   }
 }

@@ -404,4 +404,59 @@ describe('service-worker.js — offline queue flush', () => {
     const arg = applyFlushOutcomes.mock.calls[0][0]
     expect([...arg.remove]).toContain('queued-page-2')
   })
+
+  it('halts the flush and keeps ALL items queued when the offscreen reports paused (auth)', async () => {
+    // Regression: planQueueFailure('auth') says 'pause' — the item (and every
+    // item after it) must stay queued untouched until re-auth, not be retried
+    // to max_attempts and dropped.
+    const { applyFlushOutcomes } = await import('../../lib/offlineQueue.js')
+    getQueue.mockResolvedValueOnce([
+      { id: 'q-p1', type: 'capture', payload: { sourceUrl: 'https://a.example' }, attempts: 0 },
+      { id: 'q-p2', type: 'capture', payload: { sourceUrl: 'https://b.example' }, attempts: 0 },
+    ])
+    chromeMock.runtime.sendMessage.mockResolvedValueOnce({ ok: false, paused: true, reason: 'auth' })
+
+    const alarmHandler = handlers.onAlarm[0]
+    await alarmHandler({ name: 'glassy_offline_sync' })
+
+    expect(applyFlushOutcomes).toHaveBeenCalledTimes(1)
+    const arg = applyFlushOutcomes.mock.calls[0][0]
+    expect([...arg.remove]).toHaveLength(0)
+    expect([...arg.increment]).toHaveLength(0) // paused: nothing removed, nothing bumped
+  })
+})
+
+describe('service-worker.js — popup save offline-queue parity', () => {
+  it('queues a popup SAVE_CAPTURE on a retryable failure and reports queued', async () => {
+    const { planBackgroundSaveFailure } = await import('../savePolicy.js')
+    const { enqueue } = await import('../../lib/offlineQueue.js')
+    planBackgroundSaveFailure.mockReturnValueOnce({ kind: 'retryable', queue: true })
+    saveCapture.mockRejectedValueOnce(Object.assign(new Error('offline'), { status: 0 }))
+
+    const result = await sendMessage({
+      type: 'SAVE_CAPTURE',
+      payload: { sourceUrl: 'https://example.com/post', title: 'Offline save' },
+    })
+
+    expect(result).toMatchObject({ ok: true, queued: true })
+    expect(enqueue).toHaveBeenCalledWith(
+      'capture',
+      expect.objectContaining({ sourceUrl: 'https://example.com/post' })
+    )
+  })
+
+  it('does not queue when the failure policy says not to (e.g. entitlement)', async () => {
+    const { planBackgroundSaveFailure } = await import('../savePolicy.js')
+    const { enqueue } = await import('../../lib/offlineQueue.js')
+    planBackgroundSaveFailure.mockReturnValueOnce({ kind: 'entitlement', queue: false })
+    saveCapture.mockRejectedValueOnce(Object.assign(new Error('Keep required'), { status: 403 }))
+
+    const result = await sendMessage({
+      type: 'SAVE_CAPTURE',
+      payload: { sourceUrl: 'https://example.com/post', title: 'X' },
+    })
+
+    expect(result).toMatchObject({ ok: false, status: 403, kind: 'entitlement' })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
 })

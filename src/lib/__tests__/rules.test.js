@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateRules } from '../rules.js'
+import { evaluateRules, toRulesArray } from '../rules.js'
+
+describe('toRulesArray', () => {
+  it('unwraps the server { rules: [...] } envelope', () => {
+    const rules = [{ domain: 'example.com', tags: ['docs'] }]
+    expect(toRulesArray({ rules })).toEqual(rules)
+  })
+
+  it('passes a bare array through unchanged', () => {
+    const rules = [{ path: '/wiki' }]
+    expect(toRulesArray(rules)).toBe(rules)
+  })
+
+  it('returns [] for null / undefined / malformed payloads', () => {
+    expect(toRulesArray(null)).toEqual([])
+    expect(toRulesArray(undefined)).toEqual([])
+    expect(toRulesArray({ rules: 'not-an-array' })).toEqual([])
+    expect(toRulesArray({})).toEqual([])
+  })
+})
 
 describe('evaluateRules', () => {
   it('requires both domain and path to match when both are provided', () => {

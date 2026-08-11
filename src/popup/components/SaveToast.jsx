@@ -5,6 +5,7 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
   const isError = type === 'error'
   const isDuplicate = type === 'duplicate'
   const isSaved = type === 'saved'
+  const isQueued = type === 'queued'
   const undoRef = useRef(null)
 
   // Auto-dismiss after 8 seconds for saved items.
@@ -27,6 +28,13 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
     if (onDismiss) onDismiss()
   }
 
+  // Queued state uses amber to distinguish "will sync later" from "saved now".
+  const tone = isError
+    ? { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', glow: 'rgba(239,68,68,0.2)' }
+    : isQueued
+      ? { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', glow: 'rgba(245,158,11,0.2)' }
+      : { bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)', glow: 'rgba(34,197,94,0.2)' }
+
   return (
     <div className="animate-in" style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -34,24 +42,25 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
     }}>
       <div className="luminous" style={{
         width: 60, height: 60, borderRadius: '50%',
-        background: isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+        background: tone.bg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 32, border: '1px solid',
-        borderColor: isError ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)',
-        boxShadow: isError ? '0 0 20px rgba(239,68,68,0.2)' : '0 0 20px rgba(34,197,94,0.2)'
+        borderColor: tone.border,
+        boxShadow: `0 0 20px ${tone.glow}`
       }}>
-        {isError ? '✕' : isDuplicate ? '📋' : '✓'}
+        {isError ? '✕' : isDuplicate ? '📋' : isQueued ? '⏳' : '✓'}
       </div>
 
       <div>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
-          {isError ? 'Save Failed' : isDuplicate ? 'Already in Keep' : 'Saved Successfully'}
+          {isError ? 'Save Failed' : isDuplicate ? 'Already in Keep' : isQueued ? 'Queued for Sync' : 'Saved Successfully'}
         </h3>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
           {isError ? (errorMessage || 'Something went wrong.') :
            isDuplicate ? (multiAccount
              ? 'This page is already saved in the selected account. Switch accounts to save it somewhere else.'
              : 'This page was already saved to your workspace.') :
+           isQueued ? 'You\u2019re offline or the server is unreachable. Your save is stored safely on this device and will sync automatically when the connection returns.' :
            'Your item has been safely stored in Glassy.'}
         </p>
       </div>

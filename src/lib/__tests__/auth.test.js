@@ -63,6 +63,7 @@ const {
   getBaseUrl,
   setBaseUrl,
   login,
+  verifyToken,
 } = authModule
 
 describe('auth.js', () => {
@@ -250,6 +251,50 @@ describe('auth.js', () => {
       const result = await login('a@b.com', 'pass')
 
       expect(result).toEqual({ ok: false, error: 'Network error. Check your connection.' })
+    })
+  })
+
+  describe('verifyToken', () => {
+    it('returns ok:true and caches user on 200', async () => {
+      const jwt = makeJwt({ sub: 'u1', exp: FUTURE_EXP })
+      localStorage_._store['glassy_token'] = jwt
+      localStorage_._store['glassy_base_url'] = 'https://glassy.test'
+      const user = { id: 'u1', email: 'a@b.com' }
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true, status: 200, json: () => Promise.resolve(user),
+      })
+
+      const result = await verifyToken()
+
+      expect(result.ok).toBe(true)
+      expect(result.user).toEqual(user)
+    })
+
+    it('keeps the session on a transient 5xx — does NOT clear auth', async () => {
+      // Regression: a backend blip (deploy/outage) returning 5xx used to call
+      // clearAuth(), logging every user out of the extension. Only a real 401
+      // may end the session now.
+      const jwt = makeJwt({ sub: 'u1', exp: FUTURE_EXP })
+      localStorage_._store['glassy_token'] = jwt
+      localStorage_._store['glassy_base_url'] = 'https://glassy.test'
+      globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 503 })
+
+      const result = await verifyToken()
+
+      expect(result.ok).toBe(false)
+      expect(localStorage_._store['glassy_token']).toBe(jwt) // still signed in
+    })
+
+    it('clears the session on a real 401', async () => {
+      const jwt = makeJwt({ sub: 'u1', exp: FUTURE_EXP })
+      localStorage_._store['glassy_token'] = jwt
+      localStorage_._store['glassy_base_url'] = 'https://glassy.test'
+      globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 401 })
+
+      const result = await verifyToken()
+
+      expect(result.ok).toBe(false)
+      expect(localStorage_._store['glassy_token']).toBeUndefined() // cleared
     })
   })
 })

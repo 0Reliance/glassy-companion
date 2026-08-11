@@ -13,6 +13,25 @@
  */
 
 /**
+ * Normalize the server's capture-rules payload into a plain rule array.
+ *
+ * GET /api/capture-rules responds with a `{ rules: [...] }` wrapper object
+ * (see server/routes/captureRoutes.js). A bare array is also accepted for
+ * forward/backward compatibility. Anything else yields an empty list so the
+ * save flow degrades gracefully instead of skipping rule pre-population
+ * silently (the v2.2.0–v2.17.0 regression: callers checked Array.isArray()
+ * on the wrapper object, which is never true).
+ *
+ * @param {*} payload — response body from GET /api/capture-rules
+ * @returns {CaptureRule[]}
+ */
+export function toRulesArray(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && Array.isArray(payload.rules)) return payload.rules
+  return []
+}
+
+/**
  * Evaluates rules against the current page context.
  * @param {string} url
  * @param {CaptureRule[]} rules

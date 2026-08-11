@@ -5,6 +5,86 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.17.1] — 2026-08-11 — Save & sync reliability release (pre-customer-release hardening)
+
+> Full release-gate review of the save page, save/sync, and connectivity
+> paths (extension + server). Fixes three functional bugs found during
+> the review and hardens offline/connectivity behavior. Companion server-side
+> fixes ship in glassy-dash alongside this release (CORP for capture
+> uploads, honest 403 bodies).
+
+### Fixed
+- **Capture-rule pre-population now actually works.** `GET /api/capture-rules`
+  responds with `{ rules: [...] }`, but the popup checked
+  `Array.isArray(response)` on the wrapper object — never true — so Smart
+  Save auto pre-fill (preset, collection, tags, public candidate) had been
+  silently inert since v2.2.0. New `toRulesArray()` normalizer in
+  `lib/rules.js` unwraps the envelope; covered by regression tests.
+- **Transient server errors no longer log users out.** `verifyToken()` (run
+  on every popup open via `CHECK_AUTH`) wiped the stored token, active
+  account, and cached user on ANY non-2xx from `/api/ext/me` — a backend
+  deploy blip or 5xx outage logged every user out of the extension. Auth is
+  now cleared only on a real `401`; 5xx/network issues just report
+  "not authenticated this time" and keep the session.
+- **Offline-queue flush drop/pause semantics.** The offscreen flusher
+  reported policy drops as `{ok:false, dropped:true}`, which the service
+  worker's removal condition (`res.ok && res.dropped`) never honored —
+  duplicates/entitlement/gone items were retried 5× before vanishing, and
+  auth failures ("pause") lost queued saves after 5 attempts instead of
+  keeping them until re-login. Drops now report `ok:true`, pauses report
+  `{ok:false, paused:true}` and halt the entire flush loop with all items
+  queued until the user re-authenticates. Repro + regression tests added.
+- **Popup saves now queue offline** (parity with context-menu/keyboard
+  saves). A popup save during a network drop or 5xx previously errored and
+  the capture was lost; it is now queued via the same failure policy and the
+  popup shows a new amber **"Queued for Sync"** toast state.
+- **Settings server-URL validation no longer hangs.** An invalid server URL
+  rejected inside `handleSave` with no catch — the Save button spun forever
+  with no feedback. The error is now shown inline under the field, and
+  settings toggles are persisted even when the URL changes (they were
+  silently dropped by the early return).
+- **Save-all-tabs stops at the rate limit** (60 req/min/user) instead of
+  burning the remaining tabs as silent skips; response includes
+  `rateLimited`.
+- **Storage-quota queue trim** is now a single read-modify-write
+  (`trimQueueTo`) that preserves item ids/attempt counts, replacing the
+  clearQueue()+re-enqueue loop that regenerated every item and could lose
+  entries on a mid-loop quota error.
+- **Response size guard measures bytes, not chars** — a multi-byte body
+  under 5M characters but over 5 MB previously slipped past the cap.
+- **Auth fetches have timeouts** — `login`, `verifyToken` (15s) and
+  `pingServer` (10s) previously had none and could hang the popup on an
+  unresponsive server.
+
+### Changed
+- **`host_permissions` now includes `https://*.glassy.fyi/*`** (both
+  manifests). The default base URL is `https://app.glassy.fyi`, which the
+  apex-only `https://glassy.fyi/*` pattern does not match — requests worked
+  only because the server's CORS allow-lists extension origins. With the
+  wildcard pattern the extension no longer depends on CORS for its primary
+  API surface.
+
+### Server-side companions (glassy-dash)
+- `Cross-Origin-Resource-Policy: cross-origin` for `/uploads/captures/*` so
+  the extension popup can render saved capture screenshots cross-origin
+  (Helmet's same-origin default blocked them with
+  `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`). All other `/uploads/*` paths
+  keep same-origin.
+- Global error handler now returns the real message for 4xx errors in
+  production (e.g. CORS `Origin required for /api/ext`) instead of the
+  misleading `"Internal server error"` body; 5xx details stay hidden.
+
+### Verification
+- Extension: 184/184 tests pass (14 new regression tests). Build clean for
+  Chrome + Firefox; pre-flight passes; CSP quote-balance verified in source,
+  dist, and packaged artifacts.
+- Server: full glassy-dash server suite green (1017+ tests incl. updated
+  security middleware cases). Live production probes: extension-origin CORS
+  allowed on `/api/ext/*` + `/api/keep/*`, auth enforced (401), brand CORP
+  cross-origin.
+
+---
+
 ## [2.17.0] — 2026-08-07 — Save card image preview reliability
 
 > Two user-facing fixes for the save-card visual header. Together they close

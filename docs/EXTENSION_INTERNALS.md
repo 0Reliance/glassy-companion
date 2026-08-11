@@ -333,3 +333,34 @@ If a popup image preview only constrains one dimension (e.g. `style={{ height: 1
 Plus the container's `background` should be a brand gradient (not solid `#000`) so a hidden/failed image degrades gracefully to the empty-state rather than a black box.
 
 Also: always guard favicon `<img>` with `{favicon_url && (<img .../>)}`. An empty `favicon_url` producing `<img src="">` renders Chrome's broken-image icon and `onError` does not reliably fire for an empty src. (See `NoteView.jsx` for the established pattern; `SaveCard.jsx` was migrated to match in the v2.16.0 layout fix.)
+
+### Rule 8: Normalize server response envelopes before type-checking (learned from v2.17.1 release-gate review)
+
+Server endpoints are free to wrap payloads (`GET /api/capture-rules` responds `{ rules: [...] }`). Extension code that type-checks the RAW response — e.g. `Array.isArray(await fetchCaptureRules())` — silently fails when the shape is a wrapper object, because `Array.isArray({rules:[...]})` is `false`. The capture-rules pre-population feature was dead this way from v2.2.0 to v2.17.0: no error, no log, just a feature that never fired.
+
+**Safe pattern:** normalize at the boundary with a tiny, unit-tested helper, then consume the plain shape:
+```js
+// lib/rules.js — tested in rules.test.js
+export function toRulesArray(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && Array.isArray(payload.rules)) return payload.rules
+  return []
+}
+```
+Whenever wiring a NEW server endpoint into the popup, assert the exact response shape in a test (fixture from the real route contract), never assume bare arrays/objects.
+
+### Rule 9: Queue-flush outcome contract — `ok:true` to remove, `paused:true` to halt (learned from v2.17.1 release-gate review)
+
+The offline-queue flush is split across two contexts: the offscreen document performs each save (`flushQueueItem`) and the service worker owns ALL queue mutation (`applyFlushOutcomes`). Their result-shape contract MUST stay in lockstep:
+
+| Outcome | Offscreen returns | SW action |
+|---|---|---|
+| Synced | `{ ok:true, synced:true }` | remove |
+| Policy drop (duplicate/entitlement/gone) | `{ ok:true, dropped:true, reason }` | remove |
+| Max attempts (≥5) | `{ ok:true, dropped:true, reason:'max_attempts' }` | remove |
+| Retryable (5xx/network/429) | `{ ok:false, retry:true }` | increment attempts |
+| Auth failure (401) — policy says **pause** | `{ ok:false, paused:true, reason:'auth' }` | halt loop, keep item AND all following items queued |
+
+The v2.17.0 bug: drops/pauses were reported as `{ ok:false, dropped:true }`, which the SW's removal condition (`res.ok && (res.synced || res.dropped)`) never matched — so "drop" items were pointlessly retried 5× and "pause" items were lost after 5 attempts instead of surviving until re-login. If you add a new flush outcome, extend BOTH sides and the regression tests in `service-worker.test.js` + `offscreen.test.js` in the same change.
+
+Related parity rule: **every save entry point must queue through `planBackgroundSaveFailure`.** Popup saves joined this contract in v2.17.1 (`popupSaveWithQueue`); a save path that surfaces a raw network error instead of queueing silently loses captures when the user is offline.

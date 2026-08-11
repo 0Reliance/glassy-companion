@@ -460,7 +460,17 @@ async function flushQueueItem(item) {
     if (plan.action === 'retry') {
       return { ok: false, retry: true }
     }
-    // action === 'drop' or 'pause' — caller drops the item from the queue
-    return { ok: false, dropped: true, reason: plan.kind }
+    if (plan.action === 'pause') {
+      // Auth failure — the item stays queued and the service worker halts the
+      // flush loop; the item syncs after the user re-authenticates. Do NOT
+      // report dropped here (the old {ok:false, dropped:true} shape was never
+      // honored by the SW's removal condition, so paused items were retried
+      // to max_attempts and lost).
+      return { ok: false, paused: true, reason: plan.kind }
+    }
+    // action === 'drop' — ok:true so the service worker's removal condition
+    // (`res.ok && (res.synced || res.dropped)`) actually deletes the item
+    // instead of retrying it five times first.
+    return { ok: true, dropped: true, reason: plan.kind }
   }
 }

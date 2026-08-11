@@ -6,7 +6,7 @@ import RelatedInVaultPanel from '../components/RelatedInVaultPanel.jsx'
 import { saveBookmark, saveNote, saveAllTabs, checkDuplicateUrl } from '../hooks/useExtensionBridge.js'
 import { isUnsavableUrl } from '../../lib/urlUtils.js'
 
-export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
+export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setQueued, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
   // Live screenshot: captured in this popup session via the Screenshot button.
   // Preferred over pendingScreenshot (prior session) when both present.
   const [liveScreenshot, setLiveScreenshot] = useState(null)
@@ -44,6 +44,11 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
 
       if (res?.ok && res?.data?.duplicate) {
         setDuplicate()
+      } else if (res?.queued) {
+        // Offline / server-down recovery: the service worker queued the save
+        // (planBackgroundSaveFailure said it is recoverable). Show the queued
+        // state — the 1-minute offline-sync alarm will retry it automatically.
+        setQueued()
       } else if (res?.ok) {
         setSaved()
         if (res?.data?.id) setLastCaptureId?.(res.data.id)
@@ -55,7 +60,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
     } catch (err) {
       setError(err.message || 'Save failed.')
     }
-  }, [setSaving, setSaved, setDuplicate, setError])
+  }, [setSaving, setSaved, setDuplicate, setQueued, setError])
 
   const handleSaveNote = useCallback(async (payload) => {
     setSaving()
@@ -93,7 +98,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
     }
   }, [setSaving, setSaved, setError])
 
-  if (saveStatus === 'saved' || saveStatus === 'duplicate' || saveStatus === 'error') {
+  if (saveStatus === 'saved' || saveStatus === 'duplicate' || saveStatus === 'error' || saveStatus === 'queued') {
     const undoHandler = () => {
       resetSaveStatus()
       setLastCaptureId?.(null)

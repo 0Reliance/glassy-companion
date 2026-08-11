@@ -13,6 +13,11 @@ export default function SettingsView({ user, onClose, onLogout }) {
   const [notifications, setNotifs] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  // Inline validation/error message for the server URL field (e.g. the
+  // setBaseUrl() HTTPS/local-only policy rejection). Previously an invalid
+  // URL rejected the promise inside handleSave with no catch — the button
+  // hung in "Saving…" forever and the user saw no feedback.
+  const [urlError, setUrlError] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [queueCount, setQueueCount] = useState(0)
   // Server URL change flow — when the user changes the Glassy server URL,
@@ -31,24 +36,41 @@ export default function SettingsView({ user, onClose, onLogout }) {
 
   async function handleSave() {
     setSaving(true)
-    const prev = await getBaseUrl()
-    const urlChanged = baseUrl.trim() && baseUrl.trim().replace(/\/$/, '') !== prev
-    if (urlChanged) {
-      // Server URL changed — the JWT from the old server is invalid against
-      // the new one. Save the new URL, invalidate caches, and prompt the user
-      // to log out and re-authenticate against the new server.
-      await setBaseUrl(baseUrl.trim().replace(/\/$/, ''))
-      await invalidateCollections()
-      // Reconnect the Obsidian bridge SSE to the new server URL
-      await reconnectBridge().catch(() => {})
-      setServerUrlChanged(true)
+    setUrlError(null)
+    try {
+      const prev = await getBaseUrl()
+      const cleanUrl = baseUrl.trim().replace(/\/$/, '')
+      const urlChanged = Boolean(cleanUrl) && cleanUrl !== prev
+      if (urlChanged) {
+        // Server URL changed — the JWT from the old server is invalid against
+        // the new one. Save the new URL, invalidate caches, and prompt the
+        // user to log out and re-authenticate against the new server.
+        try {
+          await setBaseUrl(cleanUrl)
+        } catch (err) {
+          // URL policy rejection (plain http on a non-local host, etc.).
+          // Surface it inline instead of leaving the button stuck saving.
+          setUrlError(err?.message || 'Invalid server URL.')
+          return
+        }
+        await invalidateCollections()
+        // Reconnect the Obsidian bridge SSE to the new server URL
+        await reconnectBridge().catch(() => {})
+      }
+      // Persist toggles even when the URL changed (they were previously
+      // silently dropped by the early return).
+      await saveSettings({ aiAutoTag: aiTag, showNotifications: notifications })
+      if (urlChanged) {
+        setServerUrlChanged(true)
+        return
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    } catch {
+      setUrlError('Could not save settings. Please try again.')
+    } finally {
       setSaving(false)
-      return
     }
-    await saveSettings({ aiAutoTag: aiTag, showNotifications: notifications })
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
   }
 
   async function handleLogoutClick() {
@@ -123,6 +145,15 @@ export default function SettingsView({ user, onClose, onLogout }) {
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
           Change if you self-host Glassy
         </div>
+        {urlError && (
+          <div style={{
+            fontSize: 11, color: '#fca5a5', marginTop: 6, lineHeight: 1.5,
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 8, padding: '8px 10px',
+          }}>
+            {urlError}
+          </div>
+        )}
       </div>
 
       {/* Toggles */}

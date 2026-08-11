@@ -4,7 +4,7 @@
 
 import { getToken, verifyToken, clearAuth, setActiveAccountId, getActiveAccountId, getCachedUser } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight, deleteBookmark } from '../lib/api.js'
-import { enqueue, getQueue, applyFlushOutcomes, clearQueue } from '../lib/offlineQueue.js'
+import { enqueue, getQueue, applyFlushOutcomes, clearQueue, trimQueueTo } from '../lib/offlineQueue.js'
 import { getSettings, invalidateAccountScopedCaches } from '../lib/cache.js'
 import { planBackgroundSaveFailure, planQueueFailure } from './savePolicy.js'
 import { assemblePremiumMarkdown } from '../lib/premiumMarkdown.js'
@@ -626,6 +626,10 @@ chrome.alarms.onAlarm.addListener(async alarm => {
 
     const toRemove = new Set()
     const toIncrement = new Set()
+    // 'pause' (auth failure) halts the entire flush: remaining items stay
+    // queued untouched and sync after the user re-authenticates. Neither the
+    // offscreen nor the legacy path may silently drop items on pause.
+    let flushPaused = false
 
     for (const item of queue) {
       if (item.attempts >= 5) {
@@ -638,6 +642,10 @@ chrome.alarms.onAlarm.addListener(async alarm => {
             type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
             item,
           })
+          if (res?.paused) {
+            flushPaused = true
+            break // keep this item AND all following items queued
+          }
           if (res?.ok && (res?.synced || res?.dropped)) {
             toRemove.add(item.id)
           } else if (res?.retry) {
@@ -655,9 +663,16 @@ chrome.alarms.onAlarm.addListener(async alarm => {
         }
       } catch (err) {
         const failurePlan = planQueueFailure(err)
+        if (failurePlan.action === 'pause') {
+          flushPaused = true
+          break // keep this item AND all following items queued
+        }
         if (failurePlan.action === 'retry') toIncrement.add(item.id)
         else toRemove.add(item.id)
       }
+    }
+    if (flushPaused) {
+      console.warn('[Glassy] Offline queue flush paused — re-authenticate to sync queued saves')
     }
 
     // Apply every removal/attempt-bump in a single read-modify-write instead of
@@ -907,62 +922,72 @@ async function handleMessage(message) {
   }
 }
 
-async function saveCaptureFromPopup(payload) {
+/**
+ * Popup-originated saves with offline-queue parity.
+ *
+ * Previously only background saves (context menu / keyboard shortcut) were
+ * queued when the failure policy said the save was recoverable; a popup save
+ * during a network drop or 5xx simply errored and the capture was lost. Now
+ * every popup save path queues through the same planBackgroundSaveFailure
+ * policy, and the popup shows a "Queued for sync" state (see SaveToast).
+ */
+async function popupSaveWithQueue(saveFn, payload, queueType) {
   try {
-    const result = await saveCapture(payload)
+    const result = await saveFn(payload)
     if (!result?.duplicate) await updateBadge(1)
     return { ok: true, data: result }
   } catch (err) {
-    return { ok: false, error: err.message, status: err.status }
+    const plan = planBackgroundSaveFailure(err)
+    if (plan.queue) {
+      try {
+        await enqueue(queueType, payload)
+        return { ok: true, queued: true, reason: plan.kind }
+      } catch (queueErr) {
+        return { ok: false, error: queueErr.message, code: queueErr.code }
+      }
+    }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
   }
 }
 
+async function saveCaptureFromPopup(payload) {
+  return popupSaveWithQueue(saveCapture, payload, 'capture')
+}
+
 async function saveBookmarkFromPopup(payload) {
-  try {
-    const result = await saveBookmark(payload)
-    if (!result?.duplicate) await updateBadge(1)
-    return { ok: true, data: result }
-  } catch (err) {
-    return { ok: false, error: err.message, status: err.status }
-  }
+  return popupSaveWithQueue(saveBookmark, payload, 'bookmark')
 }
 
 async function saveAllTabsFromPopup() {
   try {
     const tabs = await chrome.tabs.query({ currentWindow: true })
     const httpTabs = tabs.filter(t => t.url && /^https?:\/\//i.test(t.url))
-    let saved = 0, skipped = 0
+    let saved = 0, skipped = 0, rateLimited = false
     for (const tab of httpTabs) {
       try {
         const result = await saveBookmark({ url: tab.url, title: tab.title || tab.url })
         if (result?.duplicate) skipped++
         else saved++
-      } catch { skipped++ }
+      } catch (err) {
+        // The ext API allows 60 requests/minute/user. Stop the batch at the
+        // limit instead of burning through the remaining tabs as silent skips.
+        if (err?.status === 429) { rateLimited = true; break }
+        skipped++
+      }
     }
     if (saved > 0) await updateBadge(saved)
-    return { ok: true, saved, skipped, total: httpTabs.length }
+    return { ok: true, saved, skipped, total: httpTabs.length, rateLimited }
   } catch (err) {
     return { ok: false, error: err.message }
   }
 }
 
 async function saveNoteFromPopup(payload) {
-  try {
-    const result = await saveNote(payload)
-    return { ok: true, data: result }
-  } catch (err) {
-    return { ok: false, error: err.message, status: err.status }
-  }
+  return popupSaveWithQueue(saveNote, payload, 'note')
 }
 
 async function savePageFromPopup(payload) {
-  try {
-    const result = await saveDocument(payload)
-    if (!result?.duplicate) await updateBadge(1)
-    return { ok: true, data: result }
-  } catch (err) {
-    return { ok: false, error: err.message, status: err.status }
-  }
+  return popupSaveWithQueue(saveDocument, payload, 'document')
 }
 
 async function searchBookmarksFromPopup(q) {
@@ -1109,16 +1134,13 @@ async function checkStorageQuota() {
 
     if (usageRatio >= STORAGE_QUOTA_CRITICAL_THRESHOLD) {
       console.warn('[Glassy] Storage critical:', Math.round(usageRatio * 100) + '% used')
-      // Auto-trim offline queue to free space
+      // Auto-trim offline queue to free space — single read-modify-write,
+      // preserving item ids/attempts (the old clearQueue()+re-enqueue loop
+      // recreated every item and could lose entries on a mid-loop quota error).
       try {
         const queue = await getQueue()
         if (queue.length > 50) {
-          // Keep only the 50 most recent items
-          const trimmed = queue.slice(-50)
-          await clearQueue()
-          for (const item of trimmed) {
-            await enqueue(item.type, item.payload)
-          }
+          await trimQueueTo(50)
           console.log('[Glassy] Trimmed offline queue from', queue.length, 'to 50 items')
         }
       } catch (queueErr) {

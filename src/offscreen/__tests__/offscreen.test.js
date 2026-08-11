@@ -115,6 +115,32 @@ describe('offscreen.js', () => {
       })
       expect(res).toMatchObject({ ok: true, dropped: true, reason: 'max_attempts' })
     })
+
+    it('reports a policy drop with ok:true so the SW actually removes it', async () => {
+      // Regression: the old shape {ok:false, dropped:true} never matched the
+      // SW's removal condition (res.ok && res.dropped), so dropped items were
+      // retried 5× before disappearing. ok must be true for a drop.
+      planQueueFailure.mockReturnValueOnce({ action: 'drop', kind: 'duplicate' })
+      saveDocument.mockRejectedValueOnce(Object.assign(new Error('dup'), { status: 409 }))
+      const res = await sendMessage({
+        type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+        item: { id: 'q-10', type: 'page', payload: { url: 'https://e.com' }, attempts: 0 },
+      })
+      expect(res).toMatchObject({ ok: true, dropped: true, reason: 'duplicate' })
+    })
+
+    it('reports paused (not dropped) on an auth failure', async () => {
+      // Regression: auth (401) must pause — the item stays queued until the
+      // user re-authenticates. The old code returned dropped:true here.
+      planQueueFailure.mockReturnValueOnce({ action: 'pause', kind: 'auth' })
+      saveDocument.mockRejectedValueOnce(Object.assign(new Error('unauth'), { status: 401 }))
+      const res = await sendMessage({
+        type: 'OFFSCREEN_FLUSH_QUEUE_ITEM',
+        item: { id: 'q-11', type: 'page', payload: { url: 'https://e.com' }, attempts: 0 },
+      })
+      expect(res).toMatchObject({ ok: false, paused: true, reason: 'auth' })
+      expect(res.dropped).toBeUndefined()
+    })
   })
 
   describe('OFFSCREEN_PING', () => {

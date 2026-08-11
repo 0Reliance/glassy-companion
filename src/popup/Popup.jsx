@@ -23,7 +23,7 @@ export default function Popup() {
     view, user, pageMeta, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId,
     pendingElement, pendingScreenshot,
     navigate, handleLoginSuccess,
-    setSaving, setSaved, setDuplicate, setError, resetSaveStatus, clearPending,
+    setSaving, setSaved, setDuplicate, setQueued, setError, resetSaveStatus, clearPending,
     setUser, setPageMeta, setLastCaptureId, setAlreadySaved,
   } = useAppState()
 
@@ -85,6 +85,7 @@ export default function Popup() {
                 setSaving={setSaving}
                 setSaved={setSaved}
                 setDuplicate={setDuplicate}
+                setQueued={setQueued}
                 setError={setError}
                 resetSaveStatus={resetSaveStatus}
                 clearPending={clearPending}

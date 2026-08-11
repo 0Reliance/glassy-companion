@@ -117,7 +117,13 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
     } catch {
       return null
     }
-    if (text.length > MAX_RESPONSE_BYTES) {
+    // Size guard. Fast path: pure-ASCII char count equals byte count. For
+    // multi-byte content, char count UNDERCOUNTS bytes — measure the real
+    // UTF-8 size so the cap means what it says.
+    const byteSize = /^[\u0000-\u007F]*$/.test(text)
+      ? text.length
+      : new TextEncoder().encode(text).byteLength
+    if (byteSize > MAX_RESPONSE_BYTES) {
       throw new ApiError(413, 'Response too large.')
     }
     if (!text) return null
@@ -152,8 +158,16 @@ export function fetchMe() {
 /** GET /api/ext/ping — health check (no auth required). */
 export async function pingServer() {
   const baseUrl = await getBaseUrl()
-  const res = await fetch(`${baseUrl}${API_PATHS.ping}`)
-  return res.ok
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10_000)
+  try {
+    const res = await fetch(`${baseUrl}${API_PATHS.ping}`, { signal: controller.signal })
+    return res.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** GET /api/ext/collections — list user bookmark collections. */

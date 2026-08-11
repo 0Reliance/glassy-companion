@@ -8,6 +8,7 @@ import {
   incrementAttempts,
   MAX_QUEUE_SIZE,
   QueueFullError,
+  trimQueueTo,
 } from '../offlineQueue.js'
 
 function createStorageArea() {
@@ -139,6 +140,28 @@ describe('offlineQueue', () => {
     it('is a no-op when given empty sets', async () => {
       await enqueue('bookmark', { url: 'https://keep.test' })
       await applyFlushOutcomes({ remove: [], increment: [] })
+      await expect(getQueue()).resolves.toHaveLength(1)
+    })
+  })
+
+  describe('trimQueueTo', () => {
+    it('keeps the N most recent items and preserves their ids/attempts', async () => {
+      for (let i = 0; i < 5; i++) await enqueue('bookmark', { url: `https://t${i}.test` })
+      const before = await getQueue()
+
+      const kept = await trimQueueTo(2)
+
+      expect(kept).toBe(2)
+      const queue = await getQueue()
+      expect(queue).toHaveLength(2)
+      // Most recent retained, original ids + attempt counts untouched (the old
+      // clearQueue()+re-enqueue loop regenerated both).
+      expect(queue.map(it => it.id)).toEqual(before.slice(-2).map(it => it.id))
+    })
+
+    it('is a no-op when the queue is already at or under the cap', async () => {
+      await enqueue('bookmark', { url: 'https://one.test' })
+      await expect(trimQueueTo(50)).resolves.toBe(1)
       await expect(getQueue()).resolves.toHaveLength(1)
     })
   })

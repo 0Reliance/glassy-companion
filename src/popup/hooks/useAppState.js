@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { checkAuth, getActiveTabMeta, checkDuplicateUrl } from './useExtensionBridge.js'
 import { fetchCaptureRules } from '../../lib/api.js'
-import { evaluateRules } from '../../lib/rules.js'
+import { evaluateRules, toRulesArray } from '../../lib/rules.js'
 
 /**
  * Central app state hook — manages auth, routing, page meta, and save status.
  *
  * Views: loading | login | save | note | search | settings
- * Save status: idle | saving | saved | duplicate | error
+ * Save status: idle | saving | saved | duplicate | error | queued
  */
 export default function useAppState() {
   const [view, setView] = useState('loading')
@@ -71,8 +71,11 @@ export default function useAppState() {
           // Best-effort: pull capture rules and pre-populate SmartSave defaults.
           // Failures are silent — the panel still works without rule guidance.
           try {
-            const rules = await fetchCaptureRules()
-            if (Array.isArray(rules) && rules.length && metaRes.meta.url) {
+            // GET /api/capture-rules responds with `{ rules: [...] }` — normalize
+            // before evaluating (regression guard: Array.isArray() on the wrapper
+            // object is never true and silently disabled rule pre-population).
+            const rules = toRulesArray(await fetchCaptureRules())
+            if (rules.length && metaRes.meta.url) {
               const result = evaluateRules(metaRes.meta.url, rules)
               const hasAny = result.preset || result.destination || result.tags.length || result.publicCandidate
               if (hasAny) {
@@ -132,6 +135,7 @@ export default function useAppState() {
     setSaveStatus('saved')
   }, [])
   const setDuplicate = useCallback(() => setSaveStatus('duplicate'), [])
+  const setQueued = useCallback(() => setSaveStatus('queued'), [])
   const setError = useCallback((msg) => {
     setSaveStatus('error')
     setErrorMessage(msg)
@@ -162,6 +166,7 @@ export default function useAppState() {
     setSaving,
     setSaved,
     setDuplicate,
+    setQueued,
     setError,
     resetSaveStatus,
     clearPending,

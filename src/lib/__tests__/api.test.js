@@ -279,4 +279,18 @@ describe('api.js — apiFetch wrapper', () => {
 
     await expect(fetchMe()).rejects.toMatchObject({ status: 413 })
   })
+
+  it('measures the 5 MB cap in BYTES, not chars, for multi-byte bodies', async () => {
+    // Regression: '€' is 1 char but 3 UTF-8 bytes. 2M chars fit the old
+    // char-count check (2M < 5M) yet the body is ~6MB — it must be rejected.
+    const multibyte = '€'.repeat(2 * 1024 * 1024)
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: () => Promise.resolve(multibyte),
+    })
+
+    await expect(fetchMe()).rejects.toMatchObject({ status: 413 })
+  })
 })

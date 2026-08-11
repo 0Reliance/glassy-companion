@@ -128,6 +128,23 @@ export async function applyFlushOutcomes({ remove, increment } = {}) {
   await saveQueue(next)
 }
 
+/**
+ * Trim the queue to the `max` most recent items in a SINGLE read-modify-write.
+ *
+ * Replaces the old clearQueue()+re-enqueue loop (one storage write per item,
+ * items re-created with fresh ids/attempts, and a mid-loop quota error could
+ * lose the remainder). Returns the number of items now in the queue.
+ *
+ * @param {number} max — maximum items to keep (most recent retained)
+ * @returns {Promise<number>}
+ */
+export async function trimQueueTo(max) {
+  const queue = await loadQueue()
+  if (queue.length <= max) return queue.length
+  await saveQueue(queue.slice(-max))
+  return max
+}
+
 /** Clear the entire queue (e.g., on logout). */
 export async function clearQueue() {
   await chrome.storage.local.remove(STORAGE_KEYS.offlineQueue)
