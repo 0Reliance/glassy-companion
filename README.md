@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.17.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.18.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -13,7 +13,7 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (August 11, 2026):** v2.17.1 — the **save & sync reliability release** — is the customer-release gate. It is the product of a full code review of the save page, save/sync, and connectivity paths (extension + server) and fixes three functional bugs found during that review: (1) **capture-rule pre-population actually works** (the `/api/capture-rules` `{ rules: [...] }` envelope was never unwrapped, so Smart Save auto-fill had been silently inert since v2.2.0); (2) **transient 5xx no longer logs users out** (`verifyToken()` cleared the session on any non-2xx; it now clears only on a real 401); (3) **offline-queue flush drop/pause semantics** (drops now report `ok:true` so the SW actually removes them; auth failures pause and keep items queued instead of dropping them). Also hardened: popup saves now queue offline with a new amber "Queued for Sync" toast, Settings URL validation no longer hangs, `host_permissions` gained `https://*.glassy.fyi/*`, save-all-tabs stops at the rate limit, and auth fetches have timeouts. All 184 tests pass. v2.17.0 (previous) fixed the **save-card image preview** — og:image fills the header with `object-fit: cover`, favicon no longer shows a broken-image icon, and CSP `img-src` mirrors `connect-src` so dev/self-host capture image previews load. v2.16.0 added the **MCP Settings UI**. v2.15.0 shipped the **Obsidian Vault Companion**. v2.14.0 shipped the **Obsidian Bridge Deep-Fix** + critical install fix. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.36.0-beta.14` is public. Remaining: manual upload to CWS + AMO (gated on user browser auth).
+- **Current state (August 27, 2026):** v2.18.0 — **bridge transport v2** — completes the Obsidian glass-pane follow-up with glassy-dash: the SSE bridge now carries raw bodies + request headers and relays upstream response headers (ETag) back, so vault WRITES (tap-to-toggle checkboxes, add-under-heading, daily-note append, push-to-vault) work when the extension is the only path to Obsidian on containerized self-host (previously reads worked but writes fell back to the unreachable direct path and 502'd). Also fixes `obsidianFetch` corrupting raw markdown bodies (`JSON.stringify`-quoted + forced `application/json`), which affected the extension's direct capture-to-vault push. The server gates transport v2 on the advertised version (`&extv=` on the subscribe URL); companions ≤ 2.17.1 keep the proven v1 behavior. v2.17.1 (previous) was the **save & sync reliability release**: capture-rule pre-population actually works (the `/api/capture-rules` `{ rules: [...] }` envelope was never unwrapped, so Smart Save auto-fill had been silently inert since v2.2.0); transient 5xx no longer logs users out (`verifyToken()` clears only on a real 401); offline-queue flush drop/pause semantics fixed; popup saves queue offline. v2.16.0 added the **MCP Settings UI**. v2.15.0 shipped the **Obsidian Vault Companion**. v2.14.0 shipped the **Obsidian Bridge Deep-Fix** + critical install fix. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.36.0-beta.14` is public. Remaining: manual upload to CWS + AMO (gated on user browser auth).
 
 ---
 
@@ -59,15 +59,15 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.17.1` assets:
-   - **`glassy-companion-v2.17.1.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.17.1-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.18.0` assets:
+   - **`glassy-companion-v2.18.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.18.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.17.1.zip`.
-- **Firefox 121+**: install from `glassy-companion-v2.17.1-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.18.0.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.18.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 

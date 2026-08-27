@@ -318,7 +318,8 @@ describe('service-worker.js — message handler', () => {
       const result = await sendMessage({ type: 'SEARCH_BOOKMARKS', query: 'glassy' })
       expect(result.ok).toBe(true)
       expect(result.bookmarks).toHaveLength(1)
-      expect(searchBookmarks).toHaveBeenCalledWith('glassy')
+      // limit 12 matches the popup SearchView's result cap
+      expect(searchBookmarks).toHaveBeenCalledWith('glassy', 12)
     })
   })
 

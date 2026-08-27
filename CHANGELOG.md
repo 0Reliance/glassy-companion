@@ -5,6 +5,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.18.0] — 2026-08-27 — Bridge transport v2: vault writes over the bridge
+
+> Follow-up to the Obsidian "glass pane" wave in glassy-dash. Until now the
+> SSE bridge could only proxy JSON bodies with no headers — every vault
+> WRITE (tap-to-toggle checkbox, add-under-heading, daily-note append, push
+> to vault) fell back to the direct server→Obsidian path and returned 502 on
+> containerized self-host where only the bridge can reach Obsidian. Reads
+> worked; writes didn't. That asymmetry is gone.
+
+### Changed — bridge transport v2 (requires glassy-dash glass-pane follow-up server)
+- **Raw bodies + request headers now traverse the bridge.** The SSE
+  `obsidian-request` payload may carry `headers` and a raw-string `body`;
+  the offscreen handler (and the legacy in-SW fallback) forward both through
+  `obsidianFetch`, so PUT /vault (If-Match), PATCH (JSON instructions),
+  POST /periodic/daily/ append, and note push all work when the extension is
+  the only path to Obsidian (WSL2/Docker self-host).
+- **Upstream response headers relay back to the server.** The result POST now
+  includes Obsidian's response headers — most importantly `ETag`, which the
+  server surfaces on `GET /api/obsidian/vault-file` so concurrency-safe
+  writes (`If-Match`) work via the bridge instead of silently clobbering.
+- **Version advertisement.** EventSource can't set headers, so the bridge
+  subscribe URL now carries `&extv=<version>`. The server gates transport v2
+  on companion ≥ 2.18.0; older extensions keep the proven v1 behavior
+  (JSON bodies, direct-path fallback for writes).
+
+### Fixed
+- **`obsidianFetch` no longer corrupts string bodies.** Markdown bodies were
+  `JSON.stringify`-ed (wrapping the whole file in quotes) and any explicit
+  `Content-Type: text/markdown` was clobbered by a forced
+  `application/json`. String bodies now go out raw and explicit headers win
+  over the JSON default — this also fixes the extension's direct
+  capture-to-vault push (`obsidianPush.js`), independent of the bridge.
+
+### Tests
+- New `obsidianFetch` suite: raw-body sends, explicit Content-Type preserved,
+  object bodies JSON-encoded, response-header relay, HTTP fallback URL.
+
+---
+
 ## [2.17.1] — 2026-08-11 — Save & sync reliability release (pre-customer-release hardening)
 
 > Full release-gate review of the save page, save/sync, and connectivity

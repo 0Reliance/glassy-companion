@@ -1,8 +1,9 @@
-# Glassy Companion — A+ Extension Roadmap (Updated July 29, 2026 — v2.16.0 shipped)
+# Glassy Companion — A+ Extension Roadmap (Updated August 27, 2026 — v2.18.0 shipped)
 ## Evaluated by: Expert browser extension architect
 
 ### Current Grade: A- | Target Grade: A+
 
+> **August 27 update:** v2.18.0 ships **bridge transport v2** — the Obsidian Bridge now carries vault WRITES (raw markdown bodies + request headers; upstream ETag relayed back for If-Match concurrency safety), closing the glass-pane follow-up with glassy-dash: on containerized self-host where the extension is the only path to Obsidian, reads AND writes now work (previously writes fell back to the unreachable direct path and 502'd). The server gates the new transport on the version we advertise on subscribe (`&extv=`); older servers/companions keep v1 semantics. Also fixed a long-standing `obsidianFetch` bug that JSON-quoted raw markdown bodies and clobbered explicit Content-Type headers (corrupted direct capture-to-vault pushes). Grade: A-.
 > **July 24 update:** v2.14.0 ships the Obsidian Bridge deep-fix — 8 bugs that unblock self-host WSL2 connectivity. The prime blocker was `optional_host_permissions` only covering Obsidian ports (27123/27124), silently blocking SSE to a localhost self-host Glassy server. Also: offscreen doc existence verified via `getContexts`, `onSuspend` no longer false-flips status, `peekToken()` prevents silent auth loss, permission denial feedback in popup, SSE auth migrated to one-time ticket. Server-side: bridge-first routing on self-host (20 route guards + aiContext + MCP proxy fixed). Grade: A-.
 > **June 15 update:** v2.11.1 hotfix closes the stale-draft race condition in `BookmarkCard` and `NoteView` (drafts now store page URL and discard mismatches on restore). Server-side MCP SDK upgrade (glassy-dash v2.34.1) ships real `@modelcontextprotocol/sdk` with 10 tools, 3 prompts, 3 resources, and local on-device embeddings. Grade: A-.
 

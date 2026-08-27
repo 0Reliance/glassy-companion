@@ -365,6 +365,9 @@ async function connectSSEInServiceWorker() {
   } catch {
     url += `?token=${encodeURIComponent(token)}`
   }
+  // Advertise the extension version for bridge transport gating (v2 = raw
+  // bodies + headers; the server enables it for companion ≥ 2.18.0).
+  url += `&extv=${encodeURIComponent(getExtensionVersion())}`
   // Note: EventSource in the SW is fragile (MV3 eviction) — only used as fallback
   // eslint-disable-next-line no-undef
   const sseConnection = new EventSource(url)
@@ -405,7 +408,10 @@ function scheduleReconnect() {
 
 /**
  * Handle a proxy request from the server (legacy in-SW path only).
- * @param {string} rawData - JSON string: {requestId, method, path, body}
+ * Transport v2 aware: forwards `headers` and raw bodies through
+ * obsidianFetch, and relays upstream response headers (ETag) back to the
+ * server with the result.
+ * @param {string} rawData - JSON string: {requestId, method, path, body, headers?}
  * @param {Function} obsidianFetch
  * @param {string} baseUrl
  * @param {string} token
@@ -421,7 +427,7 @@ async function handleProxyRequestInServiceWorker(rawData, obsidianFetch, baseUrl
     return // Malformed request
   }
 
-  const { requestId, method, path, body } = request
+  const { requestId, method, path, body, headers } = request
   if (!requestId || !path) return
 
   const fullUrl = `${settings.url.replace(/\/$/, '')}${path}`
@@ -430,10 +436,18 @@ async function handleProxyRequestInServiceWorker(rawData, obsidianFetch, baseUrl
     const obsidianResult = await obsidianFetch(fullUrl, {
       token: settings.token,
       method: method || 'GET',
-      body: body || null,
+      body: body ?? null,
+      headers: headers || {},
       timeoutMs: 30000,
     })
-    result = { requestId, status: obsidianResult.status, body: obsidianResult.body, ok: obsidianResult.ok, error: null }
+    result = {
+      requestId,
+      status: obsidianResult.status,
+      body: obsidianResult.body,
+      ok: obsidianResult.ok,
+      error: null,
+      headers: obsidianResult.headers || {},
+    }
   } catch (err) {
     result = { requestId, status: 0, body: '', ok: false, error: err.message }
   }

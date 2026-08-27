@@ -65,10 +65,17 @@ function isTlsError(err) {
  * @param {Object} options
  * @param {string} options.token - Obsidian API bearer token
  * @param {string} [options.method='GET'] - HTTP method
- * @param {Object|null} [options.body=null] - JSON body (object, will be stringified)
- * @param {Object} [options.headers={}] - Additional headers
+ * @param {Object|string|null} [options.body=null] - Request body. Objects are
+ *   JSON-stringified (default Content-Type: application/json); strings are sent
+ *   RAW — used for markdown writes (PUT/PATCH/append) where JSON-escaping
+ *   would corrupt the content. Pair string bodies with an explicit
+ *   Content-Type header (e.g. text/markdown).
+ * @param {Object} [options.headers={}] - Additional headers. An explicit
+ *   Content-Type wins over the application/json default.
  * @param {number} [options.timeoutMs=10000] - Request timeout
- * @returns {Promise<{status: number, body: string, ok: boolean}>}
+ * @returns {Promise<{status: number, body: string, ok: boolean, headers: Object}>}
+ *   `headers` is a plain object of response headers (lowercase names, per the
+ *   fetch API) — the bridge relays them to the server so routes can read ETag.
  */
 export async function obsidianFetch(url, { token, method = 'GET', body = null, headers = {}, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (!token) throw new Error('Obsidian API token is required')
@@ -89,23 +96,31 @@ export async function obsidianFetch(url, { token, method = 'GET', body = null, h
   const requestHeaders = {
     Authorization: `Bearer ${token}`,
     'X-Obsidian-API-Version': '4',
-    ...headers,
   }
   if (body !== null && body !== undefined) {
+    // Default for JSON bodies; explicit headers (e.g. text/markdown for raw
+    // writes) override it below.
     requestHeaders['Content-Type'] = 'application/json'
   }
+  Object.assign(requestHeaders, headers)
+
+  // String bodies go out raw (markdown writes); objects are JSON-encoded.
+  const requestBody = body === null || body === undefined
+    ? undefined
+    : (typeof body === 'string' ? body : JSON.stringify(body))
+
+  const fetchOptions = () => ({
+    method,
+    headers: requestHeaders,
+    body: requestBody,
+  })
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let response
   try {
-    response = await fetch(effectiveUrl, {
-      method,
-      headers: requestHeaders,
-      body: body !== null && body !== undefined ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    })
+    response = await fetch(effectiveUrl, { ...fetchOptions(), signal: controller.signal })
   } catch (err) {
     clearTimeout(timer)
     // If we haven't tried HTTP fallback yet and this looks like a TLS error,
@@ -116,12 +131,7 @@ export async function obsidianFetch(url, { token, method = 'GET', body = null, h
         const controller2 = new AbortController()
         const timer2 = setTimeout(() => controller2.abort(), timeoutMs)
         try {
-          response = await fetch(httpUrl, {
-            method,
-            headers: requestHeaders,
-            body: body !== null && body !== undefined ? JSON.stringify(body) : undefined,
-            signal: controller2.signal,
-          })
+          response = await fetch(httpUrl, { ...fetchOptions(), signal: controller2.signal })
           clearTimeout(timer2)
         } catch (err2) {
           clearTimeout(timer2)
@@ -137,7 +147,14 @@ export async function obsidianFetch(url, { token, method = 'GET', body = null, h
 
   clearTimeout(timer)
   const text = await response.text()
-  return { status: response.status, body: text, ok: response.ok }
+  // Flatten response headers into a plain object (fetch lowercases names).
+  // The bridge result POST carries these back to the Glassy server — ETag in
+  // particular powers concurrency-safe vault writes (If-Match).
+  const responseHeaders = {}
+  try {
+    response.headers.forEach((value, key) => { responseHeaders[key] = value })
+  } catch { /* headers unavailable — leave empty */ }
+  return { status: response.status, body: text, ok: response.ok, headers: responseHeaders }
 }
 
 /**

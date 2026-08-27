@@ -172,6 +172,12 @@ async function connectBridgeSSE() {
   if (!usedTicket) {
     sseUrl += `?token=${encodeURIComponent(token)}`
   }
+  // Advertise our version: EventSource can't set headers, so the version rides
+  // in a query param. The server gates bridge transport v2 (raw bodies +
+  // header forwarding for vault writes) on companion ≥ 2.18.0.
+  let extensionVersion = 'unknown'
+  try { extensionVersion = chrome.runtime.getManifest().version || 'unknown' } catch { /* no-op */ }
+  sseUrl += `&extv=${encodeURIComponent(extensionVersion)}`
 
   const url = sseUrl
 
@@ -220,7 +226,15 @@ function scheduleBridgeReconnect() {
 
 /**
  * Handle a proxy request from the server — call Obsidian and POST the result back.
- * @param {string} rawData - JSON string: {requestId, method, path, body}
+ *
+ * Transport v2 (server ≥ glass-pane follow-up): the payload may carry
+ * `headers` to forward (Accept, Content-Type, If-Match, Target-*) and `body`
+ * may be a raw markdown string. obsidianFetch handles both — string bodies go
+ * out raw, forwarded headers win over its defaults. The upstream response
+ * headers are relayed back so the server can surface ETag for
+ * concurrency-safe writes.
+ *
+ * @param {string} rawData - JSON string: {requestId, method, path, body, headers?}
  * @param {string} baseUrl
  * @param {string} token
  */
@@ -235,7 +249,7 @@ async function handleBridgeProxyRequest(rawData, baseUrl, token) {
     return // Malformed request
   }
 
-  const { requestId, method, path, body } = request
+  const { requestId, method, path, body, headers } = request
   if (!requestId || !path) return
 
   const fullUrl = `${settings.url.replace(/\/$/, '')}${path}`
@@ -244,10 +258,18 @@ async function handleBridgeProxyRequest(rawData, baseUrl, token) {
     const obsidianResult = await obsidianFetch(fullUrl, {
       token: settings.token,
       method: method || 'GET',
-      body: body || null,
+      body: body ?? null,
+      headers: headers || {},
       timeoutMs: 30000,
     })
-    result = { requestId, status: obsidianResult.status, body: obsidianResult.body, ok: obsidianResult.ok, error: null }
+    result = {
+      requestId,
+      status: obsidianResult.status,
+      body: obsidianResult.body,
+      ok: obsidianResult.ok,
+      error: null,
+      headers: obsidianResult.headers || {},
+    }
   } catch (err) {
     result = { requestId, status: 0, body: '', ok: false, error: err.message }
   }

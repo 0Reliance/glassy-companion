@@ -992,7 +992,9 @@ async function savePageFromPopup(payload) {
 
 async function searchBookmarksFromPopup(q) {
   try {
-    const result = await searchBookmarks(String(q || '').slice(0, 200))
+    // limit 12 matches the popup SearchView, which renders up to 12 results
+    // (the default limit of 10 left two slots permanently empty).
+    const result = await searchBookmarks(String(q || '').slice(0, 200), 12)
     return { ok: true, bookmarks: result?.bookmarks || [] }
   } catch (err) {
     return { ok: false, error: err.message }
