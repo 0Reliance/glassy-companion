@@ -24,7 +24,7 @@ Glassy Companion is the browser extension for Glassy — the companion to your G
 **🔌 MCP Bridge**
 - Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets
 - Live server URL via `window.location.origin + '/mcp'`
-- Pairs with the Glassy MCP server (glassy-dash v2.36.0-beta.13+) — 15 tools, 3 prompts, 6 resources
+- Pairs with the Glassy MCP server (glassy-dash v2.36.0-beta.13+) — 20 tools, 4 prompts, 7 resources (calendar/schedule tools since v2.36.0-beta.22)
 
 **🛡️ Storage monitoring**
 - Periodic 6-hour quota check; warns at 80%, auto-trims the offline queue at 95% critical
