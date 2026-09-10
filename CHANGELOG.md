@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.18.1] — 2026-09-10 — Bridge reconnect hardening
+
+Paired with the glassy-dash server-side heartbeat reduction (first `ping` sent
+immediately, interval 20s → 5s), this closes the ~5s bridge-SSE subscribe-churn
+cycle on self-host (0Reliance/glassy#25-F2): the offscreen-document EventSource
+drops before the server's first heartbeat arrives, and the extension's `onerror`
+handler reconnects after the configured delay. The reconnect delay drops
+5000ms → 1000ms (initial value and the `onopen` reset) so recovery is faster
+when a drop still happens. Server-side fix ships in glassy-dash v2.36.0-beta.28.
+
 ## [2.18.0] — 2026-08-27 — Bridge transport v2: vault writes over the bridge
 
 > Follow-up to the Obsidian "glass pane" wave in glassy-dash. Until now the
