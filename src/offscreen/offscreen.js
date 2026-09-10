@@ -34,7 +34,7 @@ import { obsidianFetch } from '../lib/obsidianFetch.js'
 let bridgeSseConnection = null
 let bridgeIntentionallyDisconnected = false
 let bridgeReconnectTimer = null
-let bridgeReconnectDelay = 5000
+let bridgeReconnectDelay = 1000
 const BRIDGE_MAX_RECONNECT_DELAY = 30000
 const BRIDGE_SETTINGS_KEY = 'glassy_obsidian_bridge_settings'
 const BRIDGE_STATUS_KEY = 'glassy_obsidian_bridge_status'
@@ -185,7 +185,7 @@ async function connectBridgeSSE() {
     bridgeSseConnection = new EventSource(url)
 
     bridgeSseConnection.onopen = () => {
-      bridgeReconnectDelay = 5000
+      bridgeReconnectDelay = 1000
       updateBridgeStatus({ connected: true, error: null, lastConnected: new Date().toISOString() })
       // Push our Obsidian URL to the server so the web-app UI stays in sync.
       // The token stays extension-side only (never sent to the server).
