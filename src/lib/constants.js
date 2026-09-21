@@ -4,7 +4,7 @@
 export const DEFAULT_BASE_URL = 'https://app.glassy.fyi'
 
 export const API_PATHS = {
-  login: '/api/login',
+  login: '/api/auth/login',
   me: '/api/ext/me',
   ping: '/api/ext/ping',
   collections: '/api/ext/collections',
