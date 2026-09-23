@@ -26,6 +26,10 @@ export const API_PATHS = {
   kbSearch: '/api/kb/query',
   kbStatus: '/api/kb/status',
   kbMcpToken: '/api/ext/mcp-token',
+  // glassy-dash v2.40.0 agent-principal surfaces (both self-host only; the
+  // capabilities manifest gates their use)
+  mcpKeys: '/api/mcp-keys',
+  notifications: '/api/notifications',
   // Obsidian vault — Phase A: Vault Browser (all routed through the server bridge)
   obsidianVault: '/api/obsidian/vault',
   obsidianVaultFile: '/api/obsidian/vault-file',

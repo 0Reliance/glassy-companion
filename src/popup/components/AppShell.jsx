@@ -8,7 +8,8 @@ const TABS = [
   { id: 'kb', label: 'KB', icon: '🧠' },
 ]
 
-export default function AppShell({ activeView, onNavigate, user, showSettings, onToggleSettings, children }) {
+export default function AppShell({ activeView, onNavigate, user, showSettings, onToggleSettings,
+  unreadNotifications = 0, onOpenNotifications, children }) {
   const isContentView = ['save', 'note', 'search', 'vault', 'kb'].includes(activeView)
 
   return (
@@ -44,6 +45,26 @@ export default function AppShell({ activeView, onNavigate, user, showSettings, o
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* The awareness lane in the browser (self-host only — the parent gates
+              this on the capability manifest): one click opens the dashboard's
+              Agent Review surface where notifications and agent questions live. */}
+          {user && unreadNotifications > 0 && (
+            <button
+              data-testid="notifications-badge"
+              onClick={onOpenNotifications}
+              title={`${unreadNotifications} unread agent notification${unreadNotifications === 1 ? '' : 's'} — open Agent Review`}
+              className="glass-card"
+              style={{
+                background: 'rgba(239,68,68,0.12)',
+                borderColor: 'rgba(239,68,68,0.35)',
+                padding: '6px 8px',
+                color: '#fca5a5',
+                cursor: 'pointer', fontSize: 12, lineHeight: 1,
+              }}
+            >
+              🔔 {unreadNotifications}
+            </button>
+          )}
           {user && (
             <button
               onClick={onToggleSettings}

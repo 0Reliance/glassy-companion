@@ -3,6 +3,9 @@ import AppShell from './components/AppShell.jsx'
 import LoginCard from './components/LoginCard.jsx'
 import Skeleton from './components/Skeleton.jsx'
 import useAppState from './hooks/useAppState.js'
+import useCapabilities from './hooks/useCapabilities.js'
+import useNotifications from './hooks/useNotifications.js'
+import { getBaseUrl } from '../lib/auth.js'
 
 // ── Code-split views ─────────────────────────────────────────────────────────
 // Each view is loaded on demand so the popup's main chunk stays small
@@ -29,6 +32,17 @@ export default function Popup() {
 
   const [showSettings, setShowSettings] = useState(false)
 
+  // The client-side capability gate + the awareness-lane badge (self-host only:
+  // the poller never fetches while the manifest says unavailable).
+  const { capabilities } = useCapabilities()
+  const isAuthed = !['loading', 'login'].includes(view)
+  const { unreadCount } = useNotifications({ available: !!(isAuthed && capabilities.notifications?.available) })
+
+  const handleOpenNotifications = useCallback(async () => {
+    const baseUrl = await getBaseUrl()
+    if (baseUrl) chrome.tabs.create({ url: `${baseUrl}/#/reviews` })
+  }, [])
+
   const handleLogout = useCallback(() => {
     setShowSettings(false)
     setUser(null)
@@ -40,8 +54,6 @@ export default function Popup() {
     setShowSettings(s => !s)
   }, [])
 
-  const isAuthed = !['loading', 'login'].includes(view)
-
   return (
     <AppShell
       activeView={view}
@@ -49,6 +61,8 @@ export default function Popup() {
       user={isAuthed ? user : null}
       showSettings={showSettings}
       onToggleSettings={toggleSettings}
+      unreadNotifications={unreadCount}
+      onOpenNotifications={handleOpenNotifications}
     >
       {/* Settings overlay */}
       {showSettings && isAuthed && (

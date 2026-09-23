@@ -349,6 +349,88 @@ export function getKbStatus() {
   return apiFetch(API_PATHS.kbStatus)
 }
 
+// ── Capability manifest + agent-principal surfaces (glassy-dash v2.40.0) ──────
+
+/**
+ * The fail-closed client gate. The capability split applies to CLIENTS too:
+ * until the manifest says a self-host capability is available, the extension
+ * must behave exactly as it did before the capability existed. Any error
+ * (offline, old server without /api/capabilities, malformed body) resolves to
+ * these defaults — never a throw, never a false positive.
+ */
+export const DEFAULT_CAPABILITIES = Object.freeze({
+  agentIdentity: Object.freeze({ available: false, mode: 'single-key' }),
+  notifications: Object.freeze({ available: false }),
+})
+
+/**
+ * GET /api/capabilities — public and unauthenticated by design (the server
+ * mounts it exactly like /api/instance), so this deliberately does NOT use
+ * apiFetch: no JWT requirement, no clearAuth on a stale token — the gate works
+ * pre-login and never logs the user out. 10s hard timeout.
+ * @returns {Promise<{agentIdentity: {available, mode}, notifications: {available}}>}
+ */
+export async function fetchCapabilities() {
+  try {
+    const baseUrl = await getBaseUrl()
+    if (!baseUrl) return structuredClone(DEFAULT_CAPABILITIES)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10_000)
+    try {
+      const res = await fetch(`${baseUrl}/api/capabilities`, { signal: controller.signal })
+      if (!res.ok) return structuredClone(DEFAULT_CAPABILITIES)
+      const body = await res.json()
+      const caps = body?.capabilities
+      if (!caps || typeof caps !== 'object') return structuredClone(DEFAULT_CAPABILITIES)
+      return {
+        agentIdentity: {
+          available: caps.agentIdentity?.available === true,
+          mode: caps.agentIdentity?.mode === 'named-keys' ? 'named-keys' : 'single-key',
+        },
+        notifications: { available: caps.notifications?.available === true },
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+  } catch {
+    return structuredClone(DEFAULT_CAPABILITIES)
+  }
+}
+
+/**
+ * POST /api/mcp-keys — issue a NAMED per-agent MCP key (self-host only; the
+ * server 403s FEATURE_NOT_AVAILABLE on cloud). The returned `key` is shown
+ * ONCE and never stored by the extension. A named key makes this browser
+ * extension a VERIFIED principal: authorship, memory scoping and the activity
+ * feed key off the pinned identity instead of a self-declared handshake name.
+ * @param {{agentName: string}} body — the agent name pinned to the key
+ * @returns {Promise<{id, key, agentName}>}
+ */
+export function createNamedMcpKey({ agentName }) {
+  return apiFetch(API_PATHS.mcpKeys, {
+    method: 'POST',
+    body: { agentName },
+  })
+}
+
+/**
+ * GET /api/notifications?unread=1 — the owner's awareness lane (self-host
+ * only; gated by capabilities.notifications.available at the call site). The
+ * badge must NEVER throw into the popup, so any failure resolves to zero.
+ * @returns {Promise<{notifications: Array, unreadCount: number}>}
+ */
+export async function fetchUnreadNotifications() {
+  try {
+    const res = await apiFetch(`${API_PATHS.notifications}?unread=1`)
+    return {
+      notifications: Array.isArray(res?.notifications) ? res.notifications : [],
+      unreadCount: Number(res?.unreadCount) || 0,
+    }
+  } catch {
+    return { notifications: [], unreadCount: 0 }
+  }
+}
+
 /**
  * POST /api/ext/mcp-token — Exchange JWT for MCP connection info.
  * Returns { mcpUrl, mcpToken } for configuring external AI tools.

@@ -48,6 +48,9 @@ export default function KbSearchView() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
+  // glassy-dash GH#68 in-band lane health: "text-only fallback" or "the index is
+  // empty/drifted" must be VISIBLE, not a mysterious shortage of results.
+  const [laneNotice, setLaneNotice] = useState(null)
   const [activeSource, setActiveSource] = useState('all')
   const [kbStatus, setKbStatus] = useState(null)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -79,6 +82,7 @@ export default function KbSearchView() {
     }
 
     setLoading(true)
+    setLaneNotice(null)
     setSearchError('')
 
     const timer = setTimeout(async () => {
@@ -94,6 +98,11 @@ export default function KbSearchView() {
 
         if (res?.results) {
           setResults(res.results)
+          setLaneNotice(
+            res?.diagnostics?.degraded
+              ? (res.diagnostics.detail || 'The semantic lane is degraded — these are text-only results, not everything that matched.')
+              : null
+          )
         } else if (res?.error) {
           setResults([])
           setSearchError(res.error)
@@ -229,6 +238,18 @@ export default function KbSearchView() {
         {!isSearching && searchError && (
           <div style={{ textAlign: 'center', padding: '16px 0', color: '#fca5a5', fontSize: 12 }}>
             {searchError}
+          </div>
+        )}
+
+        {/* In-band lane health (GH#68): the server's degraded diagnostics, shown
+            when the answer is text-only because the semantic lane is down or
+            drifted — so "fewer results" never reads as "nothing more matched". */}
+        {!isSearching && !searchError && laneNotice && (
+          <div data-testid="lane-notice" style={{
+            margin: '0 0 8px', padding: '8px 10px', borderRadius: 6,
+            background: 'rgba(250,204,21,0.06)', color: '#fcd34d', fontSize: 11, lineHeight: 1.5,
+          }}>
+            ⚠️ {laneNotice}
           </div>
         )}
 

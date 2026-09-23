@@ -10,8 +10,9 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react'
-import { getMcpToken } from '../../lib/api.js'
+import { getMcpToken, createNamedMcpKey } from '../../lib/api.js'
 import { getBaseUrl } from '../../lib/auth.js'
+import useCapabilities from '../hooks/useCapabilities.js'
 
 export default function McpConnectionSection() {
   const [loading, setLoading] = useState(false)
@@ -20,6 +21,14 @@ export default function McpConnectionSection() {
   const [copied, setCopied] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [mcpEnabled, setMcpEnabled] = useState(null) // null = checking, true/false = resolved
+
+  // glassy-dash v2.40.0: on a self-host appliance with named-keys mode, this
+  // extension can issue itself a NAMED MCP key — a verified principal. Its
+  // authorship, memory scoping and activity attribution then key off the
+  // pinned identity instead of a shared anonymous key.
+  const { capabilities } = useCapabilities()
+  const namedKeysMode = !!(capabilities.agentIdentity?.available && capabilities.agentIdentity?.mode === 'named-keys')
+  const [namedKey, setNamedKey] = useState(null) // { id, key, agentName } — shown ONCE
 
   // Check if MCP is enabled on the server by hitting /mcp/status (no auth needed)
   useEffect(() => {
@@ -81,6 +90,39 @@ export default function McpConnectionSection() {
     }).catch(() => {})
   }, [result])
 
+  // Issue a NAMED key for this extension (self-host, named-keys mode). The key
+  // is shown once — the server stores only its hash, so a lost key means
+  // issuing a fresh one. A duplicate name (409) means one already exists; the
+  // message says so instead of a generic failure.
+  const handleIssueNamedKey = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    setCopied(false)
+    try {
+      const created = await createNamedMcpKey({ agentName: 'Companion' })
+      setNamedKey(created)
+    } catch (err) {
+      const msg = err?.message || ''
+      if (err?.status === 409 || /already exists/i.test(msg)) {
+        setError('A Companion key already exists. Use the MCP key manager (Settings on the dashboard) to revoke it first if you lost the key.')
+      } else if (err?.status === 403) {
+        setError('Named keys are a self-host capability — this server is the hosted service.')
+      } else {
+        setError(msg || 'Failed to issue a named key.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const handleCopyNamedKey = useCallback(() => {
+    if (!namedKey?.key) return
+    navigator.clipboard.writeText(namedKey.key).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }, [namedKey])
+
   return (
     <div style={{
       background: 'rgba(255,255,255,0.03)',
@@ -105,6 +147,64 @@ export default function McpConnectionSection() {
         Glassy knowledge base. They can search your notes, bookmarks, and vault
         files directly via the Model Context Protocol.
       </div>
+
+      {/* Named-key flow (self-host, named-keys mode): this extension becomes a
+          VERIFIED principal. The key is displayed once and never stored. */}
+      {namedKeysMode && !namedKey && (
+        <div data-testid="named-key-section" style={{
+          background: 'rgba(99,102,241,0.08)', borderRadius: 8, padding: 10,
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+            This appliance supports <strong>named agent keys</strong>: issue this
+            extension its own pinned identity ("Companion") so everything it saves
+            is attributed to it — authorship, memory, and the owner's activity feed
+            will all know it was the browser extension, not an anonymous key.
+          </div>
+          <button
+            onClick={handleIssueNamedKey}
+            disabled={loading}
+            style={{
+              alignSelf: 'flex-start', padding: '6px 10px', fontSize: 11, cursor: 'pointer',
+              background: 'rgba(99,102,241,0.25)', color: '#c7d2fe',
+              border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6,
+            }}
+          >
+            {loading ? 'Issuing…' : 'Issue a named key for this extension'}
+          </button>
+        </div>
+      )}
+
+      {namedKeysMode && namedKey && (
+        <div data-testid="named-key-result" style={{
+          background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+          borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 6,
+        }}>
+          <div style={{ fontSize: 11, color: '#6ee7b7', fontWeight: 600 }}>
+            Named key issued — agent: {namedKey.agentName}
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>
+            Shown once, never stored by the extension. Use it as the Bearer token
+            in any MCP client you want identified as <em>Companion</em>.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <code data-testid="named-key-value" style={{
+              flex: 1, fontSize: 10, padding: '4px 6px',
+              background: 'rgba(0,0,0,0.3)', borderRadius: 4,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {namedKey.key}
+            </code>
+            <button onClick={handleCopyNamedKey} style={{
+              padding: '4px 8px', fontSize: 10, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4,
+            }}>
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Fetch button or result */}
       {mcpEnabled === false && !result && (

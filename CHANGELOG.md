@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.19.0] — 2026-09-22 — The companion is a principal
+
+Pairs with glassy-dash v2.40.0 (the agent-identity release). The extension now
+speaks the capability manifest and becomes a VERIFIED agent on self-host
+appliances:
+
+- **The client-side capability gate.** `fetchCapabilities()` reads the public,
+  unauthenticated `/api/capabilities` manifest and FAILS CLOSED: any error
+  (offline, an older server, a malformed body) resolves to "capability absent",
+  so a cloud or legacy-server user sees exactly the extension they had before.
+  The split rule — the self-host build carries the capability, the cloud build
+  carries the restriction — now applies to the client too.
+- **Named MCP keys (self-host, named-keys mode).** The AI Tools (MCP) section
+  detects `agentIdentity: { mode: 'named-keys' }` and offers "Issue a named key
+  for this extension": POST `/api/mcp-keys { agentName: 'Companion' }` pins this
+  browser extension to its own agent identity, so everything it saves is
+  attributed — authorship, memory scoping and the owner's activity feed all
+  know it was the Companion, not an anonymous key. The key is shown ONCE and
+  never stored; a duplicate name (409) explains the revoke path, and cloud
+  (403) is named as the design, not a failure.
+- **The awareness lane in the browser (self-host only).** A 🔔 unread badge in
+  the popup header, gated on `notifications.available`, polling
+  `/api/notifications?unread=1` at 60s — one click opens the dashboard's Agent
+  Review surface. The poller (`notificationPoller.js`) refuses to fetch while
+  the gate reads false, so a cloud user's extension sends nothing, and a failed
+  poll reports zero rather than throwing into the popup.
+- **KB search shows the lane's health.** The 🧠 tab surfaces the server's
+  in-band `diagnostics.degraded` notices (GH#68), so a text-only fallback reads
+  as what it is — a degraded semantic lane — instead of a mysterious shortage
+  of results.
+
+Tests: 189 → 200 (capability gate fail-closed, named-key API + 409/403 paths,
+poller cadence/gate/failure semantics). Build clean, all chunks under the
+200 KB store limit.
+
 ## [2.18.1] — 2026-09-10 — Bridge reconnect hardening
 
 Paired with the glassy-dash server-side heartbeat reduction (first `ping` sent
