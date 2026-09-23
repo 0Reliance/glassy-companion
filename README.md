@@ -2,7 +2,7 @@
 
 **Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
 
-[![Version](https://img.shields.io/badge/version-2.18.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.19.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -13,12 +13,12 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (September 10, 2026):** v2.18.1 — **bridge reconnect hardening** — reduces the offscreen SSE reconnect delay 5000ms → 1000ms so the bridge recovers faster when the connection drops; paired with the glassy-dash server heartbeat reduction (first `ping` immediate, interval 20s → 5s), this fixes the ~5s subscribe-churn cycle on self-host (0Reliance/glassy#25-F2). v2.18.0 (previous, August 27 2026) — **bridge transport v2** — completes the Obsidian glass-pane follow-up with glassy-dash: the SSE bridge now carries raw bodies + request headers and relays upstream response headers (ETag) back, so vault WRITES (tap-to-toggle checkboxes, add-under-heading, daily-note append, push-to-vault) work when the extension is the only path to Obsidian on containerized self-host (previously reads worked but writes fell back to the unreachable direct path and 502'd). Also fixes `obsidianFetch` corrupting raw markdown bodies (`JSON.stringify`-quoted + forced `application/json`), which affected the extension's direct capture-to-vault push. The server gates transport v2 on the advertised version (`&extv=` on the subscribe URL); companions ≤ 2.17.1 keep the proven v1 behavior. v2.17.1 (previous) was the **save & sync reliability release**: capture-rule pre-population actually works (the `/api/capture-rules` `{ rules: [...] }` envelope was never unwrapped, so Smart Save auto-fill had been silently inert since v2.2.0); transient 5xx no longer logs users out (`verifyToken()` clears only on a real 401); offline-queue flush drop/pause semantics fixed; popup saves queue offline. v2.16.0 added the **MCP Settings UI**. v2.15.0 shipped the **Obsidian Vault Companion**. v2.14.0 shipped the **Obsidian Bridge Deep-Fix** + critical install fix. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.36.0-beta.40` is the versioned self-host image. `:latest` and `:main` are hosted builds, not substitutes for the self-host pin; `:selfhost-main` is the floating self-host build for testers. Dash v2.36.0-beta.25 (Sep 8, deployed to all 4 containers) carries the Temporal Spine calendar completion + public window typography parity; the extension is unaffected — its `/api/ext/*` + `/api/captures` surfaces are untouched, and no companion release was needed. Since 2026-09-07 the MCP server / Second Brain / Agent Gateway are self-host-only (hosted instances never enable them). Remaining: manual upload to CWS + AMO (gated on user browser auth).
+- **Current state (September 22, 2026):** v2.19.0 — **the companion is a principal** — pairs with glassy-dash v2.40.0 (the agent-identity release): the extension speaks the `/api/capabilities` manifest with a FAIL-CLOSED client gate (the self-host/cloud split rule now applies to the client), the AI Tools (MCP) section can issue this extension its own NAMED agent key (pinned identity "Companion") on self-host named-keys appliances, a 🔔 unread agent-notification badge rides the popup header (self-host only; the poller refuses to fetch on cloud), and the 🧠 KB tab surfaces the server's degraded-lane diagnostics so a text-only fallback reads as what it is. v2.18.1 (previous, September 10 2026) — **bridge reconnect hardening** — reduces the offscreen SSE reconnect delay 5000ms → 1000ms so the bridge recovers faster when the connection drops; paired with the glassy-dash server heartbeat reduction (first `ping` immediate, interval 20s → 5s), this fixes the ~5s subscribe-churn cycle on self-host (0Reliance/glassy#25-F2). v2.18.0 (previous, August 27 2026) — **bridge transport v2** — completes the Obsidian glass-pane follow-up with glassy-dash: the SSE bridge now carries raw bodies + request headers and relays upstream response headers (ETag) back, so vault WRITES (tap-to-toggle checkboxes, add-under-heading, daily-note append, push-to-vault) work when the extension is the only path to Obsidian on containerized self-host (previously reads worked but writes fell back to the unreachable direct path and 502'd). Also fixes `obsidianFetch` corrupting raw markdown bodies (`JSON.stringify`-quoted + forced `application/json`), which affected the extension's direct capture-to-vault push. The server gates transport v2 on the advertised version (`&extv=` on the subscribe URL); companions ≤ 2.17.1 keep the proven v1 behavior. v2.17.1 (previous) was the **save & sync reliability release**: capture-rule pre-population actually works (the `/api/capture-rules` `{ rules: [...] }` envelope was never unwrapped, so Smart Save auto-fill had been silently inert since v2.2.0); transient 5xx no longer logs users out (`verifyToken()` clears only on a real 401); offline-queue flush drop/pause semantics fixed; popup saves queue offline. v2.16.0 added the **MCP Settings UI**. v2.15.0 shipped the **Obsidian Vault Companion**. v2.14.0 shipped the **Obsidian Bridge Deep-Fix** + critical install fix. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.36.0-beta.40` is the versioned self-host image. `:latest` and `:main` are hosted builds, not substitutes for the self-host pin; `:selfhost-main` is the floating self-host build for testers. Dash v2.36.0-beta.25 (Sep 8, deployed to all 4 containers) carries the Temporal Spine calendar completion + public window typography parity; the extension is unaffected — its `/api/ext/*` + `/api/captures` surfaces are untouched, and no companion release was needed. Since 2026-09-07 the MCP server / Second Brain / Agent Gateway are self-host-only (hosted instances never enable them). Remaining: manual upload to CWS + AMO (gated on user browser auth).
 
 ## Current compatibility and distribution (September 17, 2026)
 
-- Companion remains **v2.18.1**. The source manifest, Chrome/Firefox build
-  manifests, and local v2.18.1 ZIP/XPI manifests agree. Older archives are
+- Companion is **v2.19.0**. The source manifest, Chrome/Firefox build
+  manifests, and local v2.19.0 ZIP/XPI manifests agree. Older archives are
   historical outputs, not evidence that the current build is v2.11.0.
 - Use Glassy's versioned **v2.36.0-beta.40** appliance image for the latest
   server-side fixes. `:latest` / `:main` are hosted builds; `:selfhost-main`
@@ -80,15 +80,15 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.18.1` assets:
-   - **`glassy-companion-v2.18.1.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.18.1-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.19.0` assets:
+   - **`glassy-companion-v2.19.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.19.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.18.1.zip`.
-- **Firefox 121+**: install from `glassy-companion-v2.18.1-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.19.0.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.19.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 
