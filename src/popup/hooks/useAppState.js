@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { checkAuth, getActiveTabMeta, checkDuplicateUrl } from './useExtensionBridge.js'
 import { fetchCaptureRules } from '../../lib/api.js'
 import { evaluateRules, toRulesArray } from '../../lib/rules.js'
+import { watchSessionEnd } from '../../lib/sessionWatch.js'
 
 /**
  * Central app state hook — manages auth, routing, page meta, and save status.
@@ -21,6 +22,16 @@ export default function useAppState() {
   const [pendingElement, setPendingElement] = useState(null)
   const [pendingScreenshot, setPendingScreenshot] = useState(null)
   const initRef = useRef(false)
+
+  // The UI must never disagree with storage. An interactive 401 clears the token inside
+  // apiFetch; without this the popup keeps showing a logged-in shell whose every action
+  // then fails. Covers every interactive 401, not just the notification poller that
+  // first exposed it.
+  useEffect(() => watchSessionEnd(() => {
+    setUser(null)
+    setPageMeta(null)
+    setView('login')
+  }), [setUser, setPageMeta])
 
   // Check startup hash and session-stored route hint for direct-to-tab routing.
   // Background sets `glassy_open_view` when opening the popup via the

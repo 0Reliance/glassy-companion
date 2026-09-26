@@ -14,6 +14,11 @@ import { API_PATHS } from './constants.js'
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
 async function apiFetch(path, options = {}, _retryCount = 0) {
+  // authPolicy is OUR option, not a fetch option — destructured out so it never lands in
+  // the request. 'interactive' (default) may end the session on a 401; 'background' may
+  // not, because a headless lane has no UI to re-authenticate from.
+  const { authPolicy = 'interactive', ...fetchOptions } = options
+
   // Sequence getToken() BEFORE getApiContext(): getToken() may call
   // clearAuth() on JWT expiry, which removes activeAccountId. Running them
   // in parallel could read a stale activeAccountId into the request headers.
@@ -38,15 +43,15 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(activeAccountId ? { 'X-Account-Id': activeAccountId } : {}),
-    ...options.headers,
+    ...fetchOptions.headers,
   }
 
   let res
   try {
     res = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: fetchOptions.body ? JSON.stringify(fetchOptions.body) : undefined,
       signal: controller.signal,
     })
   } catch (networkErr) {
@@ -63,8 +68,18 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
   clearTimeout(timer)
 
   if (res.status === 401) {
-    await clearAuth()
-    throw new ApiError(401, 'Session expired. Please log in again.')
+    // Auth destruction is a DECISION, not a transport side effect. A headless lane (the
+    // notification badge, the offscreen bridge) has no UI to re-authenticate from, so it
+    // reports the expiry and leaves the session alone; an interactive caller clears it and
+    // the popup routes to login via lib/sessionWatch.js.
+    //
+    // This is the hazard peekToken() was added for in auth.js — previously patched for one
+    // caller by introducing a second token reader. Fixing it at the transport removes the
+    // reason for that pattern to keep spreading.
+    if (authPolicy === 'interactive') await clearAuth()
+    throw new ApiError(401, authPolicy === 'interactive'
+      ? 'Session expired. Please log in again.'
+      : 'SESSION_EXPIRED')
   }
 
   if (!res.ok) {
@@ -413,7 +428,10 @@ export function createNamedMcpKey({ agentName }) {
  */
 export async function fetchUnreadNotifications() {
   try {
-    const res = await apiFetch(`${API_PATHS.notifications}?unread=1`)
+    // Background lane: the badge is advisory and must never end a session. Before
+    // authPolicy, a 401 here called clearAuth() and the catch below hid it — a silent
+    // logout caused by a feature documented as "never load-bearing".
+    const res = await apiFetch(`${API_PATHS.notifications}?unread=1`, { authPolicy: 'background' })
     return {
       notifications: Array.isArray(res?.notifications) ? res.notifications : [],
       unreadCount: Number(res?.unreadCount) || 0,

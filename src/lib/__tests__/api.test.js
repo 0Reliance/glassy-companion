@@ -17,6 +17,7 @@ const {
   createCollection,
   saveBookmark,
   saveDocument,
+  fetchUnreadNotifications,
   ApiError,
 } = await import('../api.js')
 const { clearAuth, getBaseUrl, getApiContext } = await import('../auth.js')
@@ -72,6 +73,50 @@ describe('api.js — apiFetch wrapper', () => {
     await expect(fetchMe()).rejects.toMatchObject({
       status: 401,
     })
+    expect(clearAuth).toHaveBeenCalledOnce()
+  })
+
+  // ── authPolicy: who is allowed to end a session ────────────────────────────────
+  // THE DEFECT. The unread-notifications badge is documented as "advisory, never
+  // load-bearing", yet it went through apiFetch, whose 401 handler called clearAuth()
+  // before throwing; the poller then swallowed the throw and reported zero. A
+  // background tick could silently log the user out and leave the popup rendering a
+  // logged-in shell whose every action then failed.
+
+  it('a BACKGROUND lane does NOT clear auth on 401 — an advisory poll must not end a session', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'Unauthorized' }),
+    })
+
+    const res = await fetchUnreadNotifications()
+    expect(clearAuth).not.toHaveBeenCalled()
+    expect(res).toEqual({ notifications: [], unreadCount: 0 })
+  })
+
+  it('authPolicy is stripped before it reaches fetch() — it is our option, not a request field', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ notifications: [], unreadCount: 0 }),
+    })
+
+    await fetchUnreadNotifications()
+    const [, opts] = globalThis.fetch.mock.calls[0]
+    expect(opts.authPolicy).toBeUndefined()
+  })
+
+  it('an INTERACTIVE 401 still clears auth — the default is unchanged', async () => {
+    // Guard on the other side of the policy: making background lanes safe must not make
+    // interactive ones lazy, or a genuinely expired session would never route to login.
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'Unauthorized' }),
+    })
+
+    await expect(fetchMe()).rejects.toMatchObject({ status: 401 })
     expect(clearAuth).toHaveBeenCalledOnce()
   })
 
