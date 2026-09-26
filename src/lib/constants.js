@@ -30,6 +30,9 @@ export const API_PATHS = {
   // capabilities manifest gates their use)
   mcpKeys: '/api/mcp-keys',
   notifications: '/api/notifications',
+  // Public capability manifest — the single source of truth for what this instance
+  // can do. Unauthenticated by design, so it can gate the login screen too.
+  capabilities: '/api/capabilities',
   // Obsidian vault — Phase A: Vault Browser (all routed through the server bridge)
   obsidianVault: '/api/obsidian/vault',
   obsidianVaultFile: '/api/obsidian/vault-file',

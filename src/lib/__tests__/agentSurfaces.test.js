@@ -10,46 +10,17 @@ vi.mock('../auth.js', () => ({
 }))
 
 const {
-  fetchCapabilities,
-  DEFAULT_CAPABILITIES,
   createNamedMcpKey,
   fetchUnreadNotifications,
 } = await import('../api.js')
 
-describe('fetchCapabilities — the client-side capability gate', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    globalThis.fetch = vi.fn()
-  })
+// The capability-gate tests that used to live here tested fetchCapabilities' 2-key
+// projection. That projection is gone: the manifest is now read whole by
+// lib/serverContract.js and tested against LIVE-CAPTURED fixtures in
+// serverContract.test.js and manifestTransport.test.js. What remains below are the
+// two agent surfaces that still go through apiFetch.
 
-  it('parses the manifest when the server answers', async () => {
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ capabilities: { agentIdentity: { available: true, mode: 'named-keys' }, notifications: { available: true } } }),
-    })
-    const caps = await fetchCapabilities()
-    expect(caps.agentIdentity).toEqual({ available: true, mode: 'named-keys' })
-    expect(caps.notifications).toEqual({ available: true })
-  })
-
-  it('FAILS CLOSED on any error — the split rule applies to clients too', async () => {
-    globalThis.fetch.mockRejectedValueOnce(new Error('network down'))
-    const caps = await fetchCapabilities()
-    expect(caps).toEqual(DEFAULT_CAPABILITIES)
-    expect(caps.agentIdentity.available).toBe(false)
-    expect(caps.notifications.available).toBe(false)
-  })
-
-  it('fails closed on a non-200 or malformed body', async () => {
-    globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
-    expect(await fetchCapabilities()).toEqual(DEFAULT_CAPABILITIES)
-    globalThis.fetch.mockResolvedValueOnce({ ok: true, json: async () => 'not json shape' })
-    expect(await fetchCapabilities()).toEqual(DEFAULT_CAPABILITIES)
-  })
-})
-
-describe('createNamedMcpKey — the companion becomes a verified principal', () => {
+describe('createNamedMcpKey — mints a named key for an EXTERNAL MCP client', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     globalThis.fetch = vi.fn()

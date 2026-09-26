@@ -349,51 +349,43 @@ export function getKbStatus() {
   return apiFetch(API_PATHS.kbStatus)
 }
 
-// ── Capability manifest + agent-principal surfaces (glassy-dash v2.40.0) ──────
+// ── Capability manifest transport (the server contract's only data source) ─────
 
 /**
- * The fail-closed client gate. The capability split applies to CLIENTS too:
- * until the manifest says a self-host capability is available, the extension
- * must behave exactly as it did before the capability existed. Any error
- * (offline, old server without /api/capabilities, malformed body) resolves to
- * these defaults — never a throw, never a false positive.
+ * GET /api/capabilities — raw transport. Returns the WHOLE manifest or throws.
+ *
+ * Deliberately NOT apiFetch: the manifest is public and unauthenticated (the server
+ * mounts it exactly like /api/instance), it must be readable pre-login so it can gate
+ * the login screen, and a stale JWT must not clearAuth() as a side effect of reading
+ * it. 10s hard timeout.
+ *
+ * No projection and no defaults here. Every decision about what a failed or partial
+ * fetch MEANS lives in lib/serverContract.js, so exactly one place interprets the
+ * manifest. The previous fetchCapabilities projected to 2 of ~9 keys and threw the
+ * rest away — including `version`, which the server publishes specifically "so an
+ * agent can tell two instances apart" — and swallowed every error into fail-closed
+ * defaults, which is how a client ends up guessing at contracts instead of reading
+ * them. That guess produced interpretStatus(), which demanded a `mounted` field from
+ * /mcp/status that no glassy-dash commit has ever emitted.
+ *
+ * @returns {Promise<{version:string, instanceId:string, accessMode:string, deploymentLocality:string, capabilities:object}>}
+ * @throws {ApiError} on no-baseUrl, non-ok, or malformed body
  */
-export const DEFAULT_CAPABILITIES = Object.freeze({
-  agentIdentity: Object.freeze({ available: false, mode: 'single-key' }),
-  notifications: Object.freeze({ available: false }),
-})
-
-/**
- * GET /api/capabilities — public and unauthenticated by design (the server
- * mounts it exactly like /api/instance), so this deliberately does NOT use
- * apiFetch: no JWT requirement, no clearAuth on a stale token — the gate works
- * pre-login and never logs the user out. 10s hard timeout.
- * @returns {Promise<{agentIdentity: {available, mode}, notifications: {available}}>}
- */
-export async function fetchCapabilities() {
+export async function fetchManifest() {
+  const baseUrl = await getBaseUrl()
+  if (!baseUrl) throw new ApiError(0, 'No server URL configured.')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10_000)
   try {
-    const baseUrl = await getBaseUrl()
-    if (!baseUrl) return structuredClone(DEFAULT_CAPABILITIES)
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10_000)
-    try {
-      const res = await fetch(`${baseUrl}/api/capabilities`, { signal: controller.signal })
-      if (!res.ok) return structuredClone(DEFAULT_CAPABILITIES)
-      const body = await res.json()
-      const caps = body?.capabilities
-      if (!caps || typeof caps !== 'object') return structuredClone(DEFAULT_CAPABILITIES)
-      return {
-        agentIdentity: {
-          available: caps.agentIdentity?.available === true,
-          mode: caps.agentIdentity?.mode === 'named-keys' ? 'named-keys' : 'single-key',
-        },
-        notifications: { available: caps.notifications?.available === true },
-      }
-    } finally {
-      clearTimeout(timer)
+    const res = await fetch(`${baseUrl}${API_PATHS.capabilities}`, { signal: controller.signal })
+    if (!res.ok) throw new ApiError(res.status, `Capability manifest unavailable (${res.status}).`)
+    const body = await res.json()
+    if (!body || typeof body !== 'object' || !body.capabilities || typeof body.capabilities !== 'object') {
+      throw new ApiError(0, 'Capability manifest malformed.')
     }
-  } catch {
-    return structuredClone(DEFAULT_CAPABILITIES)
+    return body
+  } finally {
+    clearTimeout(timer)
   }
 }
 
