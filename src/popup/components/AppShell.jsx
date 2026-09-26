@@ -1,15 +1,38 @@
 import React from 'react'
 
-const TABS = [
+const BASE_TABS = [
   { id: 'save', label: 'Save', icon: '🔖' },
   { id: 'note', label: 'Note', icon: '📝' },
   { id: 'search', label: 'Search', icon: '🔍' },
-  { id: 'vault', label: 'Vault', icon: '📁' },
   { id: 'kb', label: 'KB', icon: '🧠' },
 ]
 
+/**
+ * The tab list as a function of what the instance can actually serve.
+ *
+ * The vault is an APPLIANCE capability: it needs the Obsidian bridge/plugin running on
+ * the owner's own hardware, which a multi-tenant instance can never reach. This was a
+ * hardcoded constant, so the tab rendered on cloud where every vault call must fail —
+ * while the dashboard hid it correctly on the same rule (glassy-dash
+ * src/components/Sidebar.jsx:136). Exported so the surface-gate guard can assert on it
+ * without rendering.
+ *
+ * Defaults to hidden: a caller that forgets the prop fails closed.
+ */
+export function tabsFor({ vaultAvailable = false } = {}) {
+  // Copy before splicing: mutating a module-level constant would add a second Vault tab
+  // on every call after the first.
+  const tabs = [...BASE_TABS]
+  // Index 3 preserves the order users know: save, note, search, vault, kb.
+  if (vaultAvailable) tabs.splice(3, 0, { id: 'vault', label: 'Vault', icon: '📁' })
+  return tabs
+}
+
 export default function AppShell({ activeView, onNavigate, user, showSettings, onToggleSettings,
-  unreadNotifications = 0, onOpenNotifications, children }) {
+  unreadNotifications = 0, onOpenNotifications, vaultAvailable = false, children }) {
+  const TABS = tabsFor({ vaultAvailable })
+  // Layout concern, not availability: 'vault' stays listed so the tab bar renders
+  // correctly during the one frame between a redirect and its effect committing.
   const isContentView = ['save', 'note', 'search', 'vault', 'kb'].includes(activeView)
 
   return (

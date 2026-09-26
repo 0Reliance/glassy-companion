@@ -1,9 +1,9 @@
-import React, { useState, useCallback, Suspense, lazy } from 'react'
+import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react'
 import AppShell from './components/AppShell.jsx'
 import LoginCard from './components/LoginCard.jsx'
 import Skeleton from './components/Skeleton.jsx'
 import useAppState from './hooks/useAppState.js'
-import useCapabilities from './hooks/useCapabilities.js'
+import useServerContract from './hooks/useServerContract.js'
 import useNotifications from './hooks/useNotifications.js'
 import { getBaseUrl } from '../lib/auth.js'
 
@@ -32,11 +32,31 @@ export default function Popup() {
 
   const [showSettings, setShowSettings] = useState(false)
 
-  // The client-side capability gate + the awareness-lane badge (self-host only:
-  // the poller never fetches while the manifest says unavailable).
-  const { capabilities } = useCapabilities()
+  // The client-side capability gate + the awareness-lane badge (self-host only: the
+  // poller never fetches while the manifest says unavailable).
+  const { contract, resolved: contractSettled } = useServerContract()
   const isAuthed = !['loading', 'login'].includes(view)
-  const { unreadCount } = useNotifications({ available: !!(isAuthed && capabilities.notifications?.available) })
+
+  // The same conjunction the dashboard uses: the instance must support the vault AND
+  // the user must have turned it on. Gating on either alone is the defect class the
+  // capability-split guard exists to prevent — capability-only shows the vault to a
+  // self-host user who never enabled it; column-only shows it on cloud, where the
+  // profile column can survive as 1 on an instance that can never serve the feature.
+  const vaultAvailable = contract.vault.available && !!user?.obsidian_enabled
+
+  const { unreadCount } = useNotifications({
+    available: !!(isAuthed && contract.notifications.available),
+  })
+
+  // resolveInitialView() can land on 'vault' from a #vault hash or a session hint set
+  // before the manifest arrived. Without this the popup renders a vault view with no
+  // tab to leave it by. Wait for BOTH the contract and the user before deciding, or a
+  // slow manifest redirects an appliance user away from a vault they do have.
+  useEffect(() => {
+    if (view !== 'vault') return
+    if (!contractSettled || !user) return
+    if (!vaultAvailable) navigate('save')
+  }, [view, contractSettled, user, vaultAvailable, navigate])
 
   const handleOpenNotifications = useCallback(async () => {
     const baseUrl = await getBaseUrl()
@@ -63,6 +83,7 @@ export default function Popup() {
       onToggleSettings={toggleSettings}
       unreadNotifications={unreadCount}
       onOpenNotifications={handleOpenNotifications}
+      vaultAvailable={vaultAvailable}
     >
       {/* Settings overlay */}
       {showSettings && isAuthed && (

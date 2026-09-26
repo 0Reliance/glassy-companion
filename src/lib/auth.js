@@ -182,6 +182,12 @@ export async function setBaseUrl(url) {
     throw new Error('Server URL must use HTTPS, or be a local/Tailscale address (http://localhost, LAN IP, or *.ts.net).')
   }
   await chrome.storage.local.set({ [STORAGE_KEYS.baseUrl]: clean })
+  // The contract cache carries the baseUrl inside its entry, so a stale manifest cannot
+  // be READ after a switch — but drop it anyway so storage does not keep the previous
+  // instance's capabilities around. Dynamic import because serverContract.js imports
+  // getBaseUrl from THIS module; a static import here would be circular.
+  const { invalidateServerContract } = await import('./serverContract.js')
+  await invalidateServerContract()
 }
 
 /**
