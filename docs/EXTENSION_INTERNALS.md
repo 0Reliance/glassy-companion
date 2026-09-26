@@ -1,8 +1,30 @@
 # Glassy Companion — Extension Internals
 
-**Version:** 2.18.0
+**Version:** 2.20.0
 **Platform:** Manifest V3 browser extension (Chromium and Firefox release builds)
-**Last Updated:** August 27, 2026
+**Last Updated:** September 26, 2026
+
+> **v2.20.0 the manifest is the single source of truth (2026-09-26):** The extension no longer probes the
+> server per-feature. `lib/serverContract.js` reads `/api/capabilities` once, caches it 30s under a key that
+> carries the base URL (so switching servers is a cache miss by construction), dedupes concurrent callers,
+> returns stale-on-error, and fails closed only when there is nothing cached and the fetch failed. Every
+> predicate reads `=== true`, so an ABSENT manifest key fails closed exactly like a false one — which matters
+> because cloud publishes no `mcp.mounted` at all. This deleted `interpretStatus()` and the raw `/mcp/status`
+> probe: that probe demanded a `mounted` field the endpoint has never emitted in any glassy-dash commit, so the
+> AI Tools (MCP) section was unreachable on every server, worst on the appliance it exists for.
+>
+> **Capability vs liveness is now a hard line.** Capability is static per instance and gates whether a surface
+> EXISTS (Vault tab, MCP section, Bridge section, notification badge). Liveness is dynamic per feature and gates
+> its STATE (`lib/obsidianStatus.js`, shared and cached, replacing four independent `getObsidianStatus()` calls
+> per popup open). Conflating them is what left the Vault tab rendering on cloud while the dashboard hid it.
+> The vault gate is a conjunction — `capabilities.vault.available && user.obsidian_enabled` — matching
+> glassy-dash `Sidebar.jsx`. `src/lib/__tests__/surfaceGateGuard.test.js` fails if any of this regresses.
+>
+> **Auth destruction is a decision, not a transport side effect.** `apiFetch` takes `authPolicy`; background
+> lanes (`fetchUnreadNotifications`) report `SESSION_EXPIRED` and leave the session alone, so an advisory badge
+> poll can no longer silently log the user out. `lib/sessionWatch.js` subscribes to token removal so the popup
+> routes to login instead of stranding a logged-in shell. Requires glassy-dash v2.40.2+ for `mcp.mounted` and
+> v2.40.5+ for `capabilities.vault`; against older servers both fail closed.
 
 > **v2.18.0 bridge transport v2 (2026-08-27):** The Obsidian Bridge now carries vault WRITES, closing the glass-pane follow-up with glassy-dash. Until now the SSE proxy payload was `{requestId, method, path, body}` with a JSON-object body and no headers — every raw-markdown write (PUT checkbox toggles, PATCH add-under-heading, daily-note append, push-to-vault) fell back to the direct server→Obsidian path and 502'd on containerized self-host where only the bridge can reach Obsidian. Now: (1) the payload may carry `headers` + a raw-string `body`; both the offscreen handler (`handleBridgeProxyRequest`) and the legacy in-SW fallback forward them through `obsidianFetch`; (2) upstream response headers (ETag) relay back with the result POST so If-Match concurrency safety works via the bridge; (3) the subscribe URL advertises our version (`&extv=<version>`, because EventSource can't set headers) and the server gates transport v2 on companion ≥ 2.18.0 — older companions keep the proven v1 behavior. Also fixed: `obsidianFetch` no longer JSON-quotes string bodies or clobbers an explicit `Content-Type: text/markdown` with `application/json` — that had corrupted the extension's direct capture-to-vault push (`obsidianPush.js`) independent of the bridge. New `obsidianFetch` unit suite covers all four behaviors. See [CHANGELOG.md](../CHANGELOG.md) for details.
 > **v2.14.0 install fix (2026-07-25):** The v2.14.0 release shipped with a critical install failure — `Service worker registration failed. Status code: 15` + `Uncaught TypeError: M.call is not a function`. THREE root causes, all fixed: (1) `service-worker.js` used `chrome.runtime.onSuspend?.(callback)` — this invokes the `ChromeEvent` OBJECT as a function via optional-call. esbuild compiles `?.()` to `M.call(...)`, and Event objects have no `.call` method → the SW throws on every startup. Fixed by using `onSuspend.addListener(callback)` (the standard pattern). (2) `vite.config.js` `manualChunks.ui-components` pinned popup source files → rollup hoisted React core into the SW's import graph → SW tried to evaluate React/DOM in WorkerGlobalScope. Fixed by function-form `manualChunks(id)` that only splits `node_modules`. (3) `obsidianBridge.js` had 3 `await import()` dynamic imports → Vite injected a side-effect `import"./preload-helper-*.js"` (DOM-touching) into the SW bundle. Fixed by converting to static imports. See **Build System Safety Rules** at the end of this doc.

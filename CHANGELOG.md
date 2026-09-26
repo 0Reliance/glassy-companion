@@ -5,7 +5,104 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.20.0] — 2026-09-26 — The manifest is the single source of truth
+
+Pairs with glassy-dash v2.40.5. This release deletes code rather than adding it: the
+extension stopped probing the server per-feature and started reading the one document
+the server publishes about itself.
+
+### Fixed
+
+- **MCP settings were unreachable on every server that has ever shipped.** v2.19.0's
+  `interpretStatus()` required a `mounted` field from `GET /mcp/status`. That endpoint
+  has never emitted one in any glassy-dash commit — the field lives in
+  `/api/capabilities` (added by #125). Verified against live servers: the function
+  returned `false` on an appliance serving 40 tools, so the AI Tools section never
+  offered a key, and worst on the self-host box it exists for. The predicate was right;
+  the endpoint it consulted was wrong. Availability now comes from
+  `capabilities.mcp.mounted` through the shared contract.
+- **The Vault tab no longer renders on cloud.** `AppShell`'s tab list was a module
+  constant, so the tab appeared on instances that can never reach an Obsidian bridge —
+  while the dashboard hid it correctly on the same rule. The gate is now the conjunction
+  the dashboard uses: instance capability (`capabilities.vault.available`) **and** the
+  per-user column (`obsidian_enabled` from `/api/ext/me`). Either alone is wrong —
+  capability-only shows the vault to a self-host user who never enabled it, and
+  column-only shows it on cloud, where the profile column survives as `1` on an instance
+  that cannot serve the feature.
+- **The Obsidian Bridge and MCP settings sections are gated** the same way, so a cloud
+  user is no longer offered a bridge that cannot reach a plugin.
+- **A background poll can no longer log you out.** `apiFetch` called `clearAuth()` on any
+  401. The unread-notifications badge — documented as advisory, never load-bearing — went
+  through it and swallowed the throw, so a background tick could silently end the session
+  while the popup kept rendering a logged-in shell whose every action then failed.
+  `apiFetch` now takes an `authPolicy`; background lanes report `SESSION_EXPIRED` and
+  leave the session alone. The popup also subscribes to token removal, so an interactive
+  401 routes to login instead of stranding the UI.
+- **Minting a named key no longer dead-ends.** The config snippet was built only from the
+  `/api/ext/mcp-token` key, so copying it after minting a named key yielded the anonymous
+  one. The snippet now prefers the key you just minted.
+- **A `#vault` deep link can no longer strand you** on a vault view with no tab to leave
+  by. The popup waits for both the contract and the user before redirecting, so a slow
+  manifest cannot bounce an appliance user away from a vault they do have.
+- **Four duplicate bridge-status fetches collapsed into one.** `RelatedInVaultPanel`,
+  `TagEditor`, `QuickNoteView` and `VaultBrowserView` each called `getObsidianStatus()` on
+  mount, so one popup open meant four round trips. Failures are deliberately not cached,
+  so a bridge that blipped once cannot pin four components to a stale error.
+
+### Changed
+
+- **One server contract replaces nine availability probes.** `lib/serverContract.js` reads
+  `/api/capabilities` once, caches it 30s under a key that carries the base URL (so
+  switching servers is a cache miss by construction), dedupes concurrent callers, returns
+  stale-on-error, and fails closed only when there is genuinely nothing to trust. Every
+  predicate reads `=== true`, so an absent key fails closed exactly like a false one.
+- **Capability and liveness are now separate concepts.** Capability is static per instance
+  and gates whether a surface *exists*; liveness is dynamic per feature and gates its
+  *state*. Conflating them is what left the Vault tab on cloud.
+- **The manifest is no longer thrown away.** The old `fetchCapabilities()` kept 2 of ~9
+  keys and discarded `version`, which the server publishes specifically so a client can
+  tell two instances apart. `fetchManifest()` now returns the whole document or throws,
+  and every interpretation lives in one module.
+- **Named keys are described accurately.** The v2.19.0 copy claimed a named key made this
+  extension a principal whose saves were attributed to it. It never did: the extension
+  authenticates as you, and the server records `actor: { kind: 'human' }` on every
+  extension save — which is correct, because a person clicking Save is the person. A named
+  key identifies your *external* MCP client (Claude Desktop, Cursor, Windsurf) in the
+  activity feed. The copy now says that.
+
+### Removed
+
+- `interpretStatus()` and the raw `/mcp/status` probe — including the only unbounded fetch
+  in the extension, which had no `AbortController` and could leave the MCP pane on
+  "Checking server MCP status…" forever.
+- The `mcpEnabled` tri-state and the `ENABLE_MCP_SERVER=true` / `ENABLE_MCP_BRIDGE=true`
+  advice, which was wrong on cloud (not the user's env var to set) and, once
+  `interpretStatus` began returning false everywhere, wrong on self-host too.
+
+### Testing
+
+- **Fixtures are verbatim captures from live servers, never hand-written.** The v2.19.0
+  defect was certified by a test mocking `{ mounted: true, toolCount: 40 }` as the
+  `/mcp/status` body — a response no server has ever sent. The replacements are captured
+  from a cloud and an appliance instance with their provenance recorded in
+  `src/lib/__tests__/fixtures/README.md`, so a test can only agree with reality.
+- **A surface-gate guard** fails if an instance-only surface loses its gate, if the vault
+  conjunction is weakened to either half, or if anyone reintroduces a per-feature
+  availability probe. Every arm was verified red by sabotage before being trusted, and each
+  names the offending file. glassy-dash pins the same rule for its own frontend, but that
+  scanner stops at the repo boundary — which is how the ungated Vault tab shipped.
+- 205 → 253 tests.
+
+---
+
 ## [2.19.0] — 2026-09-22 — The companion is a principal
+
+> **Superseded in part by v2.20.0.** Two claims below were wrong and are corrected
+> there: the capability gate read a `mounted` field that `/mcp/status` has never
+> emitted (so the MCP section was unreachable), and a named key does **not** make this
+> extension a principal whose saves are attributed to it — the extension authenticates
+> as you and the server records `actor: { kind: 'human' }`, which is correct. Left
+> intact as the historical record rather than rewritten.
 
 Pairs with glassy-dash v2.40.0 (the agent-identity release). The extension now
 speaks the capability manifest and becomes a VERIFIED agent on self-host
