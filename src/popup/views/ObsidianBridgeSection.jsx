@@ -15,6 +15,7 @@ import {
   getBridgeStatus,
   testObsidianConnection,
 } from '../../lib/obsidianBridge.js'
+import { invalidateObsidianStatus } from '../../lib/obsidianStatus.js'
 
 const DEFAULT_URL = 'https://127.0.0.1:27124'
 
@@ -77,6 +78,10 @@ export default function ObsidianBridgeSection() {
       updates.token = token
     }
     const result = await saveBridgeSettings(updates)
+    // Saving bridge settings changes bridge LIVENESS, so drop the shared status cache.
+    // Without this the vault surfaces keep the pre-save answer for up to its TTL and
+    // report "not connected" right after the user fixed the connection.
+    await invalidateObsidianStatus()
     setToken('')
     setHasToken(true)
     setSaving(false)

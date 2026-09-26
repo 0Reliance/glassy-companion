@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { getTags } from '../../lib/cache.js'
-import { getVaultTags, getObsidianStatus } from '../../lib/api.js'
+import { getVaultTags } from '../../lib/api.js'
+import { getSharedObsidianStatus } from '../../lib/obsidianStatus.js'
 
 export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
   const [input, setInput] = useState('')
@@ -19,7 +20,7 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
         // Fetch Glassy tags (cached) + vault tags (if bridge connected)
         const [glassyTags, bridgeStatus] = await Promise.allSettled([
           getTags(),
-          getObsidianStatus(),
+          getSharedObsidianStatus(),
         ])
         if (cancelled) return
         const merged = []

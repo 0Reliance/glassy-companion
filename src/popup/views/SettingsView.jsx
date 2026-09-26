@@ -5,9 +5,14 @@ import { logout, getQueueLength } from '../hooks/useExtensionBridge.js'
 import AccountPicker from '../components/AccountPicker.jsx'
 import ObsidianBridgeSection from './ObsidianBridgeSection.jsx'
 import McpConnectionSection from './McpConnectionSection.jsx'
+import useServerContract from '../hooks/useServerContract.js'
 import { reconnectBridge } from '../../lib/obsidianBridge.js'
 
 export default function SettingsView({ user, onClose, onLogout }) {
+  // Instance capability decides which of these sections EXIST. Bridge liveness — is the
+  // plugin connected right now — is ObsidianBridgeSection's own business and must not be
+  // confused with this.
+  const { contract } = useServerContract()
   const [baseUrl, setBaseUrlState] = useState('')
   const [aiTag, setAiTag] = useState(true)
   const [notifications, setNotifs] = useState(true)
@@ -162,12 +167,14 @@ export default function SettingsView({ user, onClose, onLogout }) {
         <Toggle label="Desktop notifications" desc="Show notification after saving" value={notifications} onChange={setNotifs} />
       </div>
 
-      {/* MCP Connection — fetch MCP key and config snippet for AI tools */}
-      <McpConnectionSection />
+      {/* MCP Connection — only on an instance whose MCP server actually mounted.
+          Capability decides whether this section EXISTS; whether a given key exchange
+          succeeds is ENABLE_MCP_BRIDGE's business, handled inside the section. */}
+      {contract.mcp.available && <McpConnectionSection />}
 
-      {/* Obsidian Bridge — lets the extension proxy Obsidian requests for
-          the server, bypassing WSL2/Docker networking issues. */}
-      <ObsidianBridgeSection />
+      {/* Obsidian Bridge — an appliance capability: it proxies to a plugin on the
+          owner's own hardware, which a multi-tenant instance can never reach. */}
+      {contract.vault.available && <ObsidianBridgeSection />}
 
       {/* Save settings */}
       <button className="btn-accent" onClick={handleSave} disabled={saving}>

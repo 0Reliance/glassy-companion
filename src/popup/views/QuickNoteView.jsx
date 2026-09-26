@@ -4,9 +4,9 @@ import {
   appendDailyNote,
   saveNote,
   pushNoteToVault,
-  getObsidianStatus,
   ApiError,
 } from '../../lib/api.js'
+import { getSharedObsidianStatus } from '../../lib/obsidianStatus.js'
 
 /**
  * QuickNoteView — Phase B: Quick Note + Daily Note.
@@ -33,8 +33,11 @@ export default function QuickNoteView() {
   // ── Connection status ──────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
-    getObsidianStatus()
-      .then((s) => { if (!cancelled) setStatus(s) })
+    // getSharedObsidianStatus resolves null on failure rather than rejecting, so map
+    // null to {connected:false} — the empty state below keys off `status.connected`
+    // and a null status would silently skip it.
+    getSharedObsidianStatus()
+      .then((s) => { if (!cancelled) setStatus(s ?? { connected: false }) })
       .catch(() => { if (!cancelled) setStatus({ connected: false }) })
     return () => { cancelled = true }
   }, [])

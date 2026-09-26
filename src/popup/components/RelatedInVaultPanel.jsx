@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { searchVault, openInObsidian, getObsidianStatus, ApiError } from '../../lib/api.js'
+import { searchVault, openInObsidian, ApiError } from '../../lib/api.js'
+import { getSharedObsidianStatus } from '../../lib/obsidianStatus.js'
 
 /**
  * RelatedInVaultPanel — Phase C: shows vault notes related to the current page.
@@ -21,7 +22,7 @@ export default function RelatedInVaultPanel({ pageTitle }) {
   // Check bridge connection once on mount
   useEffect(() => {
     let cancelled = false
-    getObsidianStatus()
+    getSharedObsidianStatus()
       .then((s) => { if (!cancelled) setConnected(!!s?.connected) })
       .catch(() => { if (!cancelled) setConnected(false) })
     return () => { cancelled = true }

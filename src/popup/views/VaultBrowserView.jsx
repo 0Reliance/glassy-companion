@@ -4,9 +4,9 @@ import {
   readVaultFile,
   renderVaultFile,
   openInObsidian,
-  getObsidianStatus,
   ApiError,
 } from '../../lib/api.js'
+import { getSharedObsidianStatus } from '../../lib/obsidianStatus.js'
 import QuickNoteView from './QuickNoteView.jsx'
 
 /**
@@ -42,8 +42,11 @@ export default function VaultBrowserView() {
   // ── Connection status (one-time, best-effort) ──────────────────────────────
   useEffect(() => {
     let cancelled = false
-    getObsidianStatus()
-      .then((s) => { if (!cancelled) setStatus(s) })
+    // getSharedObsidianStatus resolves null on failure rather than rejecting, so map
+    // null to {connected:false} — the disconnected empty state keys off status.connected
+    // and a null status would silently skip it.
+    getSharedObsidianStatus()
+      .then((s) => { if (!cancelled) setStatus(s ?? { connected: false }) })
       .catch(() => { if (!cancelled) setStatus({ connected: false }) })
     return () => { cancelled = true }
   }, [])
