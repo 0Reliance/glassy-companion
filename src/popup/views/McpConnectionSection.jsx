@@ -14,6 +14,28 @@ import { getMcpToken, createNamedMcpKey } from '../../lib/api.js'
 import { getBaseUrl } from '../../lib/auth.js'
 import useCapabilities from '../hooks/useCapabilities.js'
 
+/**
+ * MCP availability is a JSON claim, not an HTTP status.
+ *
+ * The server's SPA catch-all answers `200 text/html` for unknown non-/api paths, so the
+ * previous `setMcpEnabled(res.ok)` reported "available" on instances where MCP is
+ * disabled — and then failed with advice about an env var the user neither owns nor
+ * needs. Requiring a JSON content type AND a positive `mounted` claim means an older
+ * server image in the field, a still-pending attach, and a genuinely disabled server all
+ * resolve to false. Never throws: the caller is a popup that must still render.
+ */
+export async function interpretStatus(res) {
+  if (!res?.ok) return false
+  const type = res.headers?.get?.('content-type') || ''
+  if (!type.includes('application/json')) return false
+  try {
+    const body = await res.json()
+    return body?.mounted === true
+  } catch {
+    return false
+  }
+}
+
 export default function McpConnectionSection() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null) // { mcpUrl, mcpToken, generated, createdAt }
@@ -36,7 +58,9 @@ export default function McpConnectionSection() {
       if (!baseUrl) { setMcpEnabled(false); return }
       try {
         const res = await fetch(`${baseUrl}/mcp/status`)
-        setMcpEnabled(res.ok)
+        // Not `res.ok`: the SPA catch-all returns 200 HTML for this path when MCP is
+        // disabled, which read as "available" on cloud. See interpretStatus.
+        setMcpEnabled(await interpretStatus(res))
       } catch {
         setMcpEnabled(false)
       }
@@ -54,7 +78,9 @@ export default function McpConnectionSection() {
       // Distinguish 403 (MCP bridge disabled on server) from other errors
       const msg = err?.message || ''
       if (msg.includes('403') || msg.includes('not enabled') || msg.includes('forbidden')) {
-        setError('MCP is not enabled on this Glassy server. Ask your admin to set ENABLE_MCP_SERVER=true and ENABLE_MCP_BRIDGE=true.')
+        // True on both instance types. The old copy told a cloud user to ask an admin to
+        // set server env vars — they are not the admin, and cloud MCP is off by design.
+        setError('MCP is not available on this Glassy server. On the self-host appliance, enable it in Settings → AI tools (MCP).')
       } else {
         setError(msg || 'Failed to fetch MCP key. Check your network connection and server URL.')
       }
