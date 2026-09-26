@@ -7,34 +7,16 @@
  * which either returns the existing MCP key or generates one on the fly.
  * The key is displayed once with a copy button; it is never stored in
  * extension storage for security (it's in the server's user_providers table).
- */
-
-import React, { useState, useCallback, useEffect } from 'react'
-import { getMcpToken, createNamedMcpKey } from '../../lib/api.js'
-import { getBaseUrl } from '../../lib/auth.js'
-import useCapabilities from '../hooks/useCapabilities.js'
-
-/**
- * MCP availability is a JSON claim, not an HTTP status.
  *
- * The server's SPA catch-all answers `200 text/html` for unknown non-/api paths, so the
- * previous `setMcpEnabled(res.ok)` reported "available" on instances where MCP is
- * disabled — and then failed with advice about an env var the user neither owns nor
- * needs. Requiring a JSON content type AND a positive `mounted` claim means an older
- * server image in the field, a still-pending attach, and a genuinely disabled server all
- * resolve to false. Never throws: the caller is a popup that must still render.
+ * Availability comes from the capability manifest via useServerContract, NOT from
+ * probing /mcp/status. See the git history for interpretStatus(): it demanded a
+ * `mounted` field from an endpoint that has never emitted one, so this section was
+ * unreachable on every server that ever shipped — worst on the appliance it exists for.
  */
-export async function interpretStatus(res) {
-  if (!res?.ok) return false
-  const type = res.headers?.get?.('content-type') || ''
-  if (!type.includes('application/json')) return false
-  try {
-    const body = await res.json()
-    return body?.mounted === true
-  } catch {
-    return false
-  }
-}
+
+import React, { useState, useCallback } from 'react'
+import { getMcpToken, createNamedMcpKey } from '../../lib/api.js'
+import useServerContract from '../hooks/useServerContract.js'
 
 export default function McpConnectionSection() {
   const [loading, setLoading] = useState(false)
@@ -42,30 +24,20 @@ export default function McpConnectionSection() {
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
   const [showKey, setShowKey] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(null) // null = checking, true/false = resolved
 
-  // glassy-dash v2.40.0: on a self-host appliance with named-keys mode, this
-  // extension can issue itself a NAMED MCP key — a verified principal. Its
-  // authorship, memory scoping and activity attribution then key off the
-  // pinned identity instead of a shared anonymous key.
-  const { capabilities } = useCapabilities()
-  const namedKeysMode = !!(capabilities.agentIdentity?.available && capabilities.agentIdentity?.mode === 'named-keys')
+  // MCP availability is the manifest's `mcp.mounted` claim — what the process actually
+  // ACHIEVED, not what the config intended (#125). `=== true`, so an older manifest
+  // with no such key fails closed. The section itself is only rendered when this is
+  // true (SettingsView), so there is no "unavailable" copy left to get wrong here.
+  const { contract } = useServerContract()
+  const mcpAvailable = contract.mcp.available
+
+  // Named keys are an appliance capability. Minting one identifies an EXTERNAL MCP
+  // client (Claude Desktop, Cursor) by name; it does not make this extension an agent.
+  // Saves from the extension are attributed to the human — extensionRoutes records
+  // actor:{kind:'human'} — and that is correct: a person clicking Save is the person.
+  const namedKeysMode = !!(mcpAvailable && contract.agentIdentity?.mode === 'named-keys')
   const [namedKey, setNamedKey] = useState(null) // { id, key, agentName } — shown ONCE
-
-  // Check if MCP is enabled on the server by hitting /mcp/status (no auth needed)
-  useEffect(() => {
-    getBaseUrl().then(async (baseUrl) => {
-      if (!baseUrl) { setMcpEnabled(false); return }
-      try {
-        const res = await fetch(`${baseUrl}/mcp/status`)
-        // Not `res.ok`: the SPA catch-all returns 200 HTML for this path when MCP is
-        // disabled, which read as "available" on cloud. See interpretStatus.
-        setMcpEnabled(await interpretStatus(res))
-      } catch {
-        setMcpEnabled(false)
-      }
-    }).catch(() => setMcpEnabled(false))
-  }, [])
 
   const handleFetch = useCallback(async () => {
     setLoading(true)
@@ -89,12 +61,16 @@ export default function McpConnectionSection() {
     }
   }, [])
 
+  // Prefer a just-minted NAMED key so "copy config" gives the user the identity they
+  // asked for. Before this the snippet was built only from result.mcpToken, so the
+  // named-key flow was a dead end: mint a key, copy the config, get the anonymous one.
+  const effectiveToken = namedKey?.key || result?.mcpToken
   const configSnippet = result
     ? JSON.stringify({
         mcpServers: {
           glassy: {
             url: result.mcpUrl,
-            headers: { Authorization: `Bearer ${result.mcpToken}` },
+            headers: { Authorization: `Bearer ${effectiveToken}` },
           },
         },
       }, null, 2)
@@ -182,10 +158,11 @@ export default function McpConnectionSection() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-            This appliance supports <strong>named agent keys</strong>: issue this
-            extension its own pinned identity ("Companion") so everything it saves
-            is attributed to it — authorship, memory, and the owner's activity feed
-            will all know it was the browser extension, not an anonymous key.
+            This appliance supports <strong>named agent keys</strong>. Mint one for an
+            external MCP client (Claude Desktop, Cursor, Windsurf) so that client is
+            identified by name in your activity feed instead of sharing one anonymous
+            key. Saves made <em>from this extension</em> are always attributed to you —
+            it acts as you, not as an agent.
           </div>
           <button
             onClick={handleIssueNamedKey}
@@ -196,7 +173,7 @@ export default function McpConnectionSection() {
               border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6,
             }}
           >
-            {loading ? 'Issuing…' : 'Issue a named key for this extension'}
+            {loading ? 'Minting…' : 'Mint a named key for an AI client'}
           </button>
         </div>
       )}
@@ -210,8 +187,8 @@ export default function McpConnectionSection() {
             Named key issued — agent: {namedKey.agentName}
           </div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>
-            Shown once, never stored by the extension. Use it as the Bearer token
-            in any MCP client you want identified as <em>Companion</em>.
+            Shown once, never stored by the extension. Paste it into your MCP client —
+            the config snippet below already uses it.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <code data-testid="named-key-value" style={{
@@ -232,25 +209,12 @@ export default function McpConnectionSection() {
         </div>
       )}
 
-      {/* Fetch button or result */}
-      {mcpEnabled === false && !result && (
-        <div style={{
-          fontSize: 11, color: '#fcd34d', lineHeight: 1.5,
-          background: 'rgba(250,204,21,0.06)', borderRadius: 6, padding: '8px',
-        }}>
-          MCP is not enabled on this Glassy server. The AI Tools integration
-          requires <code style={{color:'#a5b4fc'}}>ENABLE_MCP_SERVER=true</code>
-          and <code style={{color:'#a5b4fc'}}>ENABLE_MCP_BRIDGE=true</code>.
-        </div>
-      )}
-
-      {mcpEnabled === null && !result && (
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-          Checking server MCP status…
-        </div>
-      )}
-
-      {mcpEnabled !== false && !result && (
+      {/* Fetch button or result. There is no "MCP unavailable" branch and no
+          "Checking…" state any more: SettingsView only renders this section when the
+          manifest says mcp.mounted, so both were unreachable. The env-var advice that
+          used to live here was wrong on cloud (not the user's var to set) and, once
+          interpretStatus started returning false everywhere, wrong on self-host too. */}
+      {!result && (
         <button
           onClick={handleFetch}
           disabled={loading}

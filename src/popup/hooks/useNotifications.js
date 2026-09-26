@@ -9,7 +9,7 @@ import { fetchUnreadNotifications } from '../../lib/api.js'
  * change cannot leak a poll). The badge is advisory: failures report zero and
  * keep polling.
  *
- * @param {{ available: boolean }} notificationsCapability — from useCapabilities
+ * @param {{ available: boolean }} notificationsCapability — from useServerContract
  * @returns {{ unreadCount: number, notifications: Array }}
  */
 export default function useNotifications({ available } = { available: false }) {
