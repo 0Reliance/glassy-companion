@@ -12,6 +12,9 @@ vi.mock('../auth.js', () => ({
 const { fetchManifest, ApiError } = await import('../api.js')
 const cloud = (await import('./fixtures/manifest-cloud.json')).default
 const selfHost = (await import('./fixtures/manifest-selfhost.json')).default
+// The shape app.glassy.fyi actually serves today — predates both mcp.mounted (v2.40.2)
+// and vault (v2.40.5), so it is the only fixture that can prove absence survives transport.
+const cloudLegacy = (await import('./fixtures/manifest-cloud-v2.40.0.json')).default
 
 const jsonRes = (body, ok = true, status = 200) => ({
   ok, status, headers: { get: () => 'application/json' }, json: async () => body,
@@ -39,13 +42,27 @@ describe('fetchManifest — raw transport for the server contract', () => {
     expect(m.capabilities.agentIdentity.mode).toBe('named-keys')
   })
 
-  it('preserves the cloud fixture verbatim, including keys that are ABSENT', async () => {
-    // Cloud v2.40.0 has no mcp.mounted and no vault. Absence must survive transport so
-    // the contract can fail closed on it rather than on a defaulted-in false.
-    globalThis.fetch.mockResolvedValueOnce(jsonRes(cloud))
+  it('preserves an older manifest verbatim, including keys that are ABSENT', async () => {
+    // app.glassy.fyi serves v2.40.0 today: no mcp.mounted, no vault. Absence must
+    // survive transport untouched, so the contract fails closed on a genuinely missing
+    // key rather than on a false that the transport invented.
+    globalThis.fetch.mockResolvedValueOnce(jsonRes(cloudLegacy))
     const m = await fetchManifest()
+    expect(m.version).toBe('2.40.0')
     expect(m.capabilities.mcp.mounted).toBeUndefined()
     expect(m.capabilities.vault).toBeUndefined()
+    expect(m.instanceId).toBe('public')
+  })
+
+  it('preserves a current cloud manifest verbatim, including explicit falses', async () => {
+    // The other half: transport must not turn a server's explicit `false` into an
+    // absence, or the contract could not distinguish "withheld by design" from
+    // "server too old to say". Both must survive as the server sent them.
+    globalThis.fetch.mockResolvedValueOnce(jsonRes(cloud))
+    const m = await fetchManifest()
+    expect(m.version).toBe(cloud.version)
+    expect(m.capabilities.mcp.mounted).toBe(false)
+    expect(m.capabilities.vault).toEqual({ available: false })
     expect(m.instanceId).toBe('public')
   })
 

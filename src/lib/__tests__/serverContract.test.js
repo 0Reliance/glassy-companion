@@ -22,8 +22,12 @@ function createStorageArea() {
 // LIVE CAPTURES, not invented bodies. See fixtures/README.md for provenance. The
 // interpretStatus defect this suite exists to prevent was certified by a hand-written
 // fixture describing a response no server had ever sent.
-const cloud = (await import('./fixtures/manifest-cloud.json')).default
-const selfHost = (await import('./fixtures/manifest-selfhost.json')).default
+const cloud = (await import('./fixtures/manifest-cloud.json')).default                 // v2.40.5 public
+const selfHost = (await import('./fixtures/manifest-selfhost.json')).default           // v2.40.5 self_hosted
+// What app.glassy.fyi actually serves today: an older manifest with no `mounted` and no
+// `vault` keys at all. Kept because "absent" and "false" are different inputs that must
+// produce the same fail-closed answer, and only a real old manifest proves that.
+const cloudLegacy = (await import('./fixtures/manifest-cloud-v2.40.0.json')).default   // v2.40.0 public
 
 let local, getServerContract, invalidateServerContract, projectContract, FAIL_CLOSED, fetchManifest, getBaseUrl
 
@@ -53,28 +57,43 @@ describe('projectContract — capability predicates against live-captured fixtur
     expect(c.resolved).toBe(true)
   })
 
-  it('cloud: mcp UNavailable because `mounted` is ABSENT, not because it is false', () => {
-    // The whole point of `=== true`. Cloud v2.40.0 publishes no mounted key at all,
-    // and treating absence as availability is the interpretStatus bug inverted.
+  it('cloud: mcp UNavailable — and ABSENT and false both resolve the same way', () => {
+    // The whole point of `=== true`. v2.40.5 cloud publishes mounted:false; the older
+    // manifest app.glassy.fyi serves today publishes no mounted key at all. Both must
+    // read as unavailable — treating absence as available is interpretStatus inverted.
     expect(selfHost.capabilities.mcp.mounted).toBe(true)
-    expect(cloud.capabilities.mcp.mounted).toBeUndefined()
+    expect(cloud.capabilities.mcp.mounted).toBe(false)
+    expect(cloudLegacy.capabilities.mcp.mounted).toBeUndefined()
+
     const c = projectContract(cloud)
     expect(c.mcp.available).toBe(false)
     expect(c.mcp.enabled).toBe(false)
     expect(c.agentIdentity).toEqual({ available: false, mode: 'single-key' })
     expect(c.notifications.available).toBe(false)
     expect(c.instanceId).toBe('public')
+
+    // The legacy manifest must project identically on every gate. This is the arm that
+    // protects an extension pointed at the public origin as it stands today.
+    const legacy = projectContract(cloudLegacy)
+    expect(legacy.mcp.available).toBe(false)
+    expect(legacy.vault.available).toBe(false)
+    expect(legacy.notifications.available).toBe(false)
+    expect(legacy.agentIdentity.mode).toBe('single-key')
+    expect(legacy.version).toBe('2.40.0')
   })
 
-  it('vault fails closed while the manifest omits the key — never guesses', () => {
-    // Both fixtures predate the server change that publishes vault, so both are
-    // ABSENT here. Task 11 Step 1 re-captures after the deploy and flips the
-    // appliance arm to true; until then this pins the fail-closed behaviour.
-    expect(cloud.capabilities.vault).toBeUndefined()
-    expect(selfHost.capabilities.vault).toBeUndefined()
-    expect(projectContract(selfHost).vault.available).toBe(false)
+  it('vault follows the manifest — available on the appliance, withheld on cloud', () => {
+    // Proven against BOTH live v2.40.5 captures, not an invented body. This assertion
+    // was impossible before the server published the key: the positive arm is a real
+    // appliance manifest, and the negative arm is a real cloud one.
+    expect(selfHost.capabilities.vault).toEqual({ available: true })
+    expect(cloud.capabilities.vault).toEqual({ available: false })
+    expect(projectContract(selfHost).vault.available).toBe(true)
     expect(projectContract(cloud).vault.available).toBe(false)
-    expect(projectContract({ capabilities: { vault: { available: true } } }).vault.available).toBe(true)
+    // And an older server that publishes no vault key at all still fails closed,
+    // rather than guessing from deploymentLocality or instanceId.
+    expect(cloudLegacy.capabilities.vault).toBeUndefined()
+    expect(projectContract(cloudLegacy).vault.available).toBe(false)
   })
 
   it('a malformed or empty manifest projects fail-closed and never throws', () => {
