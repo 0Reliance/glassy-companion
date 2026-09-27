@@ -47,14 +47,21 @@ export default function McpConnectionSection() {
       const data = await getMcpToken()
       setResult(data)
     } catch (err) {
-      // Distinguish 403 (MCP bridge disabled on server) from other errors
-      const msg = err?.message || ''
-      if (msg.includes('403') || msg.includes('not enabled') || msg.includes('forbidden')) {
+      // Status-based, not string matching. This used to be
+      //   msg.includes('403') || msg.includes('not enabled') || msg.includes('forbidden')
+      // which is wrong twice over: apiFetch already throws an ApiError carrying
+      // `.status` (src/lib/api.js), so the code is available and authoritative; and
+      // matching prose means any server-side wording change silently reclassifies a
+      // 403 as a network failure — or worse, a message that merely contains "403"
+      // (a size, an ID, a note body) is misread as an entitlement denial.
+      // A non-ApiError (network down, DNS, CORS) has no .status and correctly falls
+      // through to the generic branch below.
+      if (err?.status === 403) {
         // True on both instance types. The old copy told a cloud user to ask an admin to
         // set server env vars — they are not the admin, and cloud MCP is off by design.
         setError('MCP is not available on this Glassy server. On the self-host appliance, enable it in Settings → AI tools (MCP).')
       } else {
-        setError(msg || 'Failed to fetch MCP key. Check your network connection and server URL.')
+        setError(err?.message || 'Failed to fetch MCP key. Check your network connection and server URL.')
       }
     } finally {
       setLoading(false)

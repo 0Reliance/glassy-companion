@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.20.1] — 2026-09-27 — Error classification reads the status code
+
+A small correctness release. No behaviour change beyond more accurate error copy.
+
+### Fixed
+
+- **MCP key fetch errors are classified by HTTP status, not by prose.**
+  `McpConnectionSection.handleFetch` decided "is this an entitlement denial?" with
+  `msg.includes('403') || msg.includes('not enabled') || msg.includes('forbidden')`
+  — even though `apiFetch` already throws an `ApiError` carrying the authoritative
+  `.status` (`src/lib/api.js`). The prose matcher was wrong in both directions:
+
+  - *False negative:* a server that worded its 403 differently (no "403", "not
+    enabled", or "forbidden" in the body) was reported as a network failure, telling
+    the user to check their connection when the real answer is that MCP is disabled on
+    that instance.
+  - *False positive:* any error whose message merely **contained** "403" — a byte
+    count, an ID, an echoed note body — was misread as an entitlement denial,
+    masking a genuine server error.
+
+  Both branches now key off `err?.status === 403`. A non-`ApiError` (network down, DNS,
+  CORS) has no `.status` and correctly falls through to the generic copy.
+
+### Tests
+
+- New `src/popup/views/__tests__/McpConnectionSection.test.jsx` (4 cases) asserting on
+  the real `ApiError` class, not on message wording. The two central cases are exactly
+  the false negative and the false positive above.
+- **Both were proven to fail against the old implementation** by temporarily restoring
+  the prose matcher (`2 failed | 2 passed`). A regression test that passes against the
+  bug it claims to prevent is not a test.
+- Full suite: **258 passing** (was 254).
+
+### Notes
+
+- The sibling handler `handleIssueNamedKey` already used `err?.status === 409/403`; this
+  brings `handleFetch` in line with it rather than inventing a new convention.
+- Pairs with glassy-dash v2.40.5 (unchanged from v2.20.0).
+
+---
+
 ## [2.20.0] — 2026-09-26 — The manifest is the single source of truth
 
 Pairs with glassy-dash v2.40.5. This release deletes code rather than adding it: the
