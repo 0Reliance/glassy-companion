@@ -2122,3 +2122,25 @@ Checks run against the spec while writing this plan:
 - **Type consistency.** `fetchManifest`, `getServerContract`, `projectContract`, `invalidateServerContract`, `FAIL_CLOSED`, `useServerContract`, `tabsFor`, `getSharedObsidianStatus`, `invalidateObsidianStatus`, `watchSessionEnd`, `authPolicy` are each defined once and referenced by that exact name everywhere they appear.
 - **Known mid-refactor red.** After Task 4, and again after Task 6, the full suite is intentionally RED because `McpConnectionSection.test.js` still imports a symbol Task 7 deletes. Both tasks say so explicitly. Do not "fix" it by reverting.
 
+
+---
+
+## Deferred to v2.20.1 (recorded so it is not silently lost)
+
+**`McpConnectionSection.jsx` `handleFetch` classifies a 403 by string-matching the error
+message** (`msg.includes('403') || msg.includes('not enabled') || msg.includes('forbidden')`)
+when `ApiError.status` is available and reliable.
+
+Verified currently CORRECT, not broken: the server answers
+`403 {error: 'MCP bridge feature is not enabled'}`, `apiFetch` surfaces `errBody.error` as
+the message, so the `'not enabled'` arm matches. This path stays reachable because
+`ENABLE_MCP_BRIDGE` (which gates `/api/ext/mcp-token`) is a different flag from
+`ENABLE_MCP_SERVER` (which drives `mcp.mounted`) — an appliance can have MCP mounted and
+the bridge off.
+
+Deliberately NOT fixed in v2.20.0: the release was already tagged, published, and its
+artifacts verified downloadable. Editing source after tagging would recreate the exact
+source/artifact drift this release existed to remove — v2.19.0 shipped a Sep 23 zip under a
+version whose source had moved on Sep 26. A brittle-but-correct string match does not
+justify a second divergence. Fix it in v2.20.1 as `err?.status === 403`, with a test that
+asserts on the status rather than the wording.
