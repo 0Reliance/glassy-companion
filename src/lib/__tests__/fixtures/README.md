@@ -9,26 +9,28 @@ certified the bug instead of catching it. A fixture is evidence or it is nothing
 
 Re-capture with:
 
-    curl -s http://localhost:3000/api/capabilities      -o manifest-cloud.json
-    curl -s http://localhost:3011/api/capabilities      -o manifest-selfhost.json
-    curl -s https://glassy.fyi/api/capabilities         -o manifest-cloud-v2.40.0.json
+    curl -s https://app.glassy.fyi/api/capabilities   -o manifest-cloud.json
+    curl -s http://localhost:3010/api/capabilities    -o manifest-selfhost.json
 
-`manifest-selfhost.json` needs a container running with `INSTANCE_ID=self_hosted`
-`DEPLOYMENT_LOCALITY=local` `ENABLE_MCP_SERVER=true`. The published `sh-rig` image lags
-a fresh deploy, so capture from a throwaway container built from the current
-`glassy-dash:prod` image instead of assuming the rig has moved.
+`manifest-selfhost.json` must come from a container running with `INSTANCE_ID=self_hosted`
+`DEPLOYMENT_LOCALITY=local` `ENABLE_MCP_SERVER=true`. Prefer `sh-rig`, which
+`deploy/selfhost-verify/run-rig-against-image.sh` boots from the **published** GHCR image
+— that way the fixture and the Phase A rig result describe the same bytes, identified by
+digest. A locally-built image can disagree with what was released.
 
 | File | Captured | Source | `mcp.mounted` | `vault` |
 |---|---|---|---|---|
-| `manifest-cloud.json` | 2026-09-26 | `glassy-dash-prod` @ `127.0.0.1:3000`, v2.40.5, `instanceId: public`, revision `ef93e014` | `false` | `{"available":false}` |
-| `manifest-selfhost.json` | 2026-09-26 | throwaway `sh-cap` container from the same v2.40.5 image @ `127.0.0.1:3011`, `INSTANCE_ID=self_hosted`, `deploymentLocality: local` | `true` (40 tools) | `{"available":true}` |
-| `manifest-cloud-v2.40.0.json` | 2026-09-26 | `https://glassy.fyi` — the public origin as it actually serves today, v2.40.0 | absent | absent |
+| `manifest-cloud.json` | 2026-09-27 | `https://app.glassy.fyi` — the real public origin (served by `glassy-dash-prod` on **pozi200**), v2.40.5, `instanceId: public`, `deploymentLocality: cloud` | `false` (36 tools) | `{"available":false}` |
+| `manifest-selfhost.json` | 2026-09-27 | `sh-rig` running the **published** `ghcr.io/0reliance/glassy-dash:v2.40.5` @ `127.0.0.1:3010`, digest `sha256:251c5f38dfe01faf6007ce2129fcec5f542fdb232d98621c743403966d9db29f`, `instanceId: self_hosted` | `true` (40 tools) | `{"available":true}` |
+| `manifest-cloud-v2.40.0.json` | 2026-09-26 | `https://glassy.fyi` **as it served before the v2.40.5 pozi200 release**, v2.40.0 | absent | absent |
 
-The third file is not redundant. It is the shape `app.glassy.fyi` — the extension's
-`DEFAULT_BASE_URL` — really returns, and it predates both `mcp.mounted` (v2.40.2) and
-`vault` (v2.40.5). "Key absent" and "key false" are different inputs that must produce
-the same fail-closed answer, and only a genuine old manifest proves that rather than
-asserting it against a hand-written `{}`.
+The third file is a **historical capture that can no longer be re-taken** — the public
+origin has since moved to v2.40.5. Keep it. It is the only fixture where `mcp.mounted`
+and `vault` are genuinely *absent* rather than `false`, and those are different inputs
+that must produce the same fail-closed answer. Appliances in the field still serve this
+shape (the keys arrived in v2.40.2 and v2.40.5 respectively), so "absent" is a live case,
+not a historical curiosity. Asserting it against a hand-written `{}` would prove nothing
+— that is precisely the mistake that produced `interpretStatus`.
 
-Re-capture after any server release that changes the manifest, and update this table.
-A fixture whose provenance is unknown is worse than no fixture.
+Re-capture the first two after any server release that changes the manifest, and update
+this table. A fixture whose provenance is unknown is worse than no fixture.
