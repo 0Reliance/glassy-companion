@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Glassy Companion",
+  "name": "Glassy Capture",
   "version": "2.20.1",
-  "description": "Save bookmarks, notes, and highlights to your Glassy dashboard with automatic tagging",
+  "description": "Capture webpages, bookmarks, notes, and highlights straight to your Glassy workspace",
   "permissions": [
     "activeTab",
     "contextMenus",

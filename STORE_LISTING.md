@@ -1,11 +1,11 @@
-# Glassy Companion — Chrome Web Store Listing
+# Glassy Capture — Chrome Web Store Listing
 
 ## Short Description (132 characters max)
 Save bookmarks, notes, and highlights to your Glassy dashboard. Smart tagging, structured capture, and knowledge base search.
 
 ## Full Description
 
-Glassy Companion is the browser extension for Glassy — the companion to your Glassy second brain. Save anything you find online directly to your Glassy knowledge base with one click.
+Glassy Capture is your instant intake system — capture anything you find online and save it straight to your Glassy knowledge base with one click.
 
 ### Features
 
@@ -70,7 +70,7 @@ Glassy Companion is the browser extension for Glassy — the companion to your G
 - Saving bookmarks requires GlassyKeep — a $15 one-time unlock, included free in Glassy Pro. Signing in and taking notes are free.
 
 ### Open Source
-Glassy Companion is open source. View the code and contribute at github.com/0Reliance/glassy-companion
+Glassy Capture is open source. View the code and contribute at github.com/0Reliance/glassy-companion
 
 ## Category
 Productivity

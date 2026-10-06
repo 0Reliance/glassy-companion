@@ -460,7 +460,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 async function backgroundSave(mode, payload, tab) {
   const token = await getToken()
   if (!token) {
-    showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
+    showNotification('Not logged in', 'Open the Glassy Capture popup to log in.', 'error')
     return
   }
 
@@ -545,7 +545,7 @@ async function saveHighlightFromContext(tab) {
 
   const token = await getToken()
   if (!token) {
-    showNotification('Not logged in', 'Open the Glassy Companion popup to log in.', 'error')
+    showNotification('Not logged in', 'Open the Glassy Capture popup to log in.', 'error')
     return
   }
 

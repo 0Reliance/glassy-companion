@@ -1,10 +1,10 @@
-# Privacy Policy — Glassy Companion
+# Privacy Policy — Glassy Capture
 
 **Last Updated:** June 13, 2026
 
 ## Overview
 
-Glassy Companion is a browser extension that helps you save bookmarks, notes, and highlights to your Glassy dashboard. This privacy policy explains what data the extension accesses and how it is handled.
+Glassy Capture is a browser extension that helps you save bookmarks, notes, and highlights to your Glassy dashboard. This privacy policy explains what data the extension accesses and how it is handled.
 
 ## Data Collection & Transmission
 
@@ -58,7 +58,7 @@ The extension makes API calls only to the Glassy server you configure. No third-
 
 ## Children's Privacy
 
-Glassy Companion is not directed at children under 13. We do not knowingly collect personal information from children.
+Glassy Capture is not directed at children under 13. We do not knowingly collect personal information from children.
 
 ## Contact
 

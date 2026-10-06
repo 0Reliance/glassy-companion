@@ -1,6 +1,6 @@
-# Glassy Companion
+# Glassy Capture
 
-**Glassy Companion** is a premium Manifest V3 browser extension that captures bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries from any webpage directly to [Glassy](https://github.com/0Reliance/glassy).
+**Glassy Capture** is your instant intake system — a Manifest V3 browser extension that captures webpages, screengrabs, bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries directly to [Glassy](https://github.com/0Reliance/glassy), from the app you're already working in.
 
 [![Version](https://img.shields.io/badge/version-2.20.1-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
