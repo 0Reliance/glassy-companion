@@ -1,5 +1,5 @@
 /**
- * Glassy Companion — Interpreter Registry
+ * Glassy Capture — Interpreter Registry
  *
  * Detects the current site and dispatches to a specialized interpreter
  * for enriched metadata extraction. Falls back to generic extraction.

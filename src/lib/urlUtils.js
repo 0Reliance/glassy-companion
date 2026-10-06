@@ -1,5 +1,5 @@
 /**
- * Shared URL utilities for Glassy Companion.
+ * Shared URL utilities for Glassy Capture.
  */
 
 /** Extract hostname from URL safely. */

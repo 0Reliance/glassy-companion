@@ -1,5 +1,5 @@
 /**
- * KbSearchView — Knowledge Base search UI for the Glassy Companion popup.
+ * KbSearchView — Knowledge Base search UI for the Glassy Capture popup.
  *
  * Uses the hybrid search API (POST /api/kb/query) to search across bookmarks,
  * notes, and vault files. Displays results grouped by source type with

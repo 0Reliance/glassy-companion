@@ -1,5 +1,5 @@
 /**
- * Glassy Companion — Offscreen Document (MV3 Workaround)
+ * Glassy Capture — Offscreen Document (MV3 Workaround)
  *
  * Chrome MV3 kills service workers after ~30s of inactivity. Heavy save
  * operations (content script extraction, Markdown formatting, API calls)

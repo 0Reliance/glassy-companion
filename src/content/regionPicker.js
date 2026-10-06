@@ -1,5 +1,5 @@
 /**
- * Glassy Companion — Region Screenshot Picker
+ * Glassy Capture — Region Screenshot Picker
  *
  * Dark overlay with drag-to-select rectangle. When the user releases the mouse,
  * the selected viewport coordinates are sent to the service worker for capture

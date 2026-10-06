@@ -1,5 +1,5 @@
 /**
- * Glassy Companion — Visual Element Picker
+ * Glassy Capture — Visual Element Picker
  *
  * Injected into pages when the user activates "Capture Element" mode.
  * Provides a hover-to-highlight + click-to-select UX for capturing

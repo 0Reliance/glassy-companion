@@ -1,5 +1,5 @@
 /**
- * Glassy Companion — Service Worker (Manifest V3)
+ * Glassy Capture — Service Worker (Manifest V3)
  */
 
 import { getToken, verifyToken, clearAuth, setActiveAccountId, getActiveAccountId, getCachedUser } from '../lib/auth.js'
