@@ -24,8 +24,8 @@ Glassy Capture is your instant intake system — capture anything you find onlin
 **🔌 MCP Bridge**
 - Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets
 - Live server URL via `window.location.origin + '/mcp'`
-- Pairs with the Glassy MCP server (glassy-dash v2.40.5+) — 40 tools, 4 prompts, 9
-  resources on a self-host appliance; 36 tools on the hosted service, where the four
+- Pairs with the Glassy MCP server (glassy-dash v2.40.5+) — 41 tools, 4 prompts, 9
+  resources on a self-host appliance; 37 tools on the hosted service, where the four
   self-host-only tools are withheld by design and named as such in the capability
   manifest
 
