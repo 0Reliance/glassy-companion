@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 Product documentation
+    url: https://docs.glassy.fyi
+    about: Install, capture pipeline, Obsidian vault integration, and the changelog.
+  - name: 🧭 The AI Agent Brief
+    url: https://github.com/0Reliance/glassy-selfhost/blob/main/GIVE-THIS-TO-YOUR-AI-AGENT.md
+    about: The self-host agent onboarding brief (MCP contracts, memory, review loop, ops facts).
+  - name: 🏠 Glassy home
+    url: https://glassy.fyi
+    about: Product overview and download links.
