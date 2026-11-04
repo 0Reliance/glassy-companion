@@ -21,7 +21,7 @@
   manifests, and local v2.20.1 ZIP/XPI manifests agree. Older archives are
   historical outputs, not evidence that the current build is v2.11.0.
 - Use Glassy's newest released versioned appliance image for the latest
-  server-side fixes — **v2.62.2** as of November 4, 2026 (check the
+  server-side fixes — **v2.62.3** as of November 4, 2026 (check the
   [appliance releases page](https://github.com/0Reliance/glassy-selfhost/releases) for the
   current tag). `:latest` / `:main` are hosted builds; `:selfhost-main`
   is a floating appliance build for testing. **v2.40.2 or newer is required for
@@ -30,7 +30,7 @@
   v2.40.5). Against an older appliance both fail closed, so the AI Tools and
   Vault surfaces stay hidden rather than guess — and the much older
   `v2.36.0-beta.40` image this README previously recommended has no
-  `/api/capabilities` endpoint at all. The v2.52.x–v2.62.2 server waves
+  `/api/capabilities` endpoint at all. The v2.52.x–v2.62.3 server waves
   (sync cycle contract, embeddings namespace model, the pair token as a
   Settings value) touched none of the extension's `/api/ext/*` + `/api/captures`
   surfaces, so no companion release was needed; capture content that used to be
