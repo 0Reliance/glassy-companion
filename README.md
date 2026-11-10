@@ -36,7 +36,7 @@
   the extension's `/api/ext/*` + `/api/captures` request and response shapes, so
   no companion release was needed. Two things a person may notice: the server's
   error messages there are rewritten in plain words (status codes and `code`
-  values unchanged), and since v2.63 **AI summary** (`/api/ext/ai/summarize`)
+  values unchanged), and as of v2.65.16 **AI summary** (`/api/ext/ai/summarize`)
   draws on Glassy AI credits unless the person uses their own key, answering
   with the server's AI message when there are none. The extension's Knowledge
   Base tab predates v2.63's one search: its Vault filter sends a source name the
