@@ -59,9 +59,9 @@ export default function McpConnectionSection() {
       if (err?.status === 403) {
         // True on both instance types. The old copy told a cloud user to ask an admin to
         // set server env vars — they are not the admin, and cloud MCP is off by design.
-        setError('MCP is not available on this Glassy server. On the self-host appliance, enable it in Settings → AI tools (MCP).')
+        setError('Agent access isn’t on for this Glassy. On your own Glassy, turn it on in Settings → Connections & data → Agent access (MCP).')
       } else {
-        setError(err?.message || 'Failed to fetch MCP key. Check your network connection and server URL.')
+        setError(err?.message || 'The key didn’t arrive. Check that your Glassy is reachable and the address in Settings is right, then try again.')
       }
     } finally {
       setLoading(false)
@@ -113,11 +113,11 @@ export default function McpConnectionSection() {
     } catch (err) {
       const msg = err?.message || ''
       if (err?.status === 409 || /already exists/i.test(msg)) {
-        setError('A Companion key already exists. Use the MCP key manager (Settings on the dashboard) to revoke it first if you lost the key.')
+        setError('This extension already has a key. If you lost it, revoke the old one in Glassy under Settings → Connections & data → Agent access (MCP), then make a new one here.')
       } else if (err?.status === 403) {
-        setError('Named keys are a self-host capability — this server is the hosted service.')
+        setError('A key of its own for each agent comes with Glassy on your own machine or server. On our cloud, use the one key above.')
       } else {
-        setError(msg || 'Failed to issue a named key.')
+        setError(msg || 'The key wasn’t made. Try again in a moment.')
       }
     } finally {
       setLoading(false)

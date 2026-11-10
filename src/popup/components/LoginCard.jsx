@@ -40,7 +40,7 @@ export default function LoginCard({ onLoginSuccess }) {
       setServerError('')
       setEditingServer(false)
     } catch (err) {
-      setServerError(err.message || 'Invalid server URL.')
+      setServerError(err.message || 'That doesn’t look like a Glassy address. It should start with https://.')
     }
   }
 

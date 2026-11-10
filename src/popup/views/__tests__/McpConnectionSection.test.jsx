@@ -52,8 +52,8 @@ vi.mock('../../hooks/useServerContract.js', () => ({
 const { default: McpConnectionSection } = await import('../McpConnectionSection.jsx')
 const { ApiError } = await import('../../../lib/api.js')
 
-const ENTITLEMENT_COPY = 'MCP is not available on this Glassy server'
-const GENERIC_COPY = 'Failed to fetch MCP key'
+const ENTITLEMENT_COPY = 'Agent access isn’t on for this Glassy'
+const GENERIC_COPY = 'The key didn’t arrive'
 
 describe('McpConnectionSection classifies errors by status, not by message wording', () => {
   let container, root

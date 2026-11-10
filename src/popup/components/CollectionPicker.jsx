@@ -89,7 +89,7 @@ export default function CollectionPicker({ value, onChange }) {
                   setNewName('')
                   setOpen(false)
                 } catch (err) {
-                  setCreateError(err.message || 'Failed to create')
+                  setCreateError(err.message || 'That collection wasn’t made. Try again in a moment.')
                 }
               }} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input

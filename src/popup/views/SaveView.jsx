@@ -68,7 +68,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
       const notePayload = typeof payload === 'string'
         ? {
             content: payload.trim(),
-            title: payload.trim().split('\n')[0].slice(0, 100) || 'AI summary',
+            title: payload.trim().split('\n')[0].slice(0, 100) || 'Note from the web',
             content_format: 'markdown',
             ...(pageMeta?.url ? { source_url: pageMeta.url, source_title: pageMeta.title || pageMeta.url } : {}),
           }
@@ -113,6 +113,8 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         onSaveAnother={resetSaveStatus}
         onUndo={undoHandler}
         multiAccount={Array.isArray(user?.accounts) && user.accounts.length > 1}
+        pageTitle={pageMeta?.title || ''}
+        pageUrl={pageMeta?.url || ''}
       />
     )
   }

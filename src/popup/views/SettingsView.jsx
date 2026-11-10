@@ -55,7 +55,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
         } catch (err) {
           // URL policy rejection (plain http on a non-local host, etc.).
           // Surface it inline instead of leaving the button stuck saving.
-          setUrlError(err?.message || 'Invalid server URL.')
+          setUrlError(err?.message || 'That doesn’t look like a Glassy address. It should start with https://.')
           return
         }
         await invalidateCollections()
@@ -72,7 +72,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     } catch {
-      setUrlError('Could not save settings. Please try again.')
+      setUrlError('Your settings weren’t saved, so the old ones still apply. Try again in a moment.')
     } finally {
       setSaving(false)
     }

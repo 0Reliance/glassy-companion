@@ -203,17 +203,31 @@ export function saveBookmark(payload) {
 }
 
 /**
+ * POST /api/ext/calendar/events — add an event to the person's own Glassy calendar
+ * (its default local calendar). With calendar sync on, it shows on every Glassy they pair.
+ * Body: { title, startAt, endAt?, description? } — ISO dates.
+ */
+export function createCalendarEvent(payload) {
+  return apiFetch(API_PATHS.calendarEvents, { method: 'POST', body: payload })
+}
+
+/**
+ * When "read it later" lands, in the person's own time zone: tomorrow at 9:00, or the
+ * same day next week at 9:00. Half an hour long.
+ */
+export function reminderTimes(when, now = new Date()) {
+  const start = new Date(now)
+  start.setDate(start.getDate() + (when === 'week' ? 7 : 1))
+  start.setHours(9, 0, 0, 0)
+  const end = new Date(start.getTime() + 30 * 60 * 1000)
+  return { startAt: start.toISOString(), endAt: end.toISOString() }
+}
+
+/**
  * POST /api/ext/notes — create a Glassy note from selected text.
  */
 export function saveNote(payload) {
   return apiFetch(API_PATHS.notes, { method: 'POST', body: payload })
-}
-
-/**
- * POST /api/ext/ai/summarize — AI-summarize page text.
- */
-export function summarizePage(payload) {
-  return apiFetch(API_PATHS.aiSummarize, { method: 'POST', body: payload })
 }
 
 /**

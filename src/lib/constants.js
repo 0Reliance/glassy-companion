@@ -7,6 +7,7 @@ export const API_PATHS = {
   login: '/api/auth/login',
   me: '/api/ext/me',
   ping: '/api/ext/ping',
+  calendarEvents: '/api/ext/calendar/events',
   collections: '/api/ext/collections',
   checkUrl: '/api/ext/check-url',
   bookmarks: '/api/ext/bookmarks',
@@ -15,7 +16,6 @@ export const API_PATHS = {
   tags: '/api/ext/tags',
   documents: '/api/ext/documents',
   notes: '/api/ext/notes',
-  aiSummarize: '/api/ext/ai/summarize',
   // Search uses the Keep API surface which natively supports ?q= full-text search
   searchBookmarks: '/api/keep/bookmarks',
   captures: '/api/captures',
@@ -75,7 +75,7 @@ export const CTX_QUICK_NOTE = 'glassy_quick_note'
 // Alarm names
 export const ALARM_OFFLINE_SYNC = 'glassy_offline_sync'
 
-// Max characters extracted from page body for AI summary
+// Max characters of page body text the extractor keeps
 export const MAX_PAGE_TEXT_CHARS = 5000
 
 // Cache TTLs

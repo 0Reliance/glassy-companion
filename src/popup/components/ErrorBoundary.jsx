@@ -11,7 +11,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || 'Something went wrong.' }
+    return { hasError: true, message: error?.message || 'This part of Glassy Capture stopped working. Close the popup and open it again.' }
   }
 
   componentDidCatch(error, info) {
