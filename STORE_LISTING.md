@@ -39,13 +39,13 @@ Glassy Capture is your instant intake system — capture anything you find onlin
 
 **🔍 Knowledge Base Search**
 - Search your entire Glassy library from the browser
-- Filter by bookmarks, notes, or vault files
-- Relevance-ranked results with source badges
+- Filter by notes, docs, bookmarks, voice, or vault files
+- Ranked by meaning and by your words; a result opens the item in Glassy
 
 **🧠 Smart Features**
 - Automatic content type detection (article, video, repo, bookmark)
 - Smart tag suggestions
-- Page summarization
+- Remind me to read it: one tap adds the page to your Glassy calendar
 
 **📝 Obsidian Bridge**
 - Connect the Glassy server to your Obsidian vault via the extension

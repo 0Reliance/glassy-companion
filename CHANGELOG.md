@@ -1,9 +1,48 @@
-# Changelog — Glassy Companion
+# Changelog — Glassy Capture
 
 All notable changes to the Glassy browser extension are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+
+## [2.21.0] — 2026-11-10 — Search speaks Glassy's one search, and a save can remind you to read it
+
+Pairs with Glassy 2.63 and later (the one search). Requires glassy-dash ≥ v2.40.5. No new permissions.
+
+### Fixed
+
+- **The Knowledge Base tab searches what its tabs say.** The Vault tab sent `vault_files`,
+  a source name the server doesn't know, so it answered with every type. The tabs now use
+  the server's own names: Notes, Docs, Bookmarks, Voice, Vault (`routes/kb.js`
+  `SOURCE_TYPE_MAP`). Docs and Voice are new.
+- **A result opens the item itself** on your Glassy, in a new tab: the note, the document,
+  Keep searched for the bookmark, the vault file, or Voice. A relative `#/notes` link used
+  to stay inside the popup.
+- **"Search is off" is decided by status, not by words.** The server rewrote its messages
+  in v2.63–v2.65; a 403 from `/api/kb/query` means search is turned off on that Glassy,
+  whatever its wording.
+- **No more "still indexing"** when Glassy simply has no meaning vectors: since v2.63, word
+  search works without them. The tab now says it is searching by words for now.
+
+### Added
+
+- **Remind me to read it.** After a save, one tap adds "Read: <page>" to your Glassy
+  calendar for tomorrow or next week at 9:00, through `POST /api/ext/calendar/events`. With
+  calendar sync on, it shows on every Glassy you pair. An older Glassy without the route
+  says so.
+
+### Changed
+
+- **Plain words.** The save card ("Saved", "Saved on this device", "Not saved"), the search
+  states, the settings and server-address errors, and the agent-key messages are rewritten:
+  what happened, what it means, what to do. The agent-key messages name the real place in
+  Glassy (Settings → Connections & data → Agent access (MCP)).
+
+### Removed
+
+- **AI summary.** Its screen was removed in v2.9.0, but the README and the store listing
+  still advertised it. The unused `summarizePage` call and `SummaryCard` are gone, and so
+  is the claim.
 
 ## [2.20.1] — 2026-09-27 — Error classification reads the status code
 

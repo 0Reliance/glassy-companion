@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Capture",
-  "version": "2.20.1",
+  "version": "2.21.0",
   "description": "Capture webpages, bookmarks, notes, and highlights straight to your Glassy workspace",
   "permissions": [
     "activeTab",

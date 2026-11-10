@@ -1,8 +1,8 @@
 # Glassy Capture
 
-**Glassy Capture** is your instant intake system — a Manifest V3 browser extension that captures webpages, screengrabs, bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and AI-generated summaries directly to [Glassy](https://github.com/0Reliance/glassy), from the app you're already working in.
+**Glassy Capture** is your instant intake system — a Manifest V3 browser extension that captures webpages, screengrabs, bookmarks, structured Smart Save items, full-page saves, highlights, quick notes, and read-it-later reminders directly to [Glassy](https://github.com/0Reliance/glassy), from the app you're already working in.
 
-[![Version](https://img.shields.io/badge/version-2.20.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.21.0-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 
@@ -13,12 +13,12 @@
 - Workspace-wide admin view: `/home/pozi/WORKSPACE_ADMIN.md`
 - Shared product/platform backlog: `/home/pozi/glassy-dash/docs/NEXT_STEPS.md`
 - Repo-local release/distribution state: this README
-- **Current state (October 28, 2026):** v2.20.1 — **errors are classified by status code, not by prose** — requires glassy-dash ≥ v2.40.5. The MCP key fetch used to decide "is this an entitlement denial?" by matching words in the error message (`includes('403')`, `includes('not enabled')`, `includes('forbidden')`) even though `apiFetch` already throws an `ApiError` carrying the authoritative `.status`. That misfired in both directions: a server that worded its 403 differently was reported as a network failure, telling users to check their connection when the real answer is that MCP is off on that instance; and any error whose text merely contained "403" — a byte count, an ID, an echoed note body — was misread as an entitlement denial. Both are now classified on `err.status === 403` and both are regression-tested, with the tests confirmed by sabotage to fail against the old prose matching. No behaviour change beyond more accurate error copy. v2.20.0 (previous, September 26 2026) — **the manifest is the single source of truth** — requires glassy-dash ≥ v2.40.5. The extension stopped probing the server per-feature and started reading the one document the server publishes about itself: `lib/serverContract.js` fetches `/api/capabilities` once, caches it 30s under a key carrying the base URL (so switching servers is a miss by construction), dedupes concurrent callers, returns stale-on-error, and fails closed only when there is nothing to trust. That replaces nine independent availability probes and fixes what they were hiding — most importantly the AI Tools (MCP) section, which v2.19.0 gated on a `mounted` field that `/mcp/status` has never emitted in any server release, so it was unreachable everywhere and worst on the appliance it exists for. The 📁 Vault tab and the Obsidian Bridge settings section now gate on the same conjunction the dashboard uses (instance capability AND the per-user `obsidian_enabled`), so they no longer render on cloud where every call must fail. A background poll can no longer log you out: `apiFetch` takes an `authPolicy`, and the popup routes to login on token removal instead of stranding a logged-in shell whose every action fails. Named MCP keys are described accurately — they identify your *external* MCP client in the activity feed; saves from this extension are attributed to you, because you are the one clicking Save. v2.19.0 (previous, September 22 2026) — **the companion is a principal** — pairs with glassy-dash v2.40.0: the extension began speaking the `/api/capabilities` manifest with a FAIL-CLOSED client gate, the AI Tools (MCP) section could mint a NAMED agent key on self-host named-keys appliances, a 🔔 unread agent-notification badge rode the popup header (self-host only), and the 🧠 KB tab surfaced the server's degraded-lane diagnostics. v2.18.1 (previous, September 10 2026) — **bridge reconnect hardening** — reduces the offscreen SSE reconnect delay 5000ms → 1000ms so the bridge recovers faster when the connection drops; paired with the glassy-dash server heartbeat reduction (first `ping` immediate, interval 20s → 5s), this fixes the ~5s subscribe-churn cycle on self-host (0Reliance/glassy#25-F2). v2.18.0 (previous, August 27 2026) — **bridge transport v2** — completes the Obsidian glass-pane follow-up with glassy-dash: the SSE bridge now carries raw bodies + request headers and relays upstream response headers (ETag) back, so vault WRITES (tap-to-toggle checkboxes, add-under-heading, daily-note append, push-to-vault) work when the extension is the only path to Obsidian on containerized self-host (previously reads worked but writes fell back to the unreachable direct path and 502'd). Also fixes `obsidianFetch` corrupting raw markdown bodies (`JSON.stringify`-quoted + forced `application/json`), which affected the extension's direct capture-to-vault push. The server gates transport v2 on the advertised version (`&extv=` on the subscribe URL); companions ≤ 2.17.1 keep the proven v1 behavior. v2.17.1 (previous) was the **save & sync reliability release**: capture-rule pre-population actually works (the `/api/capture-rules` `{ rules: [...] }` envelope was never unwrapped, so Smart Save auto-fill had been silently inert since v2.2.0); transient 5xx no longer logs users out (`verifyToken()` clears only on a real 401); offline-queue flush drop/pause semantics fixed; popup saves queue offline. v2.16.0 added the **MCP Settings UI**. v2.15.0 shipped the **Obsidian Vault Companion**. v2.14.0 shipped the **Obsidian Bridge Deep-Fix** + critical install fix. **Self-hosted beta is live** — `ghcr.io/0reliance/glassy-dash:v2.57.0` is the versioned self-host image (the newest release target as of October 30, 2026). `:latest` and `:main` are hosted builds, not substitutes for the self-host pin; `:selfhost-main` is the floating self-host build for testers. Dash v2.36.0-beta.25 (Sep 8, deployed to all 4 containers) carries the Temporal Spine calendar completion + public window typography parity; the extension is unaffected — its `/api/ext/*` + `/api/captures` surfaces are untouched, and no companion release was needed. MCP posture, corrected 2026-10-27: the 2026-09-07 "self-host-only" split now carries a written supersession (docs/decisions/2026-10-24-mcp-on-cloud.md) — MCP ships on cloud in single-key mode when its mount is enabled there; the Second Brain corpus pane stays appliance-only, and named agent keys remain self-host-only. The hosted instances now answer `mcp.enabled=true` with 37 tools in single-key mode (measured 2026-10-30 on v2.57.0), and the extension does not hardcode the split either way — it follows the instance's /api/capabilities manifest fail-closed, so it adapts without a release when a hosted instance flips the mount. Remaining: manual upload to CWS + AMO (gated on user browser auth).
+- **Current state (November 10, 2026):** v2.21.0 — **search speaks Glassy's one search, and a save can remind you to read it.** The Knowledge Base tab searches notes, docs, bookmarks, voice and vault with the server's own source names (the Vault filter used to return everything), a result opens the item itself on your Glassy in a new tab, and the tab says plainly when it is matching by words only. After a save, one tap adds "Read: <page>" to your Glassy calendar for tomorrow or next week at 9:00; with calendar sync it shows on every Glassy you pair. The AI summary, whose screen was removed in v2.9.0, is no longer advertised, and the save, search, settings and agent-key messages are rewritten in plain words. Requires glassy-dash ≥ v2.40.5; the search tabs match Glassy 2.63 or later, and reminders need a Glassy from September 2026 or later. Earlier releases: see [CHANGELOG.md](CHANGELOG.md). Remaining: manual upload to the Chrome Web Store and Firefox Add-ons (needs the owner's browser sign-in).
 
 ## Current compatibility and distribution (November 10, 2026)
 
-- Companion is **v2.20.1**. The source manifest, Chrome/Firefox build
-  manifests, and local v2.20.1 ZIP/XPI manifests agree. Older archives are
+- Companion is **v2.21.0**. The source manifest, Chrome/Firefox build
+  manifests, and local v2.21.0 ZIP/XPI manifests agree. Older archives are
   historical outputs, not evidence that the current build is v2.11.0.
 - Use Glassy's newest released versioned appliance image for the latest
   server-side fixes — **v2.65.16** as of November 10, 2026 (check the
@@ -34,13 +34,12 @@
   (sync cycle contract, embeddings namespace model, the pair token as a
   Settings value, one search everywhere, agents' own space, calendar sync) kept
   the extension's `/api/ext/*` + `/api/captures` request and response shapes, so
-  no companion release was needed. Two things a person may notice: the server's
+  no companion release was needed for them. One thing a person may notice: the server’s
   error messages there are rewritten in plain words (status codes and `code`
-  values unchanged), and as of v2.65.16 **AI summary** (`/api/ext/ai/summarize`)
-  draws on Glassy AI credits unless the person uses their own key, answering
-  with the server's AI message when there are none. The extension's Knowledge
-  Base tab predates v2.63's one search: its Vault filter sends a source name the
-  server no longer knows, so it returns every type. A fix is ready and on hold.
+  values unchanged). The extension doesn't call AI summary (`/api/ext/ai/summarize`),
+  which as of v2.65.16 draws on Glassy AI credits unless the person uses their own key.
+  The Knowledge Base tab's Vault filter, which sent a source name v2.63's one search
+  no longer knows, is fixed in v2.21.0.
   Capture content that used to be
   embedded server-side now converges through the owner's next visit when the
   first-party embedding shim is retired — the extension is an arrival lane, not
@@ -72,7 +71,7 @@
 | **Site Interpreters** | Automatic enriched metadata for YouTube, GitHub, product pages, and scholarly articles via Schema.org. |
 | **Content Preview** | Preview extracted page content as rendered HTML or raw Markdown before saving. See word count and reading time. |
 | **Side Panel** | Persistent side panel (Chrome, `Ctrl+Shift+P`) that stays open while you browse. Firefox falls back to popup. |
-| **AI Summary** | One-click AI-generated summary of the current page, saveable as a note. |
+| **Read It Later (v2.21.0)** | After a save, one tap adds "Read: <page>" to your Glassy calendar for tomorrow or next week at 9:00. With calendar sync, it shows on every Glassy you pair. |
 | **Tag Intelligence** | Local tag frequency tracking ranks suggestions by usage. Keyword extraction fallback when AI is unavailable. |
 | **Duplicate Check** | Instantly see if a page is already saved with a green "Already saved" banner. |
 | **Undo Save** | Delete a capture within 8 seconds of saving — no need to open Glassy. |
@@ -81,7 +80,7 @@
 | **Glassy Design** | A beautiful, layered Obsidian theme with luminous indicators and glass-morphic UI. |
 | **Rule Engine** | Automatic preset assignment based on domain and URL patterns from your Glassy dashboard. |
 | **Offline Queue** | Saves are queued locally if your Glassy instance is unreachable and sync automatically. |
-| **Knowledge Base Search (v2.10.0)** | Search your Glassy knowledge base (bookmarks, notes, vault files) from the popup. Source filter tabs, debounced hybrid search, corpus indexing status, and relevance scores. |
+| **Library Search (v2.10.0, one search since v2.21.0)** | Search your notes, docs, bookmarks, voice and vault from the popup, with Glassy's one search: meaning first, lifted by your words. A result opens the item itself on your Glassy. Says plainly when it is matching by words only. |
 | **MCP Bridge config (v2.11.0)** | Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets with the live server URL — pair with the Glassy MCP server (glassy-dash v2.35.0-beta.7+). |
 | **Cross-Browser** | Full Chrome and Firefox support. Accessibility: focus indicators, reduced motion, high contrast. |
 | **Storage quota monitoring (v2.11.0)** | Periodic alarm checks `chrome.storage.local` usage; warns at 80%, auto-trims the offline queue at 95% critical. |
@@ -93,7 +92,7 @@
 ## Integration Surface
 
 - **Canonical capture API:** `POST /api/captures`, `GET /api/capture-rules`, `PATCH /api/items/:id`, `POST /api/items/:id/promote`
-- **Supporting extension API:** `/api/ext/*` remains in use for auth, bookmarks, notes, tags, collections, search, documents, and AI summary flows.
+- **Supporting extension API:** `/api/ext/*` remains in use for auth, bookmarks, notes, tags, collections, search, documents, and reminders (`/api/ext/calendar/events`).
 - **Account-aware requests:** extension calls include `X-Account-Id` when an active account is selected.
 - **Offline replay:** queued bookmark, note, capture, and page/document saves retry automatically when connectivity returns.
 
@@ -102,15 +101,15 @@
 ## Installation
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.20.1` assets:
-   - **`glassy-companion-v2.20.1.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.20.1-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.21.0` assets:
+   - **`glassy-companion-v2.21.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.21.0-firefox.xpi`** for Firefox 121+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.20.1.zip`.
-- **Firefox 121+**: install from `glassy-companion-v2.20.1-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.21.0.zip`.
+- **Firefox 121+**: install from `glassy-companion-v2.21.0-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Admin and Planning above).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 121.0`, and the AMO-required `content_security_policy`.
 
