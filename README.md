@@ -114,6 +114,16 @@ your Glassy server and nowhere else ([privacy policy](PRIVACY_POLICY.md)).
 
 ## Installation
 
+The whole flow, in two shots:
+
+<p>
+  <img src="assets/screenshots/extension-download.webp" alt="The extension download page — v2.21.0, Manifest V3, Chrome/Edge/Opera zip and Firefox xpi" width="66%">
+</p>
+
+<p>
+  <img src="assets/screenshots/chrome-extensions.webp" alt="chrome://extensions — Developer mode on, Load unpacked, the Glassy Capture card at v2.21.0, enabled" width="80%">
+</p>
+
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
 2. Download the latest `v2.21.0` assets:
    - **`glassy-companion-v2.21.0.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
