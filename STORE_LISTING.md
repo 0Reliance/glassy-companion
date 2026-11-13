@@ -18,7 +18,7 @@ Firefox Add-ons has its own Summary field: paste the same line.
 
 ## Description
 
-Glassy Capture is the browser button for Glassy, the workspace where you keep your notes, documents and bookmarks. When you find something worth keeping, save it to your Glassy in one click and carry on reading.
+Glassy Capture is the browser button for Glassy, the workspace where you keep your notes, documents and bookmarks. When you find something worth keeping, save it to your Glassy in one click and keep reading.
 
 WHAT YOU CAN DO
 
@@ -28,7 +28,7 @@ WHAT YOU CAN DO
 
 • Capture what you see: the visible part of the page, or a region you draw.
 
-• Keep the details that matter. A YouTube video, a GitHub repository, an article and a product page are each saved with their own details.
+• Keep the details that matter. A YouTube video, a GitHub repository and an article are each saved with their own details.
 
 • Write a note without leaving the page.
 
@@ -42,18 +42,17 @@ WHAT YOU CAN DO
 
 • Use more than one Glassy account and choose where each save goes.
 
+• See what you already saved. Turn on the saved-page mark in Settings and a check shows on the toolbar button for pages already in your Glassy.
+
 • Use Obsidian? Connect your vault and send a save to it as a Markdown file. The key to your vault stays in this browser.
 
 KEYBOARD SHORTCUTS
 
-• Ctrl+Shift+G (Command+Shift+G on a Mac): save this page
-• Ctrl+Shift+N (Command+Shift+N): new note
-• Ctrl+Shift+B (Command+Shift+B): open Glassy Capture
-• Ctrl+Shift+P (Command+Shift+P): open the side panel (Chrome and Edge)
+Save this page, write a note, open Glassy Capture and open the side panel each have a shortcut. Set or change them on your browser's extension shortcuts page.
 
 YOUR DATA
 
-What you save goes to the Glassy you sign in to, and nowhere else: Glassy's cloud app at app.glassy.fyi, or your own Glassy Self-Host server. Glassy Capture has no analytics, no ads and no tracking. It reads a page only when you save, highlight or capture it.
+What you save goes to the Glassy you sign in to, and nowhere else: Glassy's cloud app at app.glassy.fyi, or your own Glassy Self-Host server. Glassy Capture has no analytics, no ads and no tracking. It reads a page when you open Glassy Capture on it or save, highlight or capture it. The saved-page mark, which checks each page you open, is off unless you turn it on.
 
 Glassy Capture is open source: github.com/0Reliance/glassy-companion
 

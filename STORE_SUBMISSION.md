@@ -53,17 +53,17 @@ The name and the one-line summary are read from the package (`name` and `descrip
 
 | Permission | Paste |
 |---|---|
-| activeTab | Reads the title and address of the tab the user is on at the moment they click the toolbar button, press a shortcut or use the right-click menu, so that page can be saved. |
-| tabs | Finds the active tab when a save starts from a keyboard shortcut or the right-click menu, sends the "read this page" message to that tab, and opens the user's Glassy in a new tab when they click a search result. |
+| activeTab | When the user clicks the toolbar button, presses a shortcut or uses the right-click menu, gives access to that one tab: to read its title and address, to run the extension's own page script on it, and to take a picture of its visible part for a screenshot capture. |
+| tabs | Finds the active tab when a save starts from a keyboard shortcut or the right-click menu and sends the "read this page" message to it; reads the titles and addresses of the tabs in the window for "Save all tabs in window"; opens the user's Glassy in a new tab when they click a search result. If the user turns on the optional setting "Mark pages I already saved" (off by default), it also reads the address of the page they open, to show a check on the toolbar button when that page is already saved. |
 | scripting | Injects the extension's own bundled page script into the current tab when the user saves a page that was already open before the extension was installed or updated. Without it the first save on such a tab fails. No remote code is injected. |
 | contextMenus | Adds "Save page to Glassy", "Save link to Glassy", "Save selection to Glassy", "Highlight selection in Glassy" and "New Glassy Note" to the right-click menu. |
 | storage | Keeps the user's sign-in token, server address, settings, unsent drafts and saves waiting to be sent while offline, in the browser on their device. |
-| notifications | Tells the user that a save started from a keyboard shortcut or the right-click menu succeeded or did not, since no popup is open at that moment. |
-| alarms | Once a minute, sends saves that are waiting because the user was offline. Every six hours, checks that local storage is not full. |
+| notifications | Tells the user that a save started from a keyboard shortcut or the right-click menu succeeded or did not, since no popup is open at that moment; that they need to sign in; or that their Obsidian connection needs them to sign in again. |
+| alarms | Once a minute, sends saves that are waiting because the user was offline. Every six hours, checks that local storage is not full. If the user connected Obsidian, every 30 seconds checks that the connection is still up. |
 | sidePanel | Shows the same save, note and search screens in the browser's side panel so they stay open next to the page. |
 | Host permission (`https://glassy.fyi/*`, `https://*.glassy.fyi/*`) | These are the addresses of Glassy's own cloud service. The extension sends the user's saves and searches to it and reads their collections and tags from it. |
-| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user saves, highlights or captures; it reads nothing and sends nothing by itself. |
-| Optional host permission (`localhost`, `127.0.0.1`) | Requested only when the user connects their Obsidian vault, to reach the Obsidian Local REST API running on their own computer. |
+| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user opens the extension, saves, highlights or captures; it reads nothing and sends nothing by itself. |
+| Optional host permission (`localhost`, `127.0.0.1`) | Requested only when the user connects their Obsidian vault, to reach the Obsidian Local REST API running on their own computer, and their Glassy server if it runs on the same computer. |
 
 **Remote code**
 
@@ -79,7 +79,7 @@ Tick these four, and no others:
 |---|---|
 | Personally identifiable information | The user's email address, used to sign in to their Glassy. |
 | Authentication information | The password at sign-in (sent once, not kept) and the sign-in token kept in the browser. |
-| Web history | Only the address of a page the user chooses to save. Browsing is not recorded. |
+| Web history | The address of the page the user is on when they open the extension (to say whether it is already saved) and of pages they save. If the user turns on the optional setting "Mark pages I already saved", off by default, also the address of each page they open. Nothing is sent while the setting is off and the extension is closed. |
 | Website content | The title, description, selected text, readable text and screenshots of pages the user chooses to save. |
 
 Then tick all three certifications. Each is true of this build:
@@ -150,7 +150,7 @@ Choose "On this site".
 >
 > To test: the extension signs in to a Glassy server. A free account, made at https://app.glassy.fyi, is enough for every feature. A test account is provided: email `<reviewer account email>`, password `<reviewer account password>`.
 >
-> Data: the manifest declares `data_collection_permissions` (authenticationInfo, personallyIdentifyingInfo, websiteContent, browsingActivity). All of it goes only to the Glassy server the user signs in to. `browsingActivity` covers only the address of a page the user chooses to save.
+> Data: the manifest declares `data_collection_permissions` (authenticationInfo, personallyIdentifyingInfo, websiteContent, browsingActivity). All of it goes only to the Glassy server the user signs in to. `browsingActivity` covers the address of the page the user opens the extension on and of pages they save, and, only if they turn on the optional setting "Mark pages I already saved" (off by default), the address of each page they open.
 
 What Firefox shows the person at install comes from the package: the permissions, and the
 data declaration above. The Firefox build needs Firefox 140 or later, the first version
@@ -173,6 +173,7 @@ Upload the same zip as Chrome. Edge asks for the same things under slightly diff
 | Privacy policy URL | https://github.com/0Reliance/glassy-companion/blob/main/PRIVACY_POLICY.md |
 | Website URL | https://www.glassy.fyi |
 | Support contact | https://github.com/0Reliance/glassy-companion/issues |
+| Store logo | Edge asks for a logo, 300×300 recommended. Only `assets/icon-128.png` (128×128, Edge's stated minimum) exists today |
 | Notes for certification | The "To test" paragraph from the Firefox reviewer notes above, with the reviewer account filled in |
 
 ---

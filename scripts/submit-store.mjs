@@ -100,15 +100,21 @@ async function main() {
 
   // 3b. Nothing retired, nothing undeclared
   const RETIRED = ['dash.0rel.com', 'glassy.stanz.info']
-  for (const [label, m] of [['Chrome', manifest], ['Firefox', manifestFf]]) {
+  for (const [label, m] of [['Chrome', manifest], ['Firefox', manifestFf], ['Chrome build', distManifest], ['Firefox build', distFfManifest]]) {
     if (!m) continue
     const hosts = [...(m.host_permissions || []), ...(m.optional_host_permissions || [])]
     const found = hosts.filter((h) => RETIRED.some((r) => h.includes(r)))
     check(`${label}: no retired address in host access`, found.length === 0, found.join(', '))
   }
-  if (manifestFf) {
-    const dcp = manifestFf.browser_specific_settings?.gecko?.data_collection_permissions
-    check('AMO: data_collection_permissions.required present', Array.isArray(dcp?.required) && dcp.required.length > 0, dcp?.required?.join(', ') || '(missing)')
+  const DCP_ALLOWED = ['none', 'personallyIdentifyingInfo', 'healthInfo', 'financialAndPaymentInfo', 'authenticationInfo', 'personalCommunications', 'locationInfo', 'browsingActivity', 'websiteContent', 'websiteActivity', 'searchTerms', 'bookmarksInfo']
+  for (const [label, m] of [['AMO', manifestFf], ['AMO build', distFfManifest]]) {
+    if (!m) continue
+    const gecko = m.browser_specific_settings?.gecko
+    const req = gecko?.data_collection_permissions?.required
+    check(`${label}: data_collection_permissions.required present`, Array.isArray(req) && req.length > 0, req?.join(', ') || '(missing)')
+    const bad = (req || []).filter((v) => !DCP_ALLOWED.includes(v))
+    check(`${label}: data_collection_permissions values are ones Firefox accepts`, bad.length === 0, bad.join(', '))
+    check(`${label}: strict_min_version is 140 or later (the built-in data prompt)`, parseInt(gecko?.strict_min_version, 10) >= 140, gecko?.strict_min_version || '(missing)')
   }
 
   // 3c. Screenshots: five PNGs, 1280x800
@@ -121,7 +127,8 @@ async function main() {
       const buf = Buffer.alloc(24)
       await fh.read(buf, 0, 24, 0)
       await fh.close()
-      size = `${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}`
+      const isPng = buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      size = isPng ? `${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}` : '(not a PNG)'
     }
     check(`Screenshot ${name} is 1280x800`, size === '1280x800', size)
   }

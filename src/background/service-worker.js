@@ -855,7 +855,14 @@ async function handleMessage(message) {
           })
           if (cropResult?.dataUrl) croppedDataUrl = cropResult.dataUrl
         } catch {
-          // Offscreen unavailable — fall back to the uncropped viewport image.
+          // Offscreen unavailable — crop here instead (below).
+        }
+        if (!croppedDataUrl && message.rect) {
+          try {
+            croppedDataUrl = await cropInWorker(dataUrl, message.rect, message.dpr || 1)
+          } catch {
+            // Could not crop — fall back to the uncropped viewport image.
+          }
         }
 
         const result = {
@@ -1070,10 +1077,41 @@ function showNotification(title, message, type = 'success') {
   })
 }
 
+/**
+ * Crop a captureVisibleTab data URL to a CSS-pixel rect, inside the worker.
+ * Used when no offscreen document is available. The data URL is decoded by hand:
+ * the extension's connect-src does not allow fetch() of a data: URL.
+ */
+async function cropInWorker(dataUrl, rect, dpr = 1) {
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+  const raw = atob(base64)
+  const bytes = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+  const scale = dpr || 1
+  const sx = Math.max(0, Math.round(rect.x * scale))
+  const sy = Math.max(0, Math.round(rect.y * scale))
+  const sw = Math.max(1, Math.min(Math.round(rect.width * scale), bitmap.width - sx))
+  const sh = Math.max(1, Math.min(Math.round(rect.height * scale), bitmap.height - sy))
+  const canvas = new OffscreenCanvas(sw, sh)
+  canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh)
+  const out = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+  let bin = ''
+  for (let i = 0; i < out.length; i += 0x8000) bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000))
+  return 'data:image/png;base64,' + btoa(bin)
+}
+
 const savedUrlCache = new Map()
 async function checkSavedPageBadge(tabId, url) {
   if (!url || !/^https?:\/\//i.test(url)) {
     await chrome.action.setBadgeText({ text: '', tabId })
+    return
+  }
+  // The saved-page mark is a choice (Settings), off by default. Without it the
+  // extension sends no page address until the person opens it or saves.
+  const settings = await getSettings()
+  if (!settings.savedPageMark) {
+    await chrome.action.setBadgeText({ text: '', tabId }).catch(() => {})
     return
   }
   const token = await getToken()

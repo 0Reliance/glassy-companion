@@ -73,7 +73,7 @@
         "default": "Ctrl+Shift+G",
         "mac": "Command+Shift+G"
       },
-      "description": "Quick save current page to Glassy Keep"
+      "description": "Save this page to Glassy"
     },
     "_execute_action": {
       "suggested_key": {
@@ -86,7 +86,7 @@
         "default": "Ctrl+Shift+N",
         "mac": "Command+Shift+N"
       },
-      "description": "Quick note — open note composer"
+      "description": "Write a note"
     }
   },
   "icons": {

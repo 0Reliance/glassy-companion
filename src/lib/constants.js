@@ -63,6 +63,7 @@ export const DEFAULT_SETTINGS = {
   defaultCollection: null,
   badgeCount: true,
   showNotifications: true,
+  savedPageMark: false,
 }
 
 // Context menu IDs

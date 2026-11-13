@@ -189,6 +189,8 @@ describe('cache.js', () => {
     expect(settings.aiAutoTag).toBe(true)
     expect(settings.showNotifications).toBe(true)
     expect(settings.badgeCount).toBe(true)
+    // the saved-page mark sends page addresses, so it is a choice and starts off
+    expect(settings.savedPageMark).toBe(false)
     expect(settings.defaultCollection).toBeNull()
   })
 

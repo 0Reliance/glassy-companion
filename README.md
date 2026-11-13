@@ -243,7 +243,8 @@ Repo-local release and distribution state lives here, with the full history in
 browser stores: it asks for less (two retired addresses are gone from its host
 access), the Firefox build says what it sends and needs Firefox 140, and the
 store listing, privacy policy, screenshots and a paste-from sheet
-([STORE_SUBMISSION.md](STORE_SUBMISSION.md)) are in the repo. It works the same. v2.21.0 (November 10) — search speaks Glassy's one
+([STORE_SUBMISSION.md](STORE_SUBMISSION.md)) are in the repo. The saved-page check on the toolbar button is now a setting that starts off,
+and a region capture is cropped to the region. v2.21.0 (November 10) — search speaks Glassy's one
 search, and a save can remind you to read it. The Knowledge Base tab searches
 notes, docs, bookmarks, voice and vault with the server's own source names (the
 Vault filter used to return everything), a result opens the item itself on your

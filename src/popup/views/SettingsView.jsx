@@ -16,6 +16,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
   const [baseUrl, setBaseUrlState] = useState('')
   const [aiTag, setAiTag] = useState(true)
   const [notifications, setNotifs] = useState(true)
+  const [savedMark, setSavedMark] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   // Inline validation/error message for the server URL field (e.g. the
@@ -36,6 +37,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
     getSettings().then((s) => {
       setAiTag(s.aiAutoTag ?? true)
       setNotifs(s.showNotifications ?? true)
+      setSavedMark(s.savedPageMark === true)
     }).catch(() => {})
   }, [])
 
@@ -64,7 +66,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
       }
       // Persist toggles even when the URL changed (they were previously
       // silently dropped by the early return).
-      await saveSettings({ aiAutoTag: aiTag, showNotifications: notifications })
+      await saveSettings({ aiAutoTag: aiTag, showNotifications: notifications, savedPageMark: savedMark })
       if (urlChanged) {
         setServerUrlChanged(true)
         return
@@ -165,6 +167,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Toggle label="AI auto-tagging" desc="Tag bookmarks automatically using AI" value={aiTag} onChange={setAiTag} />
         <Toggle label="Desktop notifications" desc="Show notification after saving" value={notifications} onChange={setNotifs} />
+        <Toggle label="Mark pages I already saved" desc="Shows a check on the toolbar button. To do it, the address of each page you open is sent to your Glassy. When off, nothing is sent until you open Glassy Capture." value={savedMark} onChange={setSavedMark} />
       </div>
 
       {/* MCP Connection — only on an instance whose MCP server actually mounted.

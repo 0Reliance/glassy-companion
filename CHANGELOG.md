@@ -8,10 +8,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2.21.1] — 2026-11-12 — Ready for the browser stores
 
 This release is v2.21.0 prepared for the Chrome Web Store, Firefox Add-ons and Edge
-Add-ons. It works the same, asks for less than v2.21.0, and adds no permissions.
+Add-ons. It asks for less than v2.21.0 and adds no permissions. One thing you may notice:
+the check on the toolbar button for pages you already saved is now a setting, and starts off.
 
 ### Changed
 
+- **The saved-page mark is your choice, and starts off.** To show a check on the toolbar
+  button, the extension sent the address of every page you opened to your Glassy. It now
+  does that only if you turn on "Mark pages I already saved" in Settings. With it off,
+  no page address leaves the browser until you open Glassy Capture or save. If you used
+  the check, turn the setting on to get it back.
 - **Asks for less.** Two addresses Glassy no longer uses (`dash.0rel.com` and
   `glassy.stanz.info`) are gone from the extension's host access. It now names only
   `glassy.fyi`. A self-hosted Glassy was never on that list and works as before.
@@ -29,6 +35,13 @@ Add-ons. It works the same, asks for less than v2.21.0, and adds no permissions.
 - **Privacy policy brought up to date** (`PRIVACY_POLICY.md`): the default server is
   `app.glassy.fyi`, and it now covers search, reminders, the Obsidian connection and what
   signing out removes.
+
+### Fixed
+
+- **A region capture is the region you drew** in Chrome and Edge. It was saved as the whole
+  visible page, because the crop ran in a part of the extension that never started. The
+  crop now also runs in the background worker.
+- Shortcut names on the browser's shortcuts page: "Save this page to Glassy" and "Write a note".
 
 ### Added
 
