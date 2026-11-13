@@ -10,6 +10,19 @@ import { watchSessionEnd } from '../../lib/sessionWatch.js'
  * Views: loading | login | save | note | search | settings
  * Save status: idle | saving | saved | duplicate | error | queued
  */
+/**
+ * Held while a save is being prepared (a screenshot uploading before the save is sent), so
+ * the side panel does not move to another page under it. The form takes and releases it.
+ */
+const pageHold = { held: false, onRelease: null }
+export function holdPage() { pageHold.held = true }
+export function releasePage() {
+  pageHold.held = false
+  const go = pageHold.onRelease
+  pageHold.onRelease = null
+  if (go) go()
+}
+
 /** True in the side panel, false in the popup (both render the same app). */
 export function isSidePanel() {
   try { return /\/sidepanel\//.test(window.location.pathname) } catch { return false }
@@ -166,7 +179,9 @@ export default function useAppState() {
         const meta = metaRes?.meta
         if (!alive || seq !== refreshSeqRef.current || !meta) return
         if (meta.url && meta.url === pageUrlRef.current) return
-        if (saveStatusRef.current === 'saving') { pendingRefreshRef.current = true; return }
+        const busy = () => saveStatusRef.current === 'saving' || pageHold.held
+        const later = () => { pendingRefreshRef.current = true; if (pageHold.held) pageHold.onRelease = () => { pendingRefreshRef.current = false; refreshRef.current?.() } }
+        if (busy()) { later(); return }
         let defaults = null
         try {
           const rules = toRulesArray(await fetchCaptureRules())
@@ -183,6 +198,8 @@ export default function useAppState() {
           }
         } catch { /* the form works without rule guidance */ }
         if (!alive || seq !== refreshSeqRef.current) return
+        // A save may have started while the rules were read.
+        if (busy()) { later(); return }
         pageUrlRef.current = meta.url || null
         setSaveStatus('idle')
         setErrorMessage('')

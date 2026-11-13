@@ -165,7 +165,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
 
       {/* Toggles */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Toggle label="Add tags for me when saving" desc="After a save, your Glassy adds a few tags. It reads the page’s title, description and address with the AI it is set up with. You can switch it for one save on the save form." value={aiTag} onChange={setAiTag} />
+        <Toggle label="Add tags for me when saving" desc="After a save, your Glassy adds a few tags. It reads the page’s title, description, a short excerpt and its address with the AI it is set up with. You can switch it for one save on the save form." value={aiTag} onChange={setAiTag} />
         <Toggle label="Desktop notifications" desc="Notices after a save from a shortcut or the right-click menu: saved, already saved, waiting to be sent. A save that did not work is always shown." value={notifications} onChange={setNotifs} />
         <Toggle label="Mark pages I already saved" desc="Shows a check on the toolbar button. To do it, the address of each page you open is sent to your Glassy. When off, nothing is sent until you open Glassy Capture." value={savedMark} onChange={setSavedMark} />
       </div>

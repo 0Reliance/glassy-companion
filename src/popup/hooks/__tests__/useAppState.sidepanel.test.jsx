@@ -17,7 +17,7 @@ const rules = vi.hoisted(() => ({
 vi.mock('../../../lib/rules.js', () => rules)
 vi.mock('../../../lib/sessionWatch.js', () => ({ watchSessionEnd: () => () => {} }))
 
-import useAppState, { isSidePanel } from '../useAppState.js'
+import useAppState, { isSidePanel, holdPage, releasePage } from '../useAppState.js'
 
 function makeChrome() {
   const listeners = { activated: [], updated: [] }
@@ -164,5 +164,37 @@ describe('the side panel follows the page you are on', () => {
     await act(async () => { answerOld(); await new Promise(r => setTimeout(r, 20)) })
     expect(state.pageMeta.url).toBe('https://two.example/b')
     expect(state.alreadySaved).toBe(false)
+  })
+
+  it('SIDEPANEL-9: while a save is being prepared (screenshot upload) the panel stays; it moves on when released', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://one.example/a' } })
+      .mockResolvedValue({ meta: { url: 'https://two.example/b' } })
+    await mount()
+    holdPage()
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    expect(state.pageMeta.url).toBe('https://one.example/a')
+    await act(async () => { releasePage(); await new Promise(r => setTimeout(r, 400)) })
+    expect(state.pageMeta.url).toBe('https://two.example/b')
+  })
+
+  it('SIDEPANEL-10: a save that starts while the new page\'s rules are read keeps the panel where it is', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    const api = await import('../../../lib/api.js')
+    let releaseRules
+    api.fetchCaptureRules.mockImplementationOnce(async () => ({ rules: [] }))
+      .mockImplementationOnce(() => new Promise(r => { releaseRules = () => r({ rules: [] }) }))
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://one.example/a' } })
+      .mockResolvedValue({ meta: { url: 'https://two.example/b' } })
+    await mount()
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    await act(async () => { state.setSaving() })
+    await act(async () => { releaseRules(); await new Promise(r => setTimeout(r, 20)) })
+    expect(state.pageMeta.url).toBe('https://one.example/a')
+    expect(state.saveStatus).toBe('saving')
   })
 })

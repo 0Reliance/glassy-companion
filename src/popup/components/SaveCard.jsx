@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { getSettings } from '../../lib/cache.js'
 import { BOOKMARK_DRAFT_KEY, draftFor, withDraft, withoutDraft } from '../../lib/saveDrafts.js'
+import { holdPage, releasePage } from '../hooks/useAppState.js'
 
 // One storage write at a time, so a draft written as the form closes and one written as the
 // next page's form opens cannot overwrite each other.
@@ -300,13 +301,16 @@ export default function SaveCard({
     if (dataUrl) {
       setScreenshotError(null)
       setScreenshotUploading(true)
+      // The side panel waits for this save: it must not move to another page mid-upload.
+      holdPage()
       try {
         const url = await uploadScreenshotWithRetry(dataUrl)
         markdown = `## 📸 Screenshot\n\n![Screenshot](${url})\n\n*Captured from ${pendingScreenshot?.title || title || 'current page'}*`
         setContentMarkdown(markdown)
       } catch {
         setScreenshotUploading(false)
-        setScreenshotError('Screenshot upload failed. Check your connection and try saving again.')
+        setScreenshotError('The screenshot didn’t upload, so nothing was saved. Check your connection and save again.')
+        releasePage()
         return
       }
       setScreenshotUploading(false)
@@ -350,12 +354,16 @@ export default function SaveCard({
         : undefined,
     }
 
-    // Clear the draft on save (legacy behavior — BookmarkCard did this).
+    // The draft goes only when the save went through (saved, already saved, or waiting to be
+    // sent): after a failed save the person's typing is still there.
     draftPendingRef.current = false
     clearTimeout(draftTimer.current)
-    updateDrafts(stored => withoutDraft(stored, pageMeta?.url))
-
-    onSave(payload)
+    const savedUrl = pageMeta?.url
+    const sent = onSave(payload)
+    // onSave has now marked the save as running; the hold is no longer needed.
+    if (dataUrl) releasePage()
+    const ok = await sent
+    if (ok !== false) updateDrafts(stored => withoutDraft(stored, savedUrl))
   }, [pageMeta, title, contentType, smartExpanded, collectionId, tags, notes, isPublic, isPinned, aiAutoTag, contentMarkdown, structuredData, onSave, pendingScreenshot, uploadScreenshotWithRetry])
 
   if (!pageMeta) {

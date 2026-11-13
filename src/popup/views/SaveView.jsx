@@ -56,9 +56,12 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         setDuplicate()
       } else {
         setError(res?.error || 'Save failed.')
+        return false
       }
+      return true
     } catch (err) {
       setError(err.message || 'Save failed.')
+      return false
     }
   }, [setSaving, setSaved, setDuplicate, setQueued, setError])
 
