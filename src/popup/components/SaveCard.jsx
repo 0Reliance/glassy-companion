@@ -80,6 +80,8 @@ export default function SaveCard({
   const hydratedRef = useRef(false)
   const latestDraftRef = useRef(null)
   const draftPendingRef = useRef(false)
+  // The page whose save has been sent: its draft must not be written back while the save settles.
+  const sentUrlRef = useRef(null)
   useEffect(() => {
     let alive = true
     getSettings().then(s => {
@@ -191,6 +193,7 @@ export default function SaveCard({
     draftTimer.current = setTimeout(() => {
       draftPendingRef.current = false
       const { url, draft } = latestDraftRef.current
+      if (url === sentUrlRef.current) return
       updateDrafts(stored => withDraft(stored, url, { ...draft, savedAt: Date.now() }))
     }, 500)
     return () => clearTimeout(draftTimer.current)
@@ -199,6 +202,7 @@ export default function SaveCard({
   useEffect(() => () => {
     if (!draftPendingRef.current || !latestDraftRef.current) return
     const { url, draft } = latestDraftRef.current
+    if (url === sentUrlRef.current) return
     updateDrafts(stored => withDraft(stored, url, { ...draft, savedAt: Date.now() }))
   }, [])
 
@@ -359,11 +363,21 @@ export default function SaveCard({
     draftPendingRef.current = false
     clearTimeout(draftTimer.current)
     const savedUrl = pageMeta?.url
+    sentUrlRef.current = savedUrl
     const sent = onSave(payload)
     // onSave has now marked the save as running; the hold is no longer needed.
     if (dataUrl) releasePage()
     const ok = await sent
-    if (ok !== false) updateDrafts(stored => withoutDraft(stored, savedUrl))
+    if (ok !== false) {
+      updateDrafts(stored => withoutDraft(stored, savedUrl))
+      return
+    }
+    // The save failed: keep everything typed, including the last half second before Save.
+    sentUrlRef.current = null
+    const latest = latestDraftRef.current
+    if (latest?.url === savedUrl) {
+      updateDrafts(stored => withDraft(stored, savedUrl, { ...latest.draft, savedAt: Date.now() }))
+    }
   }, [pageMeta, title, contentType, smartExpanded, collectionId, tags, notes, isPublic, isPinned, aiAutoTag, contentMarkdown, structuredData, onSave, pendingScreenshot, uploadScreenshotWithRetry])
 
   if (!pageMeta) {
