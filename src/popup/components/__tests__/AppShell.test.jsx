@@ -62,7 +62,7 @@ describe('AppShell renders the gate', () => {
     await show({ vaultAvailable: false })
     expect(hasTab('Vault')).toBe(false)
     expect(hasTab('Save')).toBe(true)
-    expect(hasTab('KB')).toBe(true)
+    expect(hasTab('Library')).toBe(true)
   })
 
   it('shows the Vault tab on an appliance', async () => {

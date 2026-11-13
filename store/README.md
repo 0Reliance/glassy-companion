@@ -17,5 +17,5 @@ Retake them when the popup changes:
 3. Load `dist/` in Chromium with Playwright, open `src/popup/index.html` and
    `src/sidepanel/index.html` as tabs, and take the pictures.
 
-The script used for v2.21.1 lives outside this repo (it starts a Glassy server from the
+The script used for v2.21.1 and v2.21.2 lives outside this repo (it starts a Glassy server from the
 app's source). `npm run store:check` checks that all five exist and are 1280×800.

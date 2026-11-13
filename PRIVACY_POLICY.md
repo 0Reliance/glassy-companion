@@ -1,6 +1,6 @@
 # Privacy policy: Glassy Capture
 
-**Last Updated:** November 12, 2026
+**Last Updated:** November 13, 2026
 
 Glassy Capture is a browser extension that saves pages, links, highlights and notes to your Glassy, and searches your Glassy library. This page says what the extension reads, where it sends it, and what it keeps in your browser.
 
@@ -16,7 +16,7 @@ Glassy Capture is a browser extension that saves pages, links, highlights and no
 | When you | It sends to your Glassy |
 |---|---|
 | Sign in | Your email and password, once, to get a sign-in token. The password is not kept. |
-| Open the popup or side panel | The extension reads the title, address and description of the page you are on to fill in the form, and sends the address to ask whether you already saved it. It also checks that you are signed in and asks for your collections, tags and notifications. |
+| Open the popup or side panel | The extension reads the title, address and description of the page you are on to fill in the form, and sends the address to ask whether you already saved it. While the side panel stays open, it does the same for each page you switch to, so the form shows the page you are looking at. It also checks that you are signed in and asks for your collections, tags and notifications. |
 | Save a page or a link | The page's title, address, description, preview image and icon addresses, the text you selected, and, for a full capture, the readable text of the page. Your tags, collection and note go with it. If auto-tagging is on, your Glassy adds tags to the save. |
 | Save all tabs in the window | The title and address of every tab in that window. |
 | Highlight a selection | The selected text and the address of the page it is on. |

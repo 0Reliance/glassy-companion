@@ -38,7 +38,7 @@ WHAT YOU CAN DO
 
 • Keep saving when you are offline. Saves wait on this device and are sent when you are back online.
 
-• Open the side panel in Chrome and Edge to keep Glassy Capture next to the page.
+• Open the side panel in Chrome and Edge to keep Glassy Capture next to the page. It follows you from page to page.
 
 • Use more than one Glassy account and choose where each save goes.
 

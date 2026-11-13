@@ -502,7 +502,7 @@ async function backgroundSave(mode, payload, tab) {
         showNotification('Glassy — Already saved', captureItem.title, 'info')
         break
       case 'entitlement':
-        showNotification('Glassy — Save unavailable', 'Saving from the extension requires a Pro plan. Manage your items in your Glassy workspace.', 'error')
+        showNotification('Glassy — Not saved', 'This Glassy says the account can’t save bookmarks. Open Glassy to see why.', 'error')
         break
       case 'gone':
         showNotification('Glassy — Account unavailable', 'This account is no longer active.', 'error')
@@ -1069,6 +1069,16 @@ async function updateBadge(increment = 0) {
 
 function showNotification(title, message, type = 'success') {
   const iconMap = { success: '/assets/icon-48.png', error: '/assets/icon-48.png', info: '/assets/icon-48.png' }
+  // Settings → "Desktop notifications" turns off the good news. A save that did not work
+  // is always shown: it would otherwise be lost without a word.
+  if (type !== 'error') {
+    getSettings().then(s => { if (s?.showNotifications !== false) createNotification(title, message, type, iconMap) }).catch(() => createNotification(title, message, type, iconMap))
+    return
+  }
+  createNotification(title, message, type, iconMap)
+}
+
+function createNotification(title, message, type, iconMap) {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: iconMap[type] || iconMap.info,

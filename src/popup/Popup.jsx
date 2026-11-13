@@ -108,6 +108,7 @@ export default function Popup() {
           {view === 'save' && (
             <Suspense fallback={<Skeleton variant="save" />}>
               <SaveView
+                key={pageMeta?.url || 'no-page'}
                 pageMeta={pageMeta}
                 user={user}
                 ruleDefaults={ruleDefaults}

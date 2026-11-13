@@ -15,7 +15,7 @@ Works with the cloud or with your own self-hosted appliance.
 
 <div align="left">
 
-[![Version](https://img.shields.io/badge/version-2.21.1-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.21.2-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 [![Privacy](https://img.shields.io/badge/privacy-policy-38bdf8?style=flat-square)](PRIVACY_POLICY.md)
@@ -125,15 +125,15 @@ The whole flow, in two shots:
 </p>
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.21.1` assets:
-   - **`glassy-companion-v2.21.1.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.21.1-firefox.xpi`** for Firefox 140+. Install via `about:addons` → gear icon → Install Add-on From File.
+2. Download the latest `v2.21.2` assets:
+   - **`glassy-companion-v2.21.2.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.21.2-firefox.xpi`** for Firefox 140+. Install via `about:addons` → gear icon → Install Add-on From File.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.21.1.zip`.
-- **Firefox 140+**: install from `glassy-companion-v2.21.1-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Project state below).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.21.2.zip`.
+- **Firefox 140+**: install from `glassy-companion-v2.21.2-firefox.xpi` for local/user testing via `about:addons`. Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Project state below).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 140.0`, its `data_collection_permissions` declaration, and the AMO-required `content_security_policy`.
 
@@ -239,7 +239,9 @@ npm test                 # Run unit tests (258 tests)
 Repo-local release and distribution state lives here, with the full history in
 [CHANGELOG.md](CHANGELOG.md).
 
-**Current state (November 12, 2026):** v2.21.1 is v2.21.0 made ready for the
+**Current state (November 13, 2026):** v2.21.2 — the side panel follows the
+page you are on, the Save button stays in view, tag suggestions and notifications
+follow your settings, and the tabs and switches have plain names. v2.21.1 was v2.21.0 made ready for the
 browser stores: it asks for less (two retired addresses are gone from its host
 access), the Firefox build says what it sends and needs Firefox 140, and the
 store listing, privacy policy, screenshots and a paste-from sheet
@@ -262,8 +264,8 @@ owner's developer accounts.
 
 ## Current compatibility and distribution (November 10, 2026)
 
-- Companion is **v2.21.1**. The source manifest, Chrome/Firefox build
-  manifests, and local v2.21.1 ZIP/XPI manifests agree. Older archives are
+- Companion is **v2.21.2**. The source manifest, Chrome/Firefox build
+  manifests, and local v2.21.2 ZIP/XPI manifests agree. Older archives are
   historical outputs, not evidence that the current build is v2.11.0.
 - Use Glassy's newest released versioned appliance image for the latest
   server-side fixes — **v2.65.16** as of November 10, 2026 (check the

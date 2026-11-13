@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { getSettings } from '../../lib/cache.js'
 import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import ContentPreview from './ContentPreview.jsx'
@@ -27,7 +28,7 @@ const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
  *  - Deferred screenshot upload with 3-attempt backoff (never on mount)
  *  - Content-type re-fetch on preset change (GET_PAGE_META → structuredData)
  *  - Structured-data passthrough for type-aware reader rendering
- *  - Tag autocomplete, collection picker, AI auto-tag toggle
+ *  - Tag autocomplete, collection picker, tag-suggestion switch (starts as Settings says)
  *  - QuickActions (Save Page / Screenshot) inline
  *  - Same payload contract (captureMode: 'quick' | 'smart') as before
  */
@@ -50,6 +51,16 @@ export default function SaveCard({
   const [tags, setTags] = useState([])
   const [notes, setNotes] = useState('')
   const [aiAutoTag, setAiAutoTag] = useState(true)
+  // The switch starts as Settings → "Suggest tags when saving" says; an unsent draft for
+  // this page keeps its own choice. (It used to start on whatever Settings said.)
+  const draftSetAiRef = useRef(false)
+  useEffect(() => {
+    let alive = true
+    getSettings().then(s => {
+      if (alive && !draftSetAiRef.current && typeof s?.aiAutoTag === 'boolean') setAiAutoTag(s.aiAutoTag)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [isPublic, setIsPublic] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
 
@@ -118,7 +129,7 @@ export default function SaveCard({
       if (draft.contentType) setContentType(draft.contentType)
       if (typeof draft.isPublic === 'boolean') setIsPublic(draft.isPublic)
       if (typeof draft.isPinned === 'boolean') setIsPinned(draft.isPinned)
-      if (typeof draft.aiAutoTag === 'boolean') setAiAutoTag(draft.aiAutoTag)
+      if (typeof draft.aiAutoTag === 'boolean') { draftSetAiRef.current = true; setAiAutoTag(draft.aiAutoTag) }
       if (typeof draft.smartExpanded === 'boolean') setSmartExpanded(draft.smartExpanded)
     })
   }, [pageMeta?.url])
@@ -512,11 +523,13 @@ export default function SaveCard({
         </div>
       )}
 
-      {/* ── Primary Save button (always visible, above expanded content) ──────── */}
-      <button className="btn-accent" onClick={handleSave} disabled={savingDisabled}>
-        {saving || screenshotUploading ? <span className="spinner" /> : null}
-        {saveLabel}
-      </button>
+      {/* ── Primary Save button: stays at the bottom of the view while the form scrolls ── */}
+      <div style={{ position: 'sticky', bottom: 0, paddingTop: 8, paddingBottom: 2, background: 'linear-gradient(to bottom, rgba(8,8,12,0), #08080c 40%)', zIndex: 2 }}>
+        <button className="btn-accent" onClick={handleSave} disabled={savingDisabled} style={{ width: '100%' }}>
+          {saving || screenshotUploading ? <span className="spinner" /> : null}
+          {saveLabel}
+        </button>
+      </div>
     </div>
   )
 }

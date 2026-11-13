@@ -3,8 +3,8 @@ import React from 'react'
 const BASE_TABS = [
   { id: 'save', label: 'Save', icon: '🔖' },
   { id: 'note', label: 'Note', icon: '📝' },
-  { id: 'search', label: 'Search', icon: '🔍' },
-  { id: 'kb', label: 'KB', icon: '🧠' },
+  { id: 'search', label: 'Bookmarks', icon: '🔍' },
+  { id: 'kb', label: 'Library', icon: '🧠' },
 ]
 
 /**
@@ -39,7 +39,9 @@ export default function AppShell({ activeView, onNavigate, user, showSettings, o
     <div className="popup-root" style={{
       width: 'var(--popup-width, 380px)', fontFamily: "'Inter', sans-serif",
       background: '#08080c', color: 'rgba(255,255,255,0.95)', minHeight: 200,
-      position: 'relative', overflow: 'hidden'
+      // 'clip', not 'hidden': hidden makes this box a scroll container of its own that never
+      // scrolls, and the Save button's sticky footer then has nothing to stick to.
+      position: 'relative', overflow: 'clip'
     }}>
       {/* Background radial glow */}
       <div style={{

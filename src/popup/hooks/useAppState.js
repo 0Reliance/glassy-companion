@@ -10,6 +10,11 @@ import { watchSessionEnd } from '../../lib/sessionWatch.js'
  * Views: loading | login | save | note | search | settings
  * Save status: idle | saving | saved | duplicate | error | queued
  */
+/** True in the side panel, false in the popup (both render the same app). */
+export function isSidePanel() {
+  try { return /\/sidepanel\//.test(window.location.pathname) } catch { return false }
+}
+
 export default function useAppState() {
   const [view, setView] = useState('loading')
   const [user, setUser] = useState(null)
@@ -126,6 +131,44 @@ export default function useAppState() {
       }
     })()
   }, [resolveInitialView])
+
+  // The side panel stays open while the person browses. It read the page once, when it
+  // opened, so after moving to another tab or page it still showed, and saved, the first
+  // one. It now reads the page again when the active tab changes or finishes loading.
+  // The popup closes on its own, so it does not listen.
+  useEffect(() => {
+    if (!isSidePanel() || !chrome?.tabs?.onActivated) return undefined
+    let alive = true
+    let timer = null
+    const refresh = () => {
+      clearTimeout(timer)
+      timer = setTimeout(async () => {
+        try {
+          const metaRes = await getActiveTabMeta()
+          if (!alive || !metaRes?.meta) return
+          setPageMeta(metaRes.meta)
+          setAlreadySaved(false)
+          if (metaRes.meta.url) {
+            checkDuplicateUrl(metaRes.meta.url).then(res => {
+              if (alive && res?.saved) setAlreadySaved(true)
+            }).catch(() => {})
+          }
+        } catch { /* the panel keeps the page it has */ }
+      }, 250)
+    }
+    const onActivated = () => refresh()
+    const onUpdated = (_tabId, changeInfo, tab) => {
+      if (tab?.active && changeInfo?.status === 'complete') refresh()
+    }
+    chrome.tabs.onActivated.addListener(onActivated)
+    chrome.tabs.onUpdated.addListener(onUpdated)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+      chrome.tabs.onActivated.removeListener(onActivated)
+      chrome.tabs.onUpdated.removeListener(onUpdated)
+    }
+  }, [])
 
   const handleLoginSuccess = useCallback(async (loggedInUser) => {
     setUser(loggedInUser)
