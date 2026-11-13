@@ -5,6 +5,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.21.1] — 2026-11-12 — Ready for the browser stores
+
+This release is v2.21.0 prepared for the Chrome Web Store, Firefox Add-ons and Edge
+Add-ons. It works the same, asks for less than v2.21.0, and adds no permissions.
+
+### Changed
+
+- **Asks for less.** Two addresses Glassy no longer uses (`dash.0rel.com` and
+  `glassy.stanz.info`) are gone from the extension's host access. It now names only
+  `glassy.fyi`. A self-hosted Glassy was never on that list and works as before.
+- **A tighter page policy in Chrome.** `'wasm-unsafe-eval'` is removed from the extension's
+  content security policy; the extension ships no WebAssembly.
+- **Firefox says what it sends.** The Firefox build declares, in the browser's own install
+  prompt, that it sends your sign-in, the pages you save and their addresses to your
+  Glassy (`data_collection_permissions`). That prompt needs Firefox 140, so the Firefox
+  build now asks for 140 or later (was 121).
+- **One name.** The popup header says Glassy Capture (it still said Companion), and the
+  Firefox build is called Glassy Capture, like the Chrome build. Its add-on ID is unchanged.
+- **Sign-in fields are as wide as the Sign in button.** They were narrower.
+- **Store listing in plain words** (`STORE_LISTING.md`): one section per feature, no
+  internal names, and prices are read from the pricing page instead of retyped.
+- **Privacy policy brought up to date** (`PRIVACY_POLICY.md`): the default server is
+  `app.glassy.fyi`, and it now covers search, reminders, the Obsidian connection and what
+  signing out removes.
+
+### Added
+
+- **`STORE_SUBMISSION.md`**: every field to paste for each store, with the reason for each
+  permission.
+- **`store/screenshots/`**: five 1280×800 screenshots taken from this build.
+- **`npm run store:check`** also fails if a retired address returns to a manifest, if the
+  Firefox data declaration is missing, or if a screenshot is missing or the wrong size.
+
+---
+
+
 ## [2.21.0] — 2026-11-10 — Search speaks Glassy's one search, and a save can remind you to read it
 
 Pairs with Glassy 2.63 and later (the one search). Requires glassy-dash ≥ v2.40.5. No new permissions.

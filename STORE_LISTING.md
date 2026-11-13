@@ -1,79 +1,91 @@
-# Glassy Capture — Chrome Web Store Listing
+# Glassy Capture: store listing
 
-## Short Description (132 characters max)
-Save bookmarks, notes, and highlights to your Glassy dashboard. Smart tagging, structured capture, and knowledge base search.
+The words for the Chrome Web Store, Firefox Add-ons and Microsoft Edge Add-ons
+pages. Every field to paste, and where it goes in each store, is in
+[STORE_SUBMISSION.md](STORE_SUBMISSION.md). Prices and plan limits are not written
+here: the listing points to the pricing page, so it cannot go out of date.
 
-## Full Description
+## Name
 
-Glassy Capture is your instant intake system — capture anything you find online and save it straight to your Glassy knowledge base with one click.
+Glassy Capture
 
-### Features
+## Summary (132 characters at most)
 
-**📌 Smart Capture**
-- Save pages with AI-suggested tags and content type detection
-- Structured capture for YouTube videos, GitHub repos, articles, and more
-- Screenshot capture with region selection
-- Multi-account support — route captures to different Glassy accounts
+Save pages, links, highlights and notes to your Glassy, and search your library from any tab.
 
-**🔍 Knowledge Base Search**
-- Search your Glassy knowledge base (bookmarks, notes, vault files) from the popup
-- Filter by source type with tabs (All / Bookmarks / Notes / Vault)
-- Debounced hybrid search (BM25 + vector) with relevance scores
-- Corpus indexing status banner
+The Chrome Web Store and Edge read this line from `description` in `manifest.json`.
+Firefox Add-ons has its own Summary field: paste the same line.
 
-**🔌 MCP Bridge**
-- Settings → Integrations shows copy-pasteable Claude Desktop / Cursor config snippets
-- Live server URL via `window.location.origin + '/mcp'`
-- Pairs with the Glassy MCP server (glassy-dash v2.40.5+) — 42 tools, 4 prompts, 9
-  resources on a self-host appliance; 37 tools on the hosted service, where the four
-  self-host-only tools are withheld by design and named as such in the capability
-  manifest
+## Description
 
-**🛡️ Storage monitoring**
-- Periodic 6-hour quota check; warns at 80%, auto-trims the offline queue at 95% critical
+Glassy Capture is the browser button for Glassy, the workspace where you keep your notes, documents and bookmarks. When you find something worth keeping, save it to your Glassy in one click and carry on reading.
 
-**📝 Quick Notes**
-- Compose notes directly from the popup
-- Rich text, checklists, and plain text formats
-- Tag and organize on the fly
+WHAT YOU CAN DO
 
-**🔍 Knowledge Base Search**
-- Search your entire Glassy library from the browser
-- Filter by notes, docs, bookmarks, voice, or vault files
-- Ranked by meaning and by your words; a result opens the item in Glassy
+• Save the page you are on. Glassy Capture fills in the title, address and description. Add tags, choose a collection, and write yourself a note.
 
-**🧠 Smart Features**
-- Automatic content type detection (article, video, repo, bookmark)
-- Smart tag suggestions
-- Remind me to read it: one tap adds the page to your Glassy calendar
+• Save from the right-click menu: the page, a link, the text you selected, or a highlight.
 
-**📝 Obsidian Bridge**
-- Connect the Glassy server to your Obsidian vault via the extension
-- Solves Windows/WSL2/Docker networking — the extension runs on your host and reaches Obsidian directly
-- Push captures to your vault as markdown files with one click
-- The extension holds the Obsidian API key locally — never sent to the server
+• Capture what you see: the visible part of the page, or a region you draw.
 
-**🔒 Private & Secure**
-- All data sent directly to your Glassy server over HTTPS
-- No third-party analytics or tracking
-- Offline queue saves captures when you're disconnected
+• Keep the details that matter. A YouTube video, a GitHub repository, an article and a product page are each saved with their own details.
 
-**⌨️ Keyboard Shortcuts**
-- `Ctrl+Shift+G` / `Cmd+Shift+G` — Quick save current page
-- `Ctrl+Shift+N` / `Cmd+Shift+N` — Quick note
-- `Ctrl+Shift+B` — Toggle popup
-- `Ctrl+Shift+P` — Toggle side panel (Chrome)
+• Write a note without leaving the page.
 
-### Requirements
-- A Glassy account (free or paid)
-- The Glassy dashboard server URL (default: app.glassy.fyi for the cloud app, or your own server URL if self-hosting)
-- Saving bookmarks requires GlassyKeep — a $15 one-time unlock, included free in Glassy Pro. Signing in and taking notes are free.
+• Search your Glassy library from the popup: notes, documents, bookmarks, voice notes and vault files. A result opens the item in Glassy.
 
-### Open Source
-Glassy Capture is open source. View the code and contribute at github.com/0Reliance/glassy-companion
+• Remind me to read it. After a save, one tap adds the page to your Glassy calendar for tomorrow or next week.
+
+• Keep saving when you are offline. Saves wait on this device and are sent when you are back online.
+
+• Open the side panel in Chrome and Edge to keep Glassy Capture next to the page.
+
+• Use more than one Glassy account and choose where each save goes.
+
+• Use Obsidian? Connect your vault and send a save to it as a Markdown file. The key to your vault stays in this browser.
+
+KEYBOARD SHORTCUTS
+
+• Ctrl+Shift+G (Command+Shift+G on a Mac): save this page
+• Ctrl+Shift+N (Command+Shift+N): new note
+• Ctrl+Shift+B (Command+Shift+B): open Glassy Capture
+• Ctrl+Shift+P (Command+Shift+P): open the side panel (Chrome and Edge)
+
+YOUR DATA
+
+What you save goes to the Glassy you sign in to, and nowhere else: Glassy's cloud app at app.glassy.fyi, or your own Glassy Self-Host server. Glassy Capture has no analytics, no ads and no tracking. It reads a page only when you save, highlight or capture it.
+
+Glassy Capture is open source: github.com/0Reliance/glassy-companion
+
+WHAT YOU NEED
+
+A Glassy account. A free account is enough to save, write notes and search. See what each plan includes at www.glassy.fyi/pricing. Glassy Capture also works with your own Glassy Self-Host server.
 
 ## Category
-Productivity
+
+- Chrome Web Store: Productivity → Workflow & Planning
+- Firefox Add-ons: Bookmarks
+- Edge Add-ons: Productivity
 
 ## Language
+
 English (United States)
+
+## Links
+
+- Website: https://www.glassy.fyi
+- Support: https://github.com/0Reliance/glassy-companion/issues
+- Privacy policy: https://github.com/0Reliance/glassy-companion/blob/main/PRIVACY_POLICY.md
+
+## Screenshots
+
+Five, each 1280×800, in `store/screenshots/`. They are taken from this build
+against a local Glassy with sample data (`store/README.md` says how).
+
+| File | Shows |
+|---|---|
+| `01-save.png` | Saving the page you are on |
+| `02-search.png` | Finding a page you saved, from the popup |
+| `03-note.png` | Writing a note without leaving the page |
+| `04-side-panel.png` | The side panel next to a page |
+| `05-sign-in.png` | Signing in to Glassy's cloud app or your own server |

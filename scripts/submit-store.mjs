@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // scripts/submit-store.mjs
 //
-// Store submission stub for the Chrome Web Store (CWS) and Mozilla Add-ons
-// (AMO) distribution pipeline. NOT YET WIRED TO A REAL SUBMISSION API — this
-// is a P0 follow-up to the v2.11.0 work. The script currently:
+// Store submission check for the Chrome Web Store (CWS), Mozilla Add-ons (AMO)
+// and Edge Add-ons. It does not upload anything: the upload is done by hand in
+// each store's dashboard, from STORE_SUBMISSION.md. The script:
 //
 //   1. Verifies the version-sync guard passes
 //   2. Verifies the zip + xpi artifacts exist
 //   3. Verifies the manifest fields the stores require
-//   4. Prints a checklist of manual submission steps
+//   4. Verifies no retired address is in a manifest, the Firefox data
+//      declaration is present, and the five screenshots exist at 1280x800
+//   5. Prints where the manual submission steps are
 //
 // When CWS and AMO API credentials are available, the manual steps at the
 // bottom can be replaced with HTTP calls to the publish endpoints.
@@ -18,7 +20,7 @@
 //   node scripts/submit-store.mjs --target=firefox
 //   node scripts/submit-store.mjs --target=both
 
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, stat, open } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,7 +59,7 @@ async function fileExists(path) {
 }
 
 async function main() {
-  console.log(`Glassy Companion — Store Submission Check (target: ${target})\n`)
+  console.log(`Glassy Capture — store submission check (target: ${target})\n`)
 
   // 1. Version sync
   const pkg = await readJson(join(ROOT, 'package.json'))
@@ -96,6 +98,34 @@ async function main() {
     check('AMO: CSP present (required for review)', !!manifestFf.content_security_policy, manifestFf.content_security_policy ? 'present' : '(missing)')
   }
 
+  // 3b. Nothing retired, nothing undeclared
+  const RETIRED = ['dash.0rel.com', 'glassy.stanz.info']
+  for (const [label, m] of [['Chrome', manifest], ['Firefox', manifestFf]]) {
+    if (!m) continue
+    const hosts = [...(m.host_permissions || []), ...(m.optional_host_permissions || [])]
+    const found = hosts.filter((h) => RETIRED.some((r) => h.includes(r)))
+    check(`${label}: no retired address in host access`, found.length === 0, found.join(', '))
+  }
+  if (manifestFf) {
+    const dcp = manifestFf.browser_specific_settings?.gecko?.data_collection_permissions
+    check('AMO: data_collection_permissions.required present', Array.isArray(dcp?.required) && dcp.required.length > 0, dcp?.required?.join(', ') || '(missing)')
+  }
+
+  // 3c. Screenshots: five PNGs, 1280x800
+  const SHOTS = ['01-save.png', '02-search.png', '03-note.png', '04-side-panel.png', '05-sign-in.png']
+  for (const name of SHOTS) {
+    const p = join(ROOT, 'store', 'screenshots', name)
+    let size = '(missing)'
+    if (await fileExists(p)) {
+      const fh = await open(p, 'r')
+      const buf = Buffer.alloc(24)
+      await fh.read(buf, 0, 24, 0)
+      await fh.close()
+      size = `${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}`
+    }
+    check(`Screenshot ${name} is 1280x800`, size === '1280x800', size)
+  }
+
   // 4. Artifacts
   if (target === 'chrome' || target === 'both') {
     const version = pkg?.version || 'unknown'
@@ -128,28 +158,8 @@ async function main() {
     process.exit(1)
   }
 
-  // Manual submission steps
-  console.log(`\n─── Manual submission steps (not yet automated) ───`)
-  if (target === 'chrome' || target === 'both') {
-    console.log(`\nChrome Web Store (CWS):`)
-    console.log(`  1. Go to https://chrome.google.com/webstore/devconsole/`)
-    console.log(`  2. Select the Glassy Companion item (or create a new one)`)
-    console.log(`  3. Click "Package" → upload glassy-companion-v${pkg?.version}.zip`)
-    console.log(`  4. Click "Store listing" → paste the contents of STORE_LISTING.md`)
-    console.log(`  5. Click "Privacy" → paste the contents of PRIVACY_POLICY.md`)
-    console.log(`  6. Click "Save draft" → review → click "Submit for review"`)
-    console.log(`  7. Pay the one-time $5 developer fee (if first submission)`)
-  }
-  if (target === 'firefox' || target === 'both') {
-    console.log(`\nMozilla Add-ons (AMO):`)
-    console.log(`  1. Go to https://addons.mozilla.org/en-US/developers/addon/submit/`)
-    console.log(`  2. Select the Glassy Companion item (or create a new one)`)
-    console.log(`  3. Click "Upload New Version" → upload glassy-companion-v${pkg?.version}-firefox.xpi`)
-    console.log(`  4. Fill in source-code notes (the package includes src/ but not dist/ unless explicitly zipped)`)
-    console.log(`  5. Click "Submit Version"`)
-  }
-  console.log(`\nWhen the AMO and CWS API submission is wired, the steps above`)
-  console.log(`will be replaced by HTTP calls to the publish endpoints.`)
+  console.log(`\nNext: follow STORE_SUBMISSION.md. It has every field to paste for each store.`)
+  console.log(`The upload itself is done by the owner in each store's dashboard.`)
 }
 
 main().catch((err) => {

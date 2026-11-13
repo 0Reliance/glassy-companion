@@ -63,7 +63,7 @@ export default function AppShell({ activeView, onNavigate, user, showSettings, o
               Glassy
             </span>
             <span style={{ fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Companion
+              Capture
             </span>
           </div>
         </div>
