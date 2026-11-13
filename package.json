@@ -1,6 +1,6 @@
 {
   "name": "glassy-companion",
-  "version": "2.21.0",
+  "version": "2.21.1",
   "private": true,
   "license": "AGPL-3.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "zip": "node scripts/zip.js",
     "zip:firefox": "node scripts/zip.js --target=firefox",
     "pre-flight": "node scripts/pre-flight-release.js",
+    "store:check": "node scripts/submit-store.mjs --target=both",
     "test": "vitest run && node scripts/pre-flight-release.js \"$(grep '\"version\"' package.json | head -1 | sed 's/.*: \"//;s/\".*//')\""
   },
   "dependencies": {

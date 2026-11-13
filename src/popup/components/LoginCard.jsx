@@ -92,6 +92,7 @@ export default function LoginCard({ onLoginSuccess }) {
             autoComplete="email"
             autoFocus
             disabled={loading}
+            style={{ width: '100%', boxSizing: 'border-box' }}
           />
         </div>
         <div>
@@ -108,6 +109,7 @@ export default function LoginCard({ onLoginSuccess }) {
             placeholder="••••••••"
             autoComplete="current-password"
             disabled={loading}
+            style={{ width: '100%', boxSizing: 'border-box' }}
           />
         </div>
 

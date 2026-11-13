@@ -55,6 +55,9 @@ export async function getSettings() {
     defaultCollection: null,
     badgeCount: true,
     showNotifications: true,
+    // Off unless the person turns it on: with it on, the address of each page they
+    // open is sent to their Glassy to ask whether it is already saved.
+    savedPageMark: false,
     ...result[STORAGE_KEYS.settings],
   }
 }
