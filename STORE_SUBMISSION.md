@@ -1,4 +1,4 @@
-# Glassy Capture: store submission sheet (v2.21.1)
+# Glassy Capture: store submission sheet (v2.21.2)
 
 Everything to paste into each store, in the order the store asks for it. The words for
 the public page are in [STORE_LISTING.md](STORE_LISTING.md); the policy is
@@ -12,10 +12,10 @@ live dashboards, which need the owner's sign-in, so a label may differ slightly.
 
 | Store | File | Built with |
 |---|---|---|
-| Chrome Web Store | `glassy-companion-v2.21.1.zip` | `npm run build && npm run zip` |
-| Microsoft Edge Add-ons | the same `glassy-companion-v2.21.1.zip` | |
-| Firefox Add-ons | `glassy-companion-v2.21.1-firefox.xpi` | `npm run build:firefox && npm run zip:firefox` |
-| Firefox Add-ons, source code | `glassy-capture-v2.21.1-source.zip` | `git archive --format=zip -o glassy-capture-v2.21.1-source.zip v2.21.1` |
+| Chrome Web Store | `glassy-companion-v2.21.2.zip` | `npm run build && npm run zip` |
+| Microsoft Edge Add-ons | the same `glassy-companion-v2.21.2.zip` | |
+| Firefox Add-ons | `glassy-companion-v2.21.2-firefox.xpi` | `npm run build:firefox && npm run zip:firefox` |
+| Firefox Add-ons, source code | `glassy-capture-v2.21.2-source.zip` | `git archive --format=zip -o glassy-capture-v2.21.2-source.zip v2.21.2` |
 
 Screenshots: the five files in `store/screenshots/` (1280×800 PNG). Icon: `assets/icon-128.png`,
 already inside the package.
@@ -60,9 +60,9 @@ The name and the one-line summary are read from the package (`name` and `descrip
 | storage | Keeps the user's sign-in token, server address, settings, unsent drafts and saves waiting to be sent while offline, in the browser on their device. |
 | notifications | Tells the user that a save started from a keyboard shortcut or the right-click menu succeeded or did not, since no popup is open at that moment; that they need to sign in; or that their Obsidian connection needs them to sign in again. |
 | alarms | Once a minute, sends saves that are waiting because the user was offline. Every six hours, checks that local storage is not full. If the user connected Obsidian, every 30 seconds checks that the connection is still up. |
-| sidePanel | Shows the same save, note and search screens in the browser's side panel so they stay open next to the page. |
+| sidePanel | Shows the same save, note and search screens in the browser's side panel so they stay open next to the page. While it is open it reads the page the user switches to, so the form shows the page they are looking at. |
 | Host permission (`https://glassy.fyi/*`, `https://*.glassy.fyi/*`) | These are the addresses of Glassy's own cloud service. The extension sends the user's saves and searches to it and reads their collections and tags from it. |
-| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user opens the extension, saves, highlights or captures; it reads nothing and sends nothing by itself. |
+| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user opens the extension (popup or side panel), saves, highlights or captures; it reads nothing and sends nothing by itself. While the side panel is open, it reads the page the user switches to. |
 | Optional host permission (`localhost`, `127.0.0.1`) | Requested only when the user connects their Obsidian vault, to reach the Obsidian Local REST API running on their own computer, and their Glassy server if it runs on the same computer. |
 
 **Remote code**
@@ -79,7 +79,7 @@ Tick these four, and no others:
 |---|---|
 | Personally identifiable information | The user's email address, used to sign in to their Glassy. |
 | Authentication information | The password at sign-in (sent once, not kept) and the sign-in token kept in the browser. |
-| Web history | The address of the page the user is on when they open the extension (to say whether it is already saved) and of pages they save. If the user turns on the optional setting "Mark pages I already saved", off by default, also the address of each page they open. Nothing is sent while the setting is off and the extension is closed. |
+| Web history | The address of the page the user is on when they open the extension (to say whether it is already saved), of each page they switch to while the side panel is open, and of pages they save. If the user turns on the optional setting "Mark pages I already saved", off by default, also the address of each page they open. Nothing is sent while the setting is off and the extension is closed. |
 | Website content | The title, description, selected text, readable text and screenshots of pages the user chooses to save. |
 
 Then tick all three certifications. Each is true of this build:
@@ -92,7 +92,7 @@ Then tick all three certifications. Each is true of this build:
 
 > https://github.com/0Reliance/glassy-companion/blob/main/PRIVACY_POLICY.md
 
-This address shows the v2.21.1 policy once this release is merged to `main`.
+This address shows the v2.21.2 policy once this release is merged to `main`.
 
 ### Test instructions tab
 
@@ -104,7 +104,7 @@ faster when the reviewer is handed an account:
 |---|---|
 | Username | `<reviewer account email>` |
 | Password | `<reviewer account password>` |
-| Additional instructions | Click the toolbar button and sign in with the account above (the server address is already set to Glassy's cloud app). Open any article and click Save. Search and Note are the other tabs in the popup. |
+| Additional instructions | Click the toolbar button and sign in with the account above (the server address is already set to Glassy's cloud app). Open any article and click Save. Note, Bookmarks and Library are the other tabs in the popup. |
 
 The account is the owner's to create. Do not write its password in this file or anywhere
 in the repo; type it into each store's form.
@@ -128,9 +128,9 @@ Choose "On this site".
 
 | Field | Paste |
 |---|---|
-| Upload | `glassy-companion-v2.21.1-firefox.xpi` |
+| Upload | `glassy-companion-v2.21.2-firefox.xpi` |
 | Compatible with | Firefox (desktop) |
-| Do you use a code generator, minifier or bundler? | Yes. Then upload `glassy-capture-v2.21.1-source.zip` |
+| Do you use a code generator, minifier or bundler? | Yes. Then upload `glassy-capture-v2.21.2-source.zip` |
 | Name | Glassy Capture |
 | Summary | The "Summary" line of `STORE_LISTING.md` |
 | Description | The "Description" section of `STORE_LISTING.md` |
@@ -146,7 +146,7 @@ Choose "On this site".
 > `npm ci`
 > `npm run build:firefox`
 > `npm run zip:firefox`
-> The result is `glassy-companion-v2.21.1-firefox.xpi`, built from `dist-firefox/`. The bundler is Vite with @crxjs/vite-plugin; no code is fetched at run time.
+> The result is `glassy-companion-v2.21.2-firefox.xpi`, built from `dist-firefox/`. The bundler is Vite with @crxjs/vite-plugin; no code is fetched at run time.
 >
 > To test: the extension signs in to a Glassy server. A free account, made at https://app.glassy.fyi, is enough for every feature. A test account is provided: email `<reviewer account email>`, password `<reviewer account password>`.
 >
@@ -166,7 +166,7 @@ Upload the same zip as Chrome. Edge asks for the same things under slightly diff
 
 | Field | Paste |
 |---|---|
-| Package | `glassy-companion-v2.21.1.zip` |
+| Package | `glassy-companion-v2.21.2.zip` |
 | Category | Productivity |
 | Description | The "Description" section of `STORE_LISTING.md` |
 | Screenshots | The five files in `store/screenshots/` |

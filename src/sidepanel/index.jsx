@@ -24,7 +24,9 @@ root.render(
       display: 'flex',
       flexDirection: 'column',
       background: '#08080c',
-      overflow: 'hidden',
+      // The panel scrolls itself: with 'hidden', a form taller than the window was cut off.
+      overflowY: 'auto',
+      overflowX: 'hidden',
     }}>
       <Popup />
     </div>

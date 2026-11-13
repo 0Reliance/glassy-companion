@@ -38,7 +38,7 @@ WHAT YOU CAN DO
 
 • Keep saving when you are offline. Saves wait on this device and are sent when you are back online.
 
-• Open the side panel in Chrome and Edge to keep Glassy Capture next to the page.
+• Open the side panel in Chrome and Edge to keep Glassy Capture next to the page. It follows you from page to page.
 
 • Use more than one Glassy account and choose where each save goes.
 
@@ -52,7 +52,7 @@ Save this page, write a note and open Glassy Capture can each have a shortcut, a
 
 YOUR DATA
 
-What you save goes to the Glassy you sign in to, and nowhere else: Glassy's cloud app at app.glassy.fyi, or your own Glassy Self-Host server. Glassy Capture has no analytics, no ads and no tracking. It reads a page when you open Glassy Capture on it or save, highlight or capture it. The saved-page mark, which checks each page you open, is off unless you turn it on.
+What you save goes to the Glassy you sign in to, and nowhere else: Glassy's cloud app at app.glassy.fyi, or your own Glassy Self-Host server. Glassy Capture has no analytics, no ads and no tracking. It reads a page when you open Glassy Capture on it or save, highlight or capture it, and, while the side panel is open, the page you switch to. The saved-page mark, which checks each page you open, is off unless you turn it on.
 
 Glassy Capture is open source: github.com/0Reliance/glassy-companion
 

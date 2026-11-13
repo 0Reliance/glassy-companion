@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.21.2] — 2026-11-13 — The side panel follows you, and the Save button stays in view
+
+No new permissions. What you will notice:
+
+### Fixed
+
+- **The side panel follows the page you are on.** Left open while you moved to another tab
+  or page, it kept showing, and saving, the page it was opened on. It now reads the page
+  again when you switch tabs or a page finishes loading in the tab you are on, and asks
+  your Glassy whether that address is already saved, as the popup does when it opens.
+- **The Save button is always in view.** It sat below the bottom of the popup and needed
+  a scroll. It now stays at the bottom while the form scrolls.
+- **"Add tags for me" starts as Settings says.** The setting in Settings changed nothing:
+  the switch on the save form always started on. It now starts as you chose, and you can
+  still switch it for one save.
+- **Switching tabs no longer loses what you typed.** An unsent save form is kept for each
+  page, so a note typed on one page is still there when you come back to it.
+- **"Desktop notifications" does what it says.** Turned off, it now stops the "saved"
+  notices after a save from a shortcut or the right-click menu. A save that did not work
+  is always shown, so it is never lost without a word.
+- **Every switch can be reached with the keyboard** and is read out as a switch, on or off.
+
+### Changed
+
+- **Plain names.** The "KB" tab is "Library" and the "Search" tab is "Bookmarks", which is
+  what each one searches. "AI auto-tag" is "Add tags for me". The notice for an account that
+  cannot save no longer speaks of a Pro plan. Signing out with saves still waiting says
+  how many will be deleted and how to keep them.
+- Store papers and screenshots updated to match.
+
+---
+
 ## [2.21.1] — 2026-11-12 — Ready for the browser stores
 
 This release is v2.21.0 prepared for the Chrome Web Store, Firefox Add-ons and Edge

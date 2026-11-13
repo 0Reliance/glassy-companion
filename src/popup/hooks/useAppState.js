@@ -10,6 +10,24 @@ import { watchSessionEnd } from '../../lib/sessionWatch.js'
  * Views: loading | login | save | note | search | settings
  * Save status: idle | saving | saved | duplicate | error | queued
  */
+/**
+ * Held while a save is being prepared (a screenshot uploading before the save is sent), so
+ * the side panel does not move to another page under it. The form takes and releases it.
+ */
+const pageHold = { held: false, onRelease: null }
+export function holdPage() { pageHold.held = true }
+export function releasePage() {
+  pageHold.held = false
+  const go = pageHold.onRelease
+  pageHold.onRelease = null
+  if (go) go()
+}
+
+/** True in the side panel, false in the popup (both render the same app). */
+export function isSidePanel() {
+  try { return /\/sidepanel\//.test(window.location.pathname) } catch { return false }
+}
+
 export default function useAppState() {
   const [view, setView] = useState('loading')
   const [user, setUser] = useState(null)
@@ -75,8 +93,9 @@ export default function useAppState() {
           setPageMeta(metaRes.meta)
           // Pre-flight duplicate check — show "Already saved" badge.
           if (metaRes.meta.url) {
-            checkDuplicateUrl(metaRes.meta.url).then(res => {
-              if (res?.saved) setAlreadySaved(true)
+            const firstUrl = metaRes.meta.url
+            checkDuplicateUrl(firstUrl).then(res => {
+              if (res?.saved && (pageUrlRef.current === null || pageUrlRef.current === firstUrl)) setAlreadySaved(true)
             }).catch(() => {})
           }
           // Best-effort: pull capture rules and pre-populate SmartSave defaults.
@@ -126,6 +145,95 @@ export default function useAppState() {
       }
     })()
   }, [resolveInitialView])
+
+  // The side panel stays open while the person browses. It read the page once, when it
+  // opened, so after moving to another tab or page it still showed, and saved, the first
+  // one. It now reads the page again when the active tab changes or finishes loading.
+  // The popup closes on its own, so it does not listen.
+  //  - Only the newest reading counts: a slow one that comes back late is dropped.
+  //  - The same page read again changes nothing (no new form, no second check).
+  //  - Capture rules are worked out for the new page.
+  //  - A save in flight is not interrupted; the panel moves on when it has finished.
+  const pageUrlRef = useRef(null)
+  const saveStatusRef = useRef('idle')
+  const pendingRefreshRef = useRef(false)
+  const refreshSeqRef = useRef(0)
+  const refreshRef = useRef(null)
+  useEffect(() => { pageUrlRef.current = pageMeta?.url || null }, [pageMeta?.url])
+  useEffect(() => {
+    saveStatusRef.current = saveStatus
+    if (saveStatus !== 'saving' && pendingRefreshRef.current) {
+      pendingRefreshRef.current = false
+      refreshRef.current?.()
+    }
+  }, [saveStatus])
+
+  useEffect(() => {
+    if (!isSidePanel() || !chrome?.tabs?.onActivated) return undefined
+    let alive = true
+    let timer = null
+    const readPage = async () => {
+      const seq = ++refreshSeqRef.current
+      try {
+        const metaRes = await getActiveTabMeta()
+        const meta = metaRes?.meta
+        if (!alive || seq !== refreshSeqRef.current || !meta) return
+        if (meta.url && meta.url === pageUrlRef.current) return
+        const busy = () => saveStatusRef.current === 'saving' || pageHold.held
+        const later = () => { pendingRefreshRef.current = true; if (pageHold.held) pageHold.onRelease = () => { pendingRefreshRef.current = false; refreshRef.current?.() } }
+        if (busy()) { later(); return }
+        let defaults = null
+        try {
+          const rules = toRulesArray(await fetchCaptureRules())
+          if (rules.length && meta.url) {
+            const result = evaluateRules(meta.url, rules)
+            if (result.preset || result.destination || result.tags.length || result.publicCandidate) {
+              defaults = {
+                contentType: result.preset || undefined,
+                projectId: result.destination || undefined,
+                tags: result.tags || [],
+                isPublic: !!result.publicCandidate,
+              }
+            }
+          }
+        } catch { /* the form works without rule guidance */ }
+        if (!alive || seq !== refreshSeqRef.current) return
+        // A save may have started while the rules were read.
+        if (busy()) { later(); return }
+        pageUrlRef.current = meta.url || null
+        setSaveStatus('idle')
+        setErrorMessage('')
+        setLastCaptureId(null)
+        setRuleDefaults(defaults)
+        setAlreadySaved(false)
+        setPageMeta(meta)
+        if (meta.url) {
+          const url = meta.url
+          checkDuplicateUrl(url).then(res => {
+            if (alive && res?.saved && pageUrlRef.current === url) setAlreadySaved(true)
+          }).catch(() => {})
+        }
+      } catch { /* the panel keeps the page it has */ }
+    }
+    const refresh = () => {
+      clearTimeout(timer)
+      timer = setTimeout(readPage, 250)
+    }
+    refreshRef.current = refresh
+    const onActivated = () => refresh()
+    const onUpdated = (_tabId, changeInfo, tab) => {
+      if (tab?.active && changeInfo?.status === 'complete') refresh()
+    }
+    chrome.tabs.onActivated.addListener(onActivated)
+    chrome.tabs.onUpdated.addListener(onUpdated)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+      refreshRef.current = null
+      chrome.tabs.onActivated.removeListener(onActivated)
+      chrome.tabs.onUpdated.removeListener(onUpdated)
+    }
+  }, [])
 
   const handleLoginSuccess = useCallback(async (loggedInUser) => {
     setUser(loggedInUser)

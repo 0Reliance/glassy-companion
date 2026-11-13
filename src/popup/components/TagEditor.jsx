@@ -202,25 +202,32 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
       )}
 
       {/* AI tag toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
-        <div
-          onClick={onToggleAi}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!!aiTag}
+        aria-label="Add tags for me after the save"
+        onClick={onToggleAi}
+        style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none', background: 'none', border: 'none', padding: 0 }}
+      >
+        <span
+          aria-hidden="true"
           style={{
             width: 30, height: 17, borderRadius: 10, position: 'relative', flexShrink: 0,
             background: aiTag ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.12)',
-            transition: 'background 0.2s', cursor: 'pointer',
+            transition: 'background 0.2s', display: 'inline-block',
           }}
         >
-          <div style={{
+          <span style={{
             position: 'absolute', top: 2, width: 13, height: 13, borderRadius: '50%',
             background: 'white', transition: 'left 0.2s',
             left: aiTag ? 15 : 2,
           }} />
-        </div>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-          AI auto-tag {aiTag ? <span style={{ color: '#818cf8' }}>on</span> : 'off'}
         </span>
-      </label>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+          Add tags for me {aiTag ? <span style={{ color: '#818cf8' }}>on</span> : 'off'}
+        </span>
+      </button>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Glassy Capture",
-  "version": "2.21.1",
+  "version": "2.21.2",
   "description": "Save pages, links, highlights and notes to your Glassy, and search your library from any tab.",
   "permissions": [
     "activeTab",

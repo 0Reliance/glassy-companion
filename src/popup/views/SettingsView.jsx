@@ -165,8 +165,8 @@ export default function SettingsView({ user, onClose, onLogout }) {
 
       {/* Toggles */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Toggle label="AI auto-tagging" desc="Tag bookmarks automatically using AI" value={aiTag} onChange={setAiTag} />
-        <Toggle label="Desktop notifications" desc="Show notification after saving" value={notifications} onChange={setNotifs} />
+        <Toggle label="Add tags for me when saving" desc="After a save, your Glassy adds a few tags. It reads the page’s title, description, a short excerpt and its address with the AI it is set up with. You can switch it for one save on the save form." value={aiTag} onChange={setAiTag} />
+        <Toggle label="Desktop notifications" desc="Notices after a save from a shortcut or the right-click menu: saved, already saved, waiting to be sent. A save that did not work is always shown." value={notifications} onChange={setNotifs} />
         <Toggle label="Mark pages I already saved" desc="Shows a check on the toolbar button. To do it, the address of each page you open is sent to your Glassy. When off, nothing is sent until you open Glassy Capture." value={savedMark} onChange={setSavedMark} />
       </div>
 
@@ -236,7 +236,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
           </div>
           {queueCount > 0 && (
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-              You have <strong style={{ color: '#fcd34d' }}>{queueCount}</strong> unsaved item{queueCount === 1 ? '' : 's'} in your offline queue. Signing out will lose them.
+              <strong style={{ color: '#fcd34d' }}>{queueCount}</strong> save{queueCount === 1 ? ' is' : 's are'} still waiting to be sent. Signing out deletes {queueCount === 1 ? 'it' : 'them'}. To keep {queueCount === 1 ? 'it' : 'them'}, stay signed in until {queueCount === 1 ? 'it is' : 'they are'} sent.
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -285,20 +285,24 @@ function Toggle({ label, desc, value, onChange }) {
         <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{label}</div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{desc}</div>
       </div>
-      <div
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!!value}
+        aria-label={label}
         onClick={() => onChange(!value)}
         style={{
           width: 34, height: 19, borderRadius: 12, position: 'relative', flexShrink: 0,
           background: value ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.12)',
-          transition: 'background 0.2s', cursor: 'pointer',
+          transition: 'background 0.2s', cursor: 'pointer', border: 'none', padding: 0,
         }}
       >
-        <div style={{
+        <span style={{
           position: 'absolute', top: 3, width: 13, height: 13, borderRadius: '50%',
           background: 'white', transition: 'left 0.2s',
           left: value ? 18 : 3,
         }} />
-      </div>
+      </button>
     </div>
   )
 }
