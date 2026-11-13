@@ -1,5 +1,24 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { getSettings } from '../../lib/cache.js'
+import { BOOKMARK_DRAFT_KEY, draftFor, withDraft, withoutDraft } from '../../lib/saveDrafts.js'
+
+// One storage write at a time, so a draft written as the form closes and one written as the
+// next page's form opens cannot overwrite each other.
+let draftChain = Promise.resolve()
+function updateDrafts(change) {
+  draftChain = draftChain.then(() => new Promise(resolve => {
+    try {
+      chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
+        try {
+          const next = change(result?.[BOOKMARK_DRAFT_KEY])
+          if (next) chrome.storage.local.set({ [BOOKMARK_DRAFT_KEY]: next }, () => resolve())
+          else chrome.storage.local.remove(BOOKMARK_DRAFT_KEY, () => resolve())
+        } catch { resolve() }
+      })
+    } catch { resolve() }
+  }))
+  return draftChain
+}
 import CollectionPicker from './CollectionPicker.jsx'
 import TagEditor from './TagEditor.jsx'
 import ContentPreview from './ContentPreview.jsx'
@@ -10,7 +29,6 @@ import { uploadCaptureImage } from '../../lib/api.js'
 // Draft storage key — kept identical to the legacy BookmarkCard so existing
 // drafts restore seamlessly after the upgrade. The shape is unchanged:
 // { title, notes, tags, collectionId, url, savedAt, contentType, isPublic, isPinned, aiAutoTag, smartExpanded }
-const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
 
 /**
  * SaveCard — unified capture card with progressive disclosure.
@@ -22,13 +40,13 @@ const BOOKMARK_DRAFT_KEY = 'glassy_bookmark_draft'
  * the Save button when the user taps the "⚙ Smart capture" toggle pill.
  *
  * Preserves every piece of smartness from the legacy components:
- *  - Draft persistence (glassy_bookmark_draft, stale-draft discard by url)
+ *  - Draft persistence (glassy_bookmark_draft, one draft per page address; lib/saveDrafts.js)
  *  - Capture-rule pre-population via `defaults` prop (from useAppState ruleDefaults)
  *  - Pending element + pending/live screenshot pre-load with auto-expand
  *  - Deferred screenshot upload with 3-attempt backoff (never on mount)
  *  - Content-type re-fetch on preset change (GET_PAGE_META → structuredData)
  *  - Structured-data passthrough for type-aware reader rendering
- *  - Tag autocomplete, collection picker, tag-suggestion switch (starts as Settings says)
+ *  - Tag autocomplete, collection picker, "Add tags for me" switch (starts as Settings says)
  *  - QuickActions (Save Page / Screenshot) inline
  *  - Same payload contract (captureMode: 'quick' | 'smart') as before
  */
@@ -51,9 +69,16 @@ export default function SaveCard({
   const [tags, setTags] = useState([])
   const [notes, setNotes] = useState('')
   const [aiAutoTag, setAiAutoTag] = useState(true)
-  // The switch starts as Settings → "Suggest tags when saving" says; an unsent draft for
-  // this page keeps its own choice. (It used to start on whatever Settings said.)
+  // The switch starts as Settings → "Add tags for me when saving" says. An unsent draft for
+  // this page keeps the switch only if the person changed it there. (It used to start on
+  // whatever Settings said.)
   const draftSetAiRef = useRef(false)
+  const aiTouchedRef = useRef(false)
+  // Drafts are written only after the form has taken in its draft, settings and rules, so
+  // opening the form does not write a draft of its own starting values.
+  const hydratedRef = useRef(false)
+  const latestDraftRef = useRef(null)
+  const draftPendingRef = useRef(false)
   useEffect(() => {
     let alive = true
     getSettings().then(s => {
@@ -110,28 +135,35 @@ export default function SaveCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Draft persistence (identical contract to legacy BookmarkCard) ───────────
+  // ── Draft persistence: one unsent form per page address (lib/saveDrafts.js) ──
   useEffect(() => {
     if (!pageMeta?.url) return
-    chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
-      if (chrome.runtime.lastError) return   // storage read failed — keep fresh form
-      const draft = result?.[BOOKMARK_DRAFT_KEY]
-      if (!draft) return
-      if (draft.url && draft.url !== pageMeta.url) {
-        // Stale draft from a different page — discard it.
-        chrome.storage.local.remove(BOOKMARK_DRAFT_KEY)
-        return
-      }
-      if (draft.title) setTitle(draft.title)
-      if (draft.notes) { setNotes(draft.notes); setShowNotes(true) }
-      if (Array.isArray(draft.tags)) setTags(draft.tags)
-      if (draft.collectionId != null) setCollection(draft.collectionId)
-      if (draft.contentType) setContentType(draft.contentType)
-      if (typeof draft.isPublic === 'boolean') setIsPublic(draft.isPublic)
-      if (typeof draft.isPinned === 'boolean') setIsPinned(draft.isPinned)
-      if (typeof draft.aiAutoTag === 'boolean') { draftSetAiRef.current = true; setAiAutoTag(draft.aiAutoTag) }
-      if (typeof draft.smartExpanded === 'boolean') setSmartExpanded(draft.smartExpanded)
-    })
+    let alive = true
+    const done = () => { setTimeout(() => { if (alive) hydratedRef.current = true }, 0) }
+    try {
+      chrome.storage.local.get(BOOKMARK_DRAFT_KEY, (result) => {
+        if (!alive) return
+        if (chrome.runtime.lastError) { done(); return }   // storage read failed — keep fresh form
+        const draft = draftFor(result?.[BOOKMARK_DRAFT_KEY], pageMeta.url)
+        if (draft) {
+          if (draft.title) setTitle(draft.title)
+          if (draft.notes) { setNotes(draft.notes); setShowNotes(true) }
+          if (Array.isArray(draft.tags)) setTags(draft.tags)
+          if (draft.collectionId != null) setCollection(draft.collectionId)
+          if (draft.contentType) setContentType(draft.contentType)
+          if (typeof draft.isPublic === 'boolean') setIsPublic(draft.isPublic)
+          if (typeof draft.isPinned === 'boolean') setIsPinned(draft.isPinned)
+          if (draft.aiTouched && typeof draft.aiAutoTag === 'boolean') {
+            draftSetAiRef.current = true
+            aiTouchedRef.current = true
+            setAiAutoTag(draft.aiAutoTag)
+          }
+          if (typeof draft.smartExpanded === 'boolean') setSmartExpanded(draft.smartExpanded)
+        }
+        done()
+      })
+    } catch { done() }
+    return () => { alive = false }
   }, [pageMeta?.url])
 
   // Auto-fill title from pageMeta when available (legacy behavior).
@@ -140,20 +172,34 @@ export default function SaveCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageMeta?.title])
 
-  // Debounced draft write — same 500ms cadence as BookmarkCard.
+  // Debounced draft write — same 500ms cadence as BookmarkCard — and flushed when the form
+  // closes, so a tab switch in the side panel does not drop the last half second of typing.
   useEffect(() => {
+    if (!pageMeta?.url) return
+    latestDraftRef.current = {
+      url: pageMeta.url,
+      draft: {
+        title, notes, tags, collectionId,
+        contentType, isPublic, isPinned, smartExpanded,
+        ...(aiTouchedRef.current ? { aiAutoTag, aiTouched: true } : {}),
+      },
+    }
+    if (!hydratedRef.current) return
+    draftPendingRef.current = true
     if (draftTimer.current) clearTimeout(draftTimer.current)
     draftTimer.current = setTimeout(() => {
-      chrome.storage.local.set({
-        [BOOKMARK_DRAFT_KEY]: {
-          title, notes, tags, collectionId, url: pageMeta?.url,
-          contentType, isPublic, isPinned, aiAutoTag, smartExpanded,
-          savedAt: Date.now(),
-        },
-      })
+      draftPendingRef.current = false
+      const { url, draft } = latestDraftRef.current
+      updateDrafts(stored => withDraft(stored, url, { ...draft, savedAt: Date.now() }))
     }, 500)
     return () => clearTimeout(draftTimer.current)
   }, [title, notes, tags, collectionId, pageMeta?.url, contentType, isPublic, isPinned, aiAutoTag, smartExpanded])
+
+  useEffect(() => () => {
+    if (!draftPendingRef.current || !latestDraftRef.current) return
+    const { url, draft } = latestDraftRef.current
+    updateDrafts(stored => withDraft(stored, url, { ...draft, savedAt: Date.now() }))
+  }, [])
 
   // ── Pending capture pre-load (element picker / screenshot) ──────────────────
   // Mirrors SmartSavePanel's mount effect exactly. Auto-expands Smart + shows
@@ -305,7 +351,9 @@ export default function SaveCard({
     }
 
     // Clear the draft on save (legacy behavior — BookmarkCard did this).
-    chrome.storage.local.remove(BOOKMARK_DRAFT_KEY)
+    draftPendingRef.current = false
+    clearTimeout(draftTimer.current)
+    updateDrafts(stored => withoutDraft(stored, pageMeta?.url))
 
     onSave(payload)
   }, [pageMeta, title, contentType, smartExpanded, collectionId, tags, notes, isPublic, isPinned, aiAutoTag, contentMarkdown, structuredData, onSave, pendingScreenshot, uploadScreenshotWithRetry])
@@ -373,7 +421,7 @@ export default function SaveCard({
           tags={tags}
           onChange={setTags}
           aiTag={aiAutoTag}
-          onToggleAi={() => setAiAutoTag(!aiAutoTag)}
+          onToggleAi={() => { aiTouchedRef.current = true; setAiAutoTag(!aiAutoTag) }}
         />
 
         {!showNotes ? (

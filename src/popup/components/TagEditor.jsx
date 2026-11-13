@@ -206,7 +206,7 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
         type="button"
         role="switch"
         aria-checked={!!aiTag}
-        aria-label="Suggest tags after the save"
+        aria-label="Add tags for me after the save"
         onClick={onToggleAi}
         style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none', background: 'none', border: 'none', padding: 0 }}
       >
@@ -225,7 +225,7 @@ export default function TagEditor({ tags, onChange, aiTag, onToggleAi }) {
           }} />
         </span>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-          Suggest tags {aiTag ? <span style={{ color: '#818cf8' }}>on</span> : 'off'}
+          Add tags for me {aiTag ? <span style={{ color: '#818cf8' }}>on</span> : 'off'}
         </span>
       </button>
     </div>

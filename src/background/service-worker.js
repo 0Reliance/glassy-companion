@@ -502,7 +502,7 @@ async function backgroundSave(mode, payload, tab) {
         showNotification('Glassy — Already saved', captureItem.title, 'info')
         break
       case 'entitlement':
-        showNotification('Glassy — Not saved', 'This Glassy says the account can’t save bookmarks. Open Glassy to see why.', 'error')
+        showNotification('Glassy — Not saved', 'Your account can’t save bookmarks on this Glassy. Open Glassy to see why.', 'error')
         break
       case 'gone':
         showNotification('Glassy — Account unavailable', 'This account is no longer active.', 'error')

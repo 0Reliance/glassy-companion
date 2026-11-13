@@ -17,9 +17,11 @@ No new permissions. What you will notice:
   your Glassy whether that address is already saved, as the popup does when it opens.
 - **The Save button is always in view.** It sat below the bottom of the popup and needed
   a scroll. It now stays at the bottom while the form scrolls.
-- **Tag suggestions start as Settings says.** "Suggest tags when saving" in Settings set
-  nothing: the switch on the save form always started on. It now starts as you chose,
-  and you can still switch it for one save.
+- **"Add tags for me" starts as Settings says.** The setting in Settings changed nothing:
+  the switch on the save form always started on. It now starts as you chose, and you can
+  still switch it for one save.
+- **Switching tabs no longer loses what you typed.** An unsent save form is kept for each
+  page, so a note typed on one page is still there when you come back to it.
 - **"Desktop notifications" does what it says.** Turned off, it now stops the "saved"
   notices after a save from a shortcut or the right-click menu. A save that did not work
   is always shown, so it is never lost without a word.
@@ -28,7 +30,7 @@ No new permissions. What you will notice:
 ### Changed
 
 - **Plain names.** The "KB" tab is "Library" and the "Search" tab is "Bookmarks", which is
-  what each one searches. "AI auto-tag" is "Suggest tags". The notice for an account that
+  what each one searches. "AI auto-tag" is "Add tags for me". The notice for an account that
   cannot save no longer speaks of a Pro plan. Signing out with saves still waiting says
   how many will be deleted and how to keep them.
 - Store papers and screenshots updated to match.

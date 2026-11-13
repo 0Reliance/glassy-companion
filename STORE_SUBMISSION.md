@@ -62,7 +62,7 @@ The name and the one-line summary are read from the package (`name` and `descrip
 | alarms | Once a minute, sends saves that are waiting because the user was offline. Every six hours, checks that local storage is not full. If the user connected Obsidian, every 30 seconds checks that the connection is still up. |
 | sidePanel | Shows the same save, note and search screens in the browser's side panel so they stay open next to the page. While it is open it reads the page the user switches to, so the form shows the page they are looking at. |
 | Host permission (`https://glassy.fyi/*`, `https://*.glassy.fyi/*`) | These are the addresses of Glassy's own cloud service. The extension sends the user's saves and searches to it and reads their collections and tags from it. |
-| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user opens the extension, saves, highlights or captures; it reads nothing and sends nothing by itself. |
+| Host permission (content script on all sites) | The user can save any page they are reading, so the page script that reads a page's title, description and selected text has to be available on any site. It is idle until the user opens the extension (popup or side panel), saves, highlights or captures; it reads nothing and sends nothing by itself. While the side panel is open, it reads the page the user switches to. |
 | Optional host permission (`localhost`, `127.0.0.1`) | Requested only when the user connects their Obsidian vault, to reach the Obsidian Local REST API running on their own computer, and their Glassy server if it runs on the same computer. |
 
 **Remote code**
@@ -79,7 +79,7 @@ Tick these four, and no others:
 |---|---|
 | Personally identifiable information | The user's email address, used to sign in to their Glassy. |
 | Authentication information | The password at sign-in (sent once, not kept) and the sign-in token kept in the browser. |
-| Web history | The address of the page the user is on when they open the extension (to say whether it is already saved) and of pages they save. If the user turns on the optional setting "Mark pages I already saved", off by default, also the address of each page they open. Nothing is sent while the setting is off and the extension is closed. |
+| Web history | The address of the page the user is on when they open the extension (to say whether it is already saved), of each page they switch to while the side panel is open, and of pages they save. If the user turns on the optional setting "Mark pages I already saved", off by default, also the address of each page they open. Nothing is sent while the setting is off and the extension is closed. |
 | Website content | The title, description, selected text, readable text and screenshots of pages the user chooses to save. |
 
 Then tick all three certifications. Each is true of this build:

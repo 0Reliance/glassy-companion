@@ -9,7 +9,12 @@ const bridge = vi.hoisted(() => ({
   checkDuplicateUrl: vi.fn(async () => ({ saved: false })),
 }))
 vi.mock('../useExtensionBridge.js', () => bridge)
-vi.mock('../../../lib/api.js', () => ({ fetchCaptureRules: vi.fn(async () => ({ rules: [] })) }))
+vi.mock('../../../lib/api.js', () => ({ fetchCaptureRules: vi.fn(async () => ({ rules: [{ id: 'r' }] })) }))
+const rules = vi.hoisted(() => ({
+  evaluateRules: vi.fn(url => (url.includes('recipes') ? { preset: null, destination: 7, tags: ['food'], publicCandidate: false } : { preset: null, destination: null, tags: [], publicCandidate: false })),
+  toRulesArray: r => (Array.isArray(r) ? r : r?.rules || []),
+}))
+vi.mock('../../../lib/rules.js', () => rules)
 vi.mock('../../../lib/sessionWatch.js', () => ({ watchSessionEnd: () => () => {} }))
 
 import useAppState, { isSidePanel } from '../useAppState.js'
@@ -43,7 +48,7 @@ beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   vi.useRealTimers()
   bridge.getActiveTabMeta.mockReset()
-  bridge.checkDuplicateUrl.mockClear()
+  bridge.checkDuplicateUrl.mockReset(); bridge.checkDuplicateUrl.mockResolvedValue({ saved: false })
 })
 afterEach(async () => { await act(async () => root?.unmount()); container?.remove(); window.history.pushState({}, '', '/') })
 
@@ -96,5 +101,68 @@ describe('the side panel follows the page you are on', () => {
     await act(async () => root.unmount()); root = null
     expect(listeners.activated).toHaveLength(0)
     expect(listeners.updated).toHaveLength(0)
+  })
+
+  it('SIDEPANEL-5: a slow reading that comes back after a newer one is dropped', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    let releaseSlow
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://one.example/a' } })
+      .mockImplementationOnce(() => new Promise(r => { releaseSlow = () => r({ meta: { url: 'https://slow.example/b' } }) }))
+      .mockResolvedValueOnce({ meta: { url: 'https://fast.example/c' } })
+    await mount()
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    expect(state.pageMeta.url).toBe('https://fast.example/c')
+    await act(async () => { releaseSlow(); await new Promise(r => setTimeout(r, 20)) })
+    expect(state.pageMeta.url).toBe('https://fast.example/c')
+  })
+
+  it('SIDEPANEL-6: capture rules are worked out for the new page, not carried over', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://site.example/recipes/bread' } })
+      .mockResolvedValueOnce({ meta: { url: 'https://news.example/today' } })
+    await mount()
+    expect(state.ruleDefaults?.projectId).toBe(7)
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    expect(state.pageMeta.url).toBe('https://news.example/today')
+    expect(state.ruleDefaults).toBeNull()
+  })
+
+  it('SIDEPANEL-7: a save in flight is not interrupted; the panel moves on after it, with a clean status', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://one.example/a' } })
+      .mockResolvedValue({ meta: { url: 'https://two.example/b' } })
+    await mount()
+    await act(async () => { state.setSaving() })
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    expect(state.pageMeta.url).toBe('https://one.example/a')
+    expect(state.saveStatus).toBe('saving')
+    await act(async () => { state.setSaved() })
+    await act(async () => { await new Promise(r => setTimeout(r, 400)) })
+    expect(state.pageMeta.url).toBe('https://two.example/b')
+    expect(state.saveStatus).toBe('idle')
+  })
+
+  it('SIDEPANEL-8: an "already saved" answer for the old page does not mark the new one', async () => {
+    window.history.pushState({}, '', '/src/sidepanel/index.html')
+    const listeners = makeChrome()
+    let answerOld
+    bridge.checkDuplicateUrl
+      .mockImplementationOnce(() => new Promise(r => { answerOld = () => r({ saved: true }) }))
+      .mockResolvedValue({ saved: false })
+    bridge.getActiveTabMeta
+      .mockResolvedValueOnce({ meta: { url: 'https://one.example/a' } })
+      .mockResolvedValueOnce({ meta: { url: 'https://two.example/b' } })
+    await mount()
+    await act(async () => { listeners.activated[0]({}); await new Promise(r => setTimeout(r, 300)) })
+    await act(async () => { answerOld(); await new Promise(r => setTimeout(r, 20)) })
+    expect(state.pageMeta.url).toBe('https://two.example/b')
+    expect(state.alreadySaved).toBe(false)
   })
 })

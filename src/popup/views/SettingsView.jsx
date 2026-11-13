@@ -165,8 +165,8 @@ export default function SettingsView({ user, onClose, onLogout }) {
 
       {/* Toggles */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Toggle label="Suggest tags when saving" desc="After a save, your Glassy adds a few tags, using the AI it is set up with. You can switch it for one save on the save form." value={aiTag} onChange={setAiTag} />
-        <Toggle label="Desktop notifications" desc="Say so when a save from a shortcut or the right-click menu worked. A save that did not work is always shown." value={notifications} onChange={setNotifs} />
+        <Toggle label="Add tags for me when saving" desc="After a save, your Glassy adds a few tags. It reads the page’s title, description and address with the AI it is set up with. You can switch it for one save on the save form." value={aiTag} onChange={setAiTag} />
+        <Toggle label="Desktop notifications" desc="Notices after a save from a shortcut or the right-click menu: saved, already saved, waiting to be sent. A save that did not work is always shown." value={notifications} onChange={setNotifs} />
         <Toggle label="Mark pages I already saved" desc="Shows a check on the toolbar button. To do it, the address of each page you open is sent to your Glassy. When off, nothing is sent until you open Glassy Capture." value={savedMark} onChange={setSavedMark} />
       </div>
 
@@ -236,7 +236,7 @@ export default function SettingsView({ user, onClose, onLogout }) {
           </div>
           {queueCount > 0 && (
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-              <strong style={{ color: '#fcd34d' }}>{queueCount}</strong> save{queueCount === 1 ? ' is' : 's are'} still waiting to be sent. Signing out deletes {queueCount === 1 ? 'it' : 'them'}. To keep {queueCount === 1 ? 'it' : 'them'}, stay signed in until you are back online.
+              <strong style={{ color: '#fcd34d' }}>{queueCount}</strong> save{queueCount === 1 ? ' is' : 's are'} still waiting to be sent. Signing out deletes {queueCount === 1 ? 'it' : 'them'}. To keep {queueCount === 1 ? 'it' : 'them'}, stay signed in until {queueCount === 1 ? 'it is' : 'they are'} sent.
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>

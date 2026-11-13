@@ -16,7 +16,7 @@ describe('the tag-suggestion switch', () => {
     expect(sw).not.toBeNull()
     expect(sw.tagName).toBe('BUTTON')
     expect(sw.getAttribute('aria-checked')).toBe('true')
-    expect(sw.textContent).toMatch(/Suggest tags on/)
+    expect(sw.textContent).toMatch(/Add tags for me on/)
     expect(c.textContent).not.toMatch(/AI auto-tag/)
     await act(async () => { sw.click() })
     expect(onToggle).toHaveBeenCalledTimes(1)

@@ -8,7 +8,7 @@ Glassy Capture is a browser extension that saves pages, links, highlights and no
 
 - What you save goes to the Glassy you sign in to, and nowhere else. That is Glassy's cloud app (`https://app.glassy.fyi`, the default) or your own Glassy Self-Host server, at the address you type.
 - The extension has no analytics, no ads and no tracking, and sends nothing to anyone else.
-- It reads a page when you open Glassy Capture on it, or save, highlight or capture it. Until then it sends no page address, unless you turn on the saved-page mark (off unless you choose it).
+- It reads a page when you open Glassy Capture on it, or save, highlight or capture it, and, while the side panel is open, each page you switch to. Otherwise it sends no page address, unless you turn on the saved-page mark (off unless you choose it).
 - Your data is not sold, and is not used for anything except the features described here.
 
 ## What the extension sends, and when
@@ -17,7 +17,7 @@ Glassy Capture is a browser extension that saves pages, links, highlights and no
 |---|---|
 | Sign in | Your email and password, once, to get a sign-in token. The password is not kept. |
 | Open the popup or side panel | The extension reads the title, address and description of the page you are on to fill in the form, and sends the address to ask whether you already saved it. While the side panel stays open, it does the same for each page you switch to, so the form shows the page you are looking at. It also checks that you are signed in and asks for your collections, tags and notifications. |
-| Save a page or a link | The page's title, address, description, preview image and icon addresses, the text you selected, and, for a full capture, the readable text of the page. Your tags, collection and note go with it. If auto-tagging is on, your Glassy adds tags to the save. |
+| Save a page or a link | The page's title, address, description, preview image and icon addresses, the text you selected, and, for a full capture, the readable text of the page. Your tags, collection and note go with it. If "Add tags for me" is on, your Glassy then adds a few tags: it reads the page's title, description and address with the AI it is set up with, which may be an AI service you or your Glassy chose. |
 | Save all tabs in the window | The title and address of every tab in that window. |
 | Highlight a selection | The selected text and the address of the page it is on. |
 | Capture the screen | A picture of the visible part of the tab, or of the region you draw. |
@@ -34,7 +34,7 @@ If you connect an Obsidian vault, the extension talks to the Obsidian Local REST
 
 ## What the extension does not do
 
-- It does not record your browsing history. A script is loaded on the pages you open so that a save works at once; it stays idle until you open Glassy Capture, save, highlight or capture, and sends nothing by itself. The one case where a page address is sent without you opening the extension is the saved-page mark, which is off unless you turn it on.
+- It does not record your browsing history. A script is loaded on the pages you open so that a save works at once; it stays idle until you open Glassy Capture, save, highlight or capture, and sends nothing by itself. A page address is sent without you opening the extension only while the side panel is open (for the page you switch to) or with the saved-page mark on, which is off unless you turn it on.
 - The popup shows the page's own preview image and icon. Your browser loads those from the page's site, as it does when you visit the page.
 - It does not record what you type on pages, or read forms.
 - It contains no analytics, tracking pixels, advertising or telemetry.
@@ -66,7 +66,7 @@ Signing out removes your sign-in token, profile and active account, discards sav
 | `alarms` | Send waiting saves when you are back online, check that storage is not filling up, and keep an Obsidian connection alive if you made one. |
 | `sidePanel` | Show Glassy Capture in the browser's side panel (Chrome and Edge). |
 | Access to `glassy.fyi` | Talk to Glassy's cloud app. |
-| Reading pages you open | Read the page's details when you open Glassy Capture on it, or save, highlight or capture it. |
+| Reading pages you open | Read the page's details when you open Glassy Capture on it, or save, highlight or capture it, and while the side panel is open, the page you switch to. |
 | Access to `localhost` and `127.0.0.1` (asked for only when you connect Obsidian) | Reach Obsidian on your own computer, and a Glassy server if yours runs on this computer. |
 
 ## Where your saved content lives
