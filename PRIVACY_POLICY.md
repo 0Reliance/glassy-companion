@@ -66,7 +66,7 @@ Signing out removes your sign-in token, profile and active account, discards sav
 | `alarms` | Send waiting saves when you are back online, check that storage is not filling up, and keep an Obsidian connection alive if you made one. |
 | `sidePanel` | Show Glassy Capture in the browser's side panel (Chrome and Edge). |
 | Access to `glassy.fyi` | Talk to Glassy's cloud app. |
-| Reading pages you open | Read the page's details when you save, highlight or capture it. |
+| Reading pages you open | Read the page's details when you open Glassy Capture on it, or save, highlight or capture it. |
 | Access to `localhost` and `127.0.0.1` (asked for only when you connect Obsidian) | Reach Obsidian on your own computer, and a Glassy server if yours runs on this computer. |
 
 ## Where your saved content lives

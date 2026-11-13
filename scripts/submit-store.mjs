@@ -68,14 +68,20 @@ async function main() {
   const distManifest = await readJson(join(ROOT, 'dist', 'manifest.json'))
   const distFfManifest = await readJson(join(ROOT, 'dist-firefox', 'manifest.json'))
 
-  if (pkg && manifest && distManifest) {
+  const wantChrome = target === 'chrome' || target === 'both'
+  const wantFirefox = target === 'firefox' || target === 'both'
+  if (!wantChrome) {
+    // Firefox-only run: the Chrome build is not required
+  } else if (pkg && manifest && distManifest) {
     check('Chrome manifest version matches package.json', manifest.version === pkg.version, `${manifest.version} === ${pkg.version}`)
     check('Chrome dist manifest version matches package.json', distManifest.version === pkg.version, `${distManifest.version} === ${pkg.version}`)
   } else {
     check('Chrome source + dist manifests exist', false, 'one or more missing — run `npm run build`')
   }
 
-  if (pkg && manifestFf && distFfManifest) {
+  if (!wantFirefox) {
+    // Chrome-only run: the Firefox build is not required
+  } else if (pkg && manifestFf && distFfManifest) {
     check('Firefox manifest version matches package.json', manifestFf.version === pkg.version, `${manifestFf.version} === ${pkg.version}`)
     check('Firefox dist manifest version matches package.json', distFfManifest.version === pkg.version, `${distFfManifest.version} === ${pkg.version}`)
   } else {
@@ -92,7 +98,7 @@ async function main() {
   }
 
   // 3. Required manifest fields for AMO
-  if (manifestFf) {
+  if (manifestFf && wantFirefox) {
     check('AMO: gecko.id present', !!manifestFf.browser_specific_settings?.gecko?.id, manifestFf.browser_specific_settings?.gecko?.id || '(missing)')
     check('AMO: gecko.strict_min_version present', !!manifestFf.browser_specific_settings?.gecko?.strict_min_version, manifestFf.browser_specific_settings?.gecko?.strict_min_version || '(missing)')
     check('AMO: CSP present (required for review)', !!manifestFf.content_security_policy, manifestFf.content_security_policy ? 'present' : '(missing)')
@@ -108,12 +114,12 @@ async function main() {
   }
   const DCP_ALLOWED = ['none', 'personallyIdentifyingInfo', 'healthInfo', 'financialAndPaymentInfo', 'authenticationInfo', 'personalCommunications', 'locationInfo', 'browsingActivity', 'websiteContent', 'websiteActivity', 'searchTerms', 'bookmarksInfo']
   for (const [label, m] of [['AMO', manifestFf], ['AMO build', distFfManifest]]) {
-    if (!m) continue
+    if (!m || !wantFirefox) continue
     const gecko = m.browser_specific_settings?.gecko
     const req = gecko?.data_collection_permissions?.required
     check(`${label}: data_collection_permissions.required present`, Array.isArray(req) && req.length > 0, req?.join(', ') || '(missing)')
     const bad = (req || []).filter((v) => !DCP_ALLOWED.includes(v))
-    check(`${label}: data_collection_permissions values are ones Firefox accepts`, bad.length === 0, bad.join(', '))
+    check(`${label}: data_collection_permissions values are ones Firefox accepts`, bad.length === 0 && !((req || []).includes('none') && req.length > 1), bad.join(', '))
     check(`${label}: strict_min_version is 140 or later (the built-in data prompt)`, parseInt(gecko?.strict_min_version, 10) >= 140, gecko?.strict_min_version || '(missing)')
   }
 

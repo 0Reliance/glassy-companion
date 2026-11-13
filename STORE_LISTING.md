@@ -48,7 +48,7 @@ WHAT YOU CAN DO
 
 KEYBOARD SHORTCUTS
 
-Save this page, write a note, open Glassy Capture and open the side panel each have a shortcut. Set or change them on your browser's extension shortcuts page.
+Save this page, write a note and open Glassy Capture can each have a shortcut, and so can the side panel in Chrome and Edge. Set or change them on your browser's extension shortcuts page.
 
 YOUR DATA
 

@@ -1089,12 +1089,22 @@ async function cropInWorker(dataUrl, rect, dpr = 1) {
   for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
   const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
   const scale = dpr || 1
-  const sx = Math.max(0, Math.round(rect.x * scale))
-  const sy = Math.max(0, Math.round(rect.y * scale))
-  const sw = Math.max(1, Math.min(Math.round(rect.width * scale), bitmap.width - sx))
-  const sh = Math.max(1, Math.min(Math.round(rect.height * scale), bitmap.height - sy))
+  // Work from the two edges so a rect that starts off-image is trimmed, not shifted.
+  const left = Math.max(0, Math.round(rect.x * scale))
+  const top = Math.max(0, Math.round(rect.y * scale))
+  const right = Math.min(bitmap.width, Math.round((rect.x + rect.width) * scale))
+  const bottom = Math.min(bitmap.height, Math.round((rect.y + rect.height) * scale))
+  const sx = left
+  const sy = top
+  const sw = right - left
+  const sh = bottom - top
+  if (!(sw > 0 && sh > 0)) {
+    bitmap.close()
+    throw new Error('Region is outside the captured image')
+  }
   const canvas = new OffscreenCanvas(sw, sh)
   canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh)
+  bitmap.close()
   const out = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
   let bin = ''
   for (let i = 0; i < out.length; i += 0x8000) bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000))
