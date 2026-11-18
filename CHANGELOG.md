@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.21.3] — 2026-11-18 — The Obsidian bridge never puts your sign-in token in an address
+
+No new permissions. Goes with Glassy 2.65.28.
+
+### Changed
+
+- **The Obsidian bridge connects with a one-time ticket only.** When the ticket could not be
+  had, it used to connect with your sign-in token in the address instead, and an address is
+  written to every access and proxy log on the way. Glassy 2.65.28 refuses that, so the
+  extension no longer tries: the bridge says your Glassy didn't answer and tries again shortly.
+- **The Firefox install steps say what works.** The build is not signed by Mozilla yet, so it
+  loads as a temporary add-on from `about:debugging` until Firefox restarts.
+
+---
+
 ## [2.21.2] — 2026-11-13 — The side panel follows you, and the Save button stays in view
 
 No new permissions. What you will notice:

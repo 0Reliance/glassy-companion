@@ -1,4 +1,4 @@
-# Glassy Capture: store submission sheet (v2.21.2)
+# Glassy Capture: store submission sheet (v2.21.3)
 
 Everything to paste into each store, in the order the store asks for it. The words for
 the public page are in [STORE_LISTING.md](STORE_LISTING.md); the policy is
@@ -12,10 +12,10 @@ live dashboards, which need the owner's sign-in, so a label may differ slightly.
 
 | Store | File | Built with |
 |---|---|---|
-| Chrome Web Store | `glassy-companion-v2.21.2.zip` | `npm run build && npm run zip` |
-| Microsoft Edge Add-ons | the same `glassy-companion-v2.21.2.zip` | |
-| Firefox Add-ons | `glassy-companion-v2.21.2-firefox.xpi` | `npm run build:firefox && npm run zip:firefox` |
-| Firefox Add-ons, source code | `glassy-capture-v2.21.2-source.zip` | `git archive --format=zip -o glassy-capture-v2.21.2-source.zip v2.21.2` |
+| Chrome Web Store | `glassy-companion-v2.21.3.zip` | `npm run build && npm run zip` |
+| Microsoft Edge Add-ons | the same `glassy-companion-v2.21.3.zip` | |
+| Firefox Add-ons | `glassy-companion-v2.21.3-firefox.xpi` | `npm run build:firefox && npm run zip:firefox` |
+| Firefox Add-ons, source code | `glassy-capture-v2.21.3-source.zip` | `git archive --format=zip -o glassy-capture-v2.21.3-source.zip v2.21.3` |
 
 Screenshots: the five files in `store/screenshots/` (1280×800 PNG). Icon: `assets/icon-128.png`,
 already inside the package.
@@ -93,7 +93,7 @@ Then tick all three certifications. Each is true of this build:
 
 > https://github.com/0Reliance/glassy-companion/blob/main/PRIVACY_POLICY.md
 
-This address shows the v2.21.2 policy once this release is merged to `main`.
+This address shows the v2.21.3 policy once this release is merged to `main`.
 
 ### Test instructions tab
 
@@ -129,9 +129,9 @@ Choose "On this site".
 
 | Field | Paste |
 |---|---|
-| Upload | `glassy-companion-v2.21.2-firefox.xpi` |
+| Upload | `glassy-companion-v2.21.3-firefox.xpi` |
 | Compatible with | Firefox (desktop) |
-| Do you use a code generator, minifier or bundler? | Yes. Then upload `glassy-capture-v2.21.2-source.zip` |
+| Do you use a code generator, minifier or bundler? | Yes. Then upload `glassy-capture-v2.21.3-source.zip` |
 | Name | Glassy Capture |
 | Summary | The "Summary" line of `STORE_LISTING.md` |
 | Description | The "Description" section of `STORE_LISTING.md` |
@@ -147,7 +147,7 @@ Choose "On this site".
 > `npm ci`
 > `npm run build:firefox`
 > `npm run zip:firefox`
-> The result is `glassy-companion-v2.21.2-firefox.xpi`, built from `dist-firefox/`. The bundler is Vite with @crxjs/vite-plugin; no code is fetched at run time.
+> The result is `glassy-companion-v2.21.3-firefox.xpi`, built from `dist-firefox/`. The bundler is Vite with @crxjs/vite-plugin; no code is fetched at run time.
 >
 > To test: the extension signs in to a Glassy server. A free account, made at https://app.glassy.fyi, is enough for every feature. A test account is provided: email `<reviewer account email>`, password `<reviewer account password>`.
 >
@@ -167,7 +167,7 @@ Upload the same zip as Chrome. Edge asks for the same things under slightly diff
 
 | Field | Paste |
 |---|---|
-| Package | `glassy-companion-v2.21.2.zip` |
+| Package | `glassy-companion-v2.21.3.zip` |
 | Category | Productivity |
 | Description | The "Description" section of `STORE_LISTING.md` |
 | Screenshots | The five files in `store/screenshots/` |

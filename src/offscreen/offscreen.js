@@ -151,7 +151,9 @@ async function connectBridgeSSE() {
   }
 
   // Exchange the JWT for a one-time SSE ticket so the JWT doesn't leak in the URL.
-  // Falls back to ?token= if the ticket endpoint is unavailable (older servers).
+  // There is no ?token= fallback (2.21.3): a sign-in token in a URL is written to every
+  // access and proxy log on the way, and Glassy 2.65.28 refuses it. No ticket, no stream:
+  // say so and try again later.
   let sseUrl = `${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/subscribe`
   let usedTicket = false
   try {
@@ -167,10 +169,12 @@ async function connectBridgeSSE() {
       }
     }
   } catch {
-    // Ticket endpoint unavailable (older server) — fall back to ?token=
+    // Network error: handled below like a refused ticket.
   }
   if (!usedTicket) {
-    sseUrl += `?token=${encodeURIComponent(token)}`
+    await updateBridgeStatus({ connected: false, error: 'Couldn’t start the Obsidian bridge: your Glassy didn’t answer. Trying again shortly.' })
+    scheduleBridgeReconnect()
+    return
   }
   // Advertise our version: EventSource can't set headers, so the version rides
   // in a query param. The server gates bridge transport v2 (raw bodies +
