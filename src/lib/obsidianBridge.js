@@ -348,23 +348,23 @@ async function connectSSEInServiceWorker() {
   }
 
   const sseUrl = `${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/subscribe`
-  // Use a one-time SSE ticket if the server supports it (avoids JWT in URL).
-  // Falls back to ?token= for older servers.
+  // A one-time SSE ticket keeps the sign-in token out of the URL. There is no ?token=
+  // fallback (2.21.3): Glassy 2.65.28 refuses it, and a URL lands in every proxy log.
   let url = sseUrl
+  let ticket = null
   try {
     const ticketResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/api/ext/obsidian-bridge/ticket`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })
-    if (ticketResponse.ok) {
-      const { ticket } = await ticketResponse.json()
-      if (ticket) url += `?ticket=${encodeURIComponent(ticket)}`
-    } else {
-      url += `?token=${encodeURIComponent(token)}`
-    }
-  } catch {
-    url += `?token=${encodeURIComponent(token)}`
+    if (ticketResponse.ok) ticket = (await ticketResponse.json())?.ticket || null
+  } catch { /* handled below */ }
+  if (!ticket) {
+    await updateBridgeStatus({ connected: false, error: 'Couldn’t start the Obsidian bridge: your Glassy didn’t answer. Trying again shortly.' })
+    scheduleReconnect()
+    return
   }
+  url += `?ticket=${encodeURIComponent(ticket)}`
   // Advertise the extension version for bridge transport gating (v2 = raw
   // bodies + headers; the server enables it for companion ≥ 2.18.0).
   url += `&extv=${encodeURIComponent(getExtensionVersion())}`
