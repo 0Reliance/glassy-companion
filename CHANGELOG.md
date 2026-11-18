@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.21.4] — 2026-11-18 — Search results never ask a third party for icons
+
+No new permissions. Goes with Glassy 2.65.29.
+
+### Fixed
+
+- **Search results show each bookmark's own icon.** The search view asked Google's favicon
+  service for every result's site, which told Google the sites in your results. It now shows
+  the icon Glassy saved with the bookmark, loaded from that site as when you visit it, or no
+  icon. This is what the privacy policy already said. A test fails if any source file asks a
+  third-party favicon service again.
+
 ## [2.21.3] — 2026-11-18 — The Obsidian bridge never puts your sign-in token in an address
 
 No new permissions. Goes with Glassy 2.65.28.

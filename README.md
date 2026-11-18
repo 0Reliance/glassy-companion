@@ -15,7 +15,7 @@ Works with the cloud or with your own self-hosted appliance.
 
 <div align="left">
 
-[![Version](https://img.shields.io/badge/version-2.21.3-6366f1?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-2.21.4-6366f1?style=flat-square)](manifest.json)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-22c55e?style=flat-square)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)
 [![Privacy](https://img.shields.io/badge/privacy-policy-38bdf8?style=flat-square)](PRIVACY_POLICY.md)
@@ -125,15 +125,15 @@ The whole flow, in two shots:
 </p>
 
 1. Go to [**Releases**](https://github.com/0Reliance/glassy-companion/releases).
-2. Download the latest `v2.21.3` assets:
-   - **`glassy-companion-v2.21.3.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
-   - **`glassy-companion-v2.21.3-firefox.xpi`** for Firefox 140+. Not signed by Mozilla yet, so load it as a temporary add-on: `about:debugging` → This Firefox → Load Temporary Add-on. Firefox removes it when it restarts.
+2. Download the latest `v2.21.4` assets:
+   - **`glassy-companion-v2.21.4.zip`** for Chromium browsers (Chrome, Edge, Brave, Arc, Opera). Unzip and load the folder as an unpacked extension.
+   - **`glassy-companion-v2.21.4-firefox.xpi`** for Firefox 140+. Not signed by Mozilla yet, so load it as a temporary add-on: `about:debugging` → This Firefox → Load Temporary Add-on. Firefox removes it when it restarts.
 3. For Chromium: open `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**. Select the unzipped folder.
 
 ### Browser Support
 
-- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.21.3.zip`.
-- **Firefox 140+**: install from `glassy-companion-v2.21.3-firefox.xpi` for local/user testing via `about:debugging` (a temporary add-on). Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Project state below).
+- **Chromium** (Chrome, Edge, Brave, Arc, Opera): install from `glassy-companion-v2.21.4.zip`.
+- **Firefox 140+**: install from `glassy-companion-v2.21.4-firefox.xpi` for local/user testing via `about:debugging` (a temporary add-on). Chrome Web Store and Mozilla Add-ons submission are the next distribution steps (see Project state below).
 
 > Both builds are produced from the same source. The Firefox build uses a separate manifest (`manifest.firefox.json`) with the required Gecko extension ID, `strict_min_version: 140.0`, its `data_collection_permissions` declaration, and the AMO-required `content_security_policy`.
 

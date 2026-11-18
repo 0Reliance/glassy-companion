@@ -80,9 +80,20 @@ export default function SearchView() {
   )
 }
 
+/**
+ * The icon a saved bookmark already carries (Glassy stored the site's own favicon address
+ * when it was saved), loaded by the browser from that site — never from a third party.
+ * Until 2.21.4 this asked Google's favicon service, which told Google the domain of every
+ * search result; the privacy policy says the extension sends nothing to anyone else.
+ */
+export function faviconFor(bookmark) {
+  const u = bookmark && bookmark.favicon_url
+  return typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null
+}
+
 function SearchResultItem({ bookmark }) {
   const domain = (() => { try { return new URL(bookmark.url).hostname.replace(/^www\./, '') } catch { return '' } })()
-  const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : null
+  const faviconUrl = faviconFor(bookmark)
   return (
     <a
       href={bookmark.url}
