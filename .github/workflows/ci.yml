@@ -1,0 +1,41 @@
+# Glassy Capture CI: every push to main and every pull request builds both packages,
+# runs the tests and the release pre-flight, and runs the store check.
+# Until 18 Nov 2026 this repo had no CI; its evidence was local runs only.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The pre-flight inside `npm test` checks the built packages, so build them first.
+      - name: Build (Chrome, Edge, Opera)
+        run: npm run build
+      - name: Build (Firefox)
+        run: npm run build:firefox
+      - name: Package
+        run: |
+          npm run zip
+          npm run zip:firefox
+      - name: Tests and release pre-flight
+        run: npm test
+      - name: Store check
+        run: npm run store:check
