@@ -5,6 +5,8 @@ export const DEFAULT_BASE_URL = 'https://app.glassy.fyi'
 
 export const API_PATHS = {
   login: '/api/auth/login',
+  // Swap a still-valid sign-in for a fresh one (glassy ≥ 2.65.29). Older servers answer 404.
+  renewSession: '/api/auth/renew',
   me: '/api/ext/me',
   ping: '/api/ext/ping',
   calendarEvents: '/api/ext/calendar/events',
@@ -76,8 +78,6 @@ export const CTX_QUICK_NOTE = 'glassy_quick_note'
 // Alarm names
 export const ALARM_OFFLINE_SYNC = 'glassy_offline_sync'
 
-// Max characters of page body text the extractor keeps
-export const MAX_PAGE_TEXT_CHARS = 5000
 
 // Cache TTLs
 export const COLLECTIONS_CACHE_TTL_MS = 5 * 60 * 1000  // 5 minutes

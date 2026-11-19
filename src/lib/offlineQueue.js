@@ -1,17 +1,18 @@
 /**
- * Offline queue — stores failed/deferred saves in IndexedDB so they
+ * Offline queue — stores failed/deferred saves in chrome.storage.local so they
  * can be retried when the browser comes back online.
  *
  * Queue items are plain objects:
  * {
- *   id: string (uuid),
- *   type: 'bookmark' | 'note',
- *   payload: object,
+ *   id: string,
+ *   type: 'capture' | 'bookmark' | 'note' | 'page' | 'document',
+ *   payload: object (carries its Idempotency-Key as `_idempotencyKey`, see api.js),
  *   queuedAt: number (ms timestamp),
  *   attempts: number,
  * }
  */
 import { STORAGE_KEYS } from './constants.js'
+import { stampSaveKey } from './api.js'
 
 /**
  * Maximum offline queue size. Repeated 5xx with the browser offline could
@@ -71,7 +72,9 @@ export async function enqueue(type, payload) {
   const item = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     type,
-    payload,
+    // A save queued before any attempt (offline) gets its key here, so every flush of
+    // this item sends the same Idempotency-Key.
+    payload: stampSaveKey(payload),
     queuedAt: Date.now(),
     attempts: 0,
   }

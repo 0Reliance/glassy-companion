@@ -9,6 +9,7 @@ vi.mock('../../lib/auth.js', () => ({
   setActiveAccountId: vi.fn(async () => {}),
   getActiveAccountId: vi.fn(async () => null),
   getCachedUser: vi.fn(async () => null),
+  renewSessionIfDue: vi.fn(async () => 'not-due'),
 }))
 
 vi.mock('../../lib/api.js', () => ({
@@ -459,5 +460,18 @@ describe('service-worker.js — popup save offline-queue parity', () => {
 
     expect(result).toMatchObject({ ok: false, status: 403, kind: 'entitlement' })
     expect(enqueue).not.toHaveBeenCalled()
+  })
+})
+
+describe('session renewal wiring', () => {
+  it('schedules the renew alarm and renews on its tick', async () => {
+    const { renewSessionIfDue } = await import('../../lib/auth.js')
+    for (const fn of handlers.onInstalled) fn()
+    await new Promise(r => setTimeout(r, 0))
+    expect(renewSessionIfDue).toHaveBeenCalled()
+    expect(chrome.alarms.create).toHaveBeenCalledWith('glassy_session_renew', expect.objectContaining({ periodInMinutes: 360 }))
+    renewSessionIfDue.mockClear()
+    for (const fn of handlers.onAlarm) await fn({ name: 'glassy_session_renew' })
+    expect(renewSessionIfDue).toHaveBeenCalledTimes(1)
   })
 })
