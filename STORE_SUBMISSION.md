@@ -20,8 +20,9 @@ live dashboards, which need the owner's sign-in, so a label may differ slightly.
 Screenshots: the five files in `store/screenshots/` (1280×800 PNG). Icon: `assets/icon-128.png`,
 already inside the package.
 
-Not made yet: the small promotional image (440×280) that the Chrome Web Store and Edge show
-in lists. Chrome's documentation lists it as optional. Without it the store shows the icon.
+Small promotional image (440×280, shown in store lists by the Chrome Web Store and Edge):
+`store/promo-440x280.png`. Store logo for Edge (300×300): `store/logo-300x300.png`, the same
+cube as the extension icon, from the app's 512×512 icon.
 
 ---
 
@@ -173,7 +174,7 @@ Upload the same zip as Chrome. Edge asks for the same things under slightly diff
 | Privacy policy URL | https://github.com/0Reliance/glassy-companion/blob/main/PRIVACY_POLICY.md |
 | Website URL | https://www.glassy.fyi |
 | Support contact | https://github.com/0Reliance/glassy-companion/issues |
-| Store logo | Edge asks for a logo, 300×300 recommended. Only `assets/icon-128.png` (128×128, Edge's stated minimum) exists today |
+| Store logo | `store/logo-300x300.png` (300×300, Edge's recommended size) |
 | Notes for certification | The "To test" paragraph from the Firefox reviewer notes above, with the reviewer account filled in |
 
 ---

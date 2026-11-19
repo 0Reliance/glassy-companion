@@ -3,6 +3,11 @@
 `screenshots/` holds the five 1280×800 PNGs the stores ask for. `STORE_LISTING.md`
 says what each one shows.
 
+`promo-440x280.png` is the small promotional image the Chrome Web Store and Edge show in
+lists: the extension's cube, "Glassy Capture" in Satoshi Bold, and "Save it now. Find it
+later." (the website's line for the extension), on the app's `#0c0c14`. `logo-300x300.png`
+is the store logo Edge asks for, the same cube from the app's 512×512 icon.
+
 ## How they are made
 
 They are pictures of the real popup and side panel from this build, signed in to a
