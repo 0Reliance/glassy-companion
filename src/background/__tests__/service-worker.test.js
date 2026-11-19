@@ -268,6 +268,15 @@ describe('service-worker.js — message handler', () => {
       expect(result.ok).toBe(true)
       expect(saveBookmark).toHaveBeenCalledWith({ url: 'https://example.com', title: 'Test' })
     })
+
+    it('passes the saved page id back on "already saved", so the popup can offer to add to it', async () => {
+      const err = Object.assign(new Error('You’ve already saved this link.'), { status: 409, body: { id: 77, duplicate: true } })
+      saveBookmark.mockRejectedValueOnce(err)
+      const result = await sendMessage({ type: 'SAVE_BOOKMARK', payload: { url: 'https://example.com', tags: ['a'] } })
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(409)
+      expect(result.body.id).toBe(77)
+    })
   })
 
   describe('SAVE_NOTE', () => {

@@ -977,7 +977,7 @@ async function popupSaveWithQueue(saveFn, payload, queueType) {
         return { ok: false, error: queueErr.message, code: queueErr.code }
       }
     }
-    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind, body: err.body }
   }
 }
 
