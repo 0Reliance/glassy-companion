@@ -117,24 +117,6 @@ describe('extractor.js', () => {
     })
   })
 
-  describe('GET_PAGE_TEXT', () => {
-    it('returns text content from article', async () => {
-      const response = await sendMessage(messageListeners, { type: 'GET_PAGE_TEXT' })
-      expect(response.text).toContain('Hello World')
-      expect(response.text).toContain('Some article content here.')
-    })
-
-    it('does not include script tag content', async () => {
-      const response = await sendMessage(messageListeners, { type: 'GET_PAGE_TEXT' })
-      expect(response.text).not.toContain('var x = 1')
-    })
-
-    it('does not include nav content', async () => {
-      const response = await sendMessage(messageListeners, { type: 'GET_PAGE_TEXT' })
-      expect(response.text).not.toContain('Nav link')
-    })
-  })
-
   describe('GET_PAGE_HTML', () => {
     it('returns url, title and excerpt', async () => {
       document.title = 'My Page'

@@ -5,11 +5,15 @@ import AccountPicker from '../components/AccountPicker.jsx'
 import RelatedInVaultPanel from '../components/RelatedInVaultPanel.jsx'
 import { saveBookmark, saveNote, saveAllTabs, checkDuplicateUrl } from '../hooks/useExtensionBridge.js'
 import { isUnsavableUrl } from '../../lib/urlUtils.js'
+import { buildMergePatch } from '../../lib/saveMerge.js'
 
 export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, saveStatus, errorMessage, lastCaptureId, pendingElement, pendingScreenshot, setSaving, setSaved, setDuplicate, setQueued, setError, resetSaveStatus, clearPending, setLastCaptureId, setAlreadySaved }) {
   // Live screenshot: captured in this popup session via the Screenshot button.
   // Preferred over pendingScreenshot (prior session) when both present.
   const [liveScreenshot, setLiveScreenshot] = useState(null)
+  // A5: when the page is already saved, what the person just chose (tags, note,
+  // collection) can be added to the saved page instead of being dropped.
+  const [mergeOffer, setMergeOffer] = useState(null)
 
   // When a screenshot is captured in the current session, stash it so
   // SaveCard auto-expands Smart + pre-loads the screenshot via the
@@ -33,6 +37,11 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
 
   const handleSave = useCallback(async (payload) => {
     setSaving()
+    setMergeOffer(null)
+    const offerFor = id => {
+      const patch = buildMergePatch(payload)
+      if (id && patch) setMergeOffer({ id, patch })
+    }
     try {
       // Both quick and smart modes go through the unified capture pipeline.
       // Legacy SAVE_BOOKMARK is reserved for non-capture flows (e.g. external
@@ -43,6 +52,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
       })
 
       if (res?.ok && res?.data?.duplicate) {
+        offerFor(res.data.id)
         setDuplicate()
       } else if (res?.queued) {
         // Offline / server-down recovery: the service worker queued the save
@@ -53,6 +63,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         setSaved()
         if (res?.data?.id) setLastCaptureId?.(res.data.id)
       } else if (res?.status === 409) {
+        offerFor(res?.body?.id)
         setDuplicate()
       } else {
         setError(res?.error || 'Save failed.')
@@ -118,6 +129,7 @@ export default function SaveView({ pageMeta, user, ruleDefaults, alreadySaved, s
         multiAccount={Array.isArray(user?.accounts) && user.accounts.length > 1}
         pageTitle={pageMeta?.title || ''}
         pageUrl={pageMeta?.url || ''}
+        mergeOffer={saveStatus === 'duplicate' ? mergeOffer : null}
       />
     )
   }

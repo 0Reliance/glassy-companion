@@ -13,6 +13,35 @@ import { API_PATHS } from './constants.js'
 // rogue/oversized API response ballooning extension memory.
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
+// One key per save (final pass 2026-11-18, A4). apiFetch retries a POST once on a
+// network error or a 5xx, and the offline queue replays a save that timed out; if the
+// first attempt had reached the server, the person got the same item twice. The key
+// rides on the payload object itself, so the copy the queue stores carries the same
+// key, and apiFetch moves it into the Idempotency-Key header (servers ≥ 2.65.29
+// answer a repeat with the first answer; older servers ignore the header).
+export const SAVE_KEY_FIELD = '_idempotencyKey'
+
+function newSaveKey() {
+  try {
+    if (globalThis.crypto?.randomUUID) return `gc-${globalThis.crypto.randomUUID()}`
+  } catch { /* fall through */ }
+  return `gc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+/** Give a save payload its key once; later calls (a retry, the queue) keep it. */
+export function stampSaveKey(payload) {
+  if (payload && typeof payload === 'object' && !payload[SAVE_KEY_FIELD]) {
+    payload[SAVE_KEY_FIELD] = newSaveKey()
+  }
+  return payload
+}
+
+function splitSaveKey(body) {
+  if (!body || typeof body !== 'object' || !body[SAVE_KEY_FIELD]) return { body, key: null }
+  const { [SAVE_KEY_FIELD]: key, ...rest } = body
+  return { body: rest, key: String(key) }
+}
+
 async function apiFetch(path, options = {}, _retryCount = 0) {
   // authPolicy is OUR option, not a fetch option — destructured out so it never lands in
   // the request. 'interactive' (default) may end the session on a 401; 'background' may
@@ -39,10 +68,13 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 30_000)
 
+  const { body: wireBody, key: saveKey } = splitSaveKey(fetchOptions.body)
+
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(activeAccountId ? { 'X-Account-Id': activeAccountId } : {}),
+    ...(saveKey ? { 'Idempotency-Key': saveKey } : {}),
     ...fetchOptions.headers,
   }
 
@@ -51,7 +83,7 @@ async function apiFetch(path, options = {}, _retryCount = 0) {
     res = await fetch(url, {
       ...fetchOptions,
       headers,
-      body: fetchOptions.body ? JSON.stringify(fetchOptions.body) : undefined,
+      body: wireBody ? JSON.stringify(wireBody) : undefined,
       signal: controller.signal,
     })
   } catch (networkErr) {
@@ -199,7 +231,7 @@ export function checkUrl(url) {
  * POST /api/ext/bookmarks — save a bookmark.
  */
 export function saveBookmark(payload) {
-  return apiFetch(API_PATHS.bookmarks, { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.bookmarks, { method: 'POST', body: stampSaveKey(payload) })
 }
 
 /**
@@ -227,7 +259,7 @@ export function reminderTimes(when, now = new Date()) {
  * POST /api/ext/notes — create a Glassy note from selected text.
  */
 export function saveNote(payload) {
-  return apiFetch(API_PATHS.notes, { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.notes, { method: 'POST', body: stampSaveKey(payload) })
 }
 
 /**
@@ -263,7 +295,7 @@ export function fetchHighlights(id) {
  * POST /api/ext/bookmarks/:id/highlights — create a highlight.
  */
 export function createHighlight(id, payload) {
-  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}/highlights`, { method: 'POST', body: payload })
+  return apiFetch(`${API_PATHS.bookmarks}/${encodeURIComponent(id)}/highlights`, { method: 'POST', body: stampSaveKey(payload) })
 }
 
 /**
@@ -294,7 +326,7 @@ export function createCollection(name) {
  * POST /api/ext/documents — save a full page as a readable document.
  */
 export function saveDocument(payload) {
-  return apiFetch(API_PATHS.documents, { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.documents, { method: 'POST', body: stampSaveKey(payload) })
 }
 
 // ── Next-Phase API ─────────────────────────────────────────────────────────────
@@ -304,7 +336,7 @@ export function saveDocument(payload) {
  * @param {import('./types.js').CaptureItem} payload
  */
 export function saveCapture(payload) {
-  return apiFetch(API_PATHS.captures, { method: 'POST', body: payload })
+  return apiFetch(API_PATHS.captures, { method: 'POST', body: stampSaveKey(payload) })
 }
 
 /**

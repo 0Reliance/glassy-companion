@@ -9,6 +9,7 @@ vi.mock('../../lib/auth.js', () => ({
   setActiveAccountId: vi.fn(async () => {}),
   getActiveAccountId: vi.fn(async () => null),
   getCachedUser: vi.fn(async () => null),
+  renewSessionIfDue: vi.fn(async () => 'not-due'),
 }))
 
 vi.mock('../../lib/api.js', () => ({
@@ -267,6 +268,15 @@ describe('service-worker.js — message handler', () => {
       expect(result.ok).toBe(true)
       expect(saveBookmark).toHaveBeenCalledWith({ url: 'https://example.com', title: 'Test' })
     })
+
+    it('passes the saved page id back on "already saved", so the popup can offer to add to it', async () => {
+      const err = Object.assign(new Error('You’ve already saved this link.'), { status: 409, body: { id: 77, duplicate: true } })
+      saveBookmark.mockRejectedValueOnce(err)
+      const result = await sendMessage({ type: 'SAVE_BOOKMARK', payload: { url: 'https://example.com', tags: ['a'] } })
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(409)
+      expect(result.body.id).toBe(77)
+    })
   })
 
   describe('SAVE_NOTE', () => {
@@ -459,5 +469,18 @@ describe('service-worker.js — popup save offline-queue parity', () => {
 
     expect(result).toMatchObject({ ok: false, status: 403, kind: 'entitlement' })
     expect(enqueue).not.toHaveBeenCalled()
+  })
+})
+
+describe('session renewal wiring', () => {
+  it('schedules the renew alarm and renews on its tick', async () => {
+    const { renewSessionIfDue } = await import('../../lib/auth.js')
+    for (const fn of handlers.onInstalled) fn()
+    await new Promise(r => setTimeout(r, 0))
+    expect(renewSessionIfDue).toHaveBeenCalled()
+    expect(chrome.alarms.create).toHaveBeenCalledWith('glassy_session_renew', expect.objectContaining({ periodInMinutes: 360 }))
+    renewSessionIfDue.mockClear()
+    for (const fn of handlers.onAlarm) await fn({ name: 'glassy_session_renew' })
+    expect(renewSessionIfDue).toHaveBeenCalledTimes(1)
   })
 })

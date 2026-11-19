@@ -1,6 +1,10 @@
 export function classifySaveError(error) {
   const status = Number(error?.status)
 
+  // 409 REQUEST_IN_PROGRESS: the server is still finishing the first attempt of this
+  // same save (same Idempotency-Key). Try again later and get its answer; dropping it
+  // would lose the save if that first attempt then failed.
+  if (status === 409 && error?.body?.code === 'REQUEST_IN_PROGRESS') return 'retryable'
   if (status === 409) return 'duplicate'
   if (status === 401) return 'auth'
   if (status === 403) return 'entitlement'

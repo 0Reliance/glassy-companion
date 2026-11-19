@@ -65,7 +65,7 @@ describe('offlineQueue', () => {
 
     const [queuedItem] = await getQueue()
     expect(queuedItem.attempts).toBe(1)
-    expect(queuedItem.payload).toEqual({ content: 'hello' })
+    expect(queuedItem.payload).toEqual({ content: 'hello', _idempotencyKey: expect.stringMatching(/^gc-/) })
   })
 
   it('dequeues specific items only', async () => {

@@ -39,6 +39,18 @@ function isTokenExpired(token) {
   return Date.now() / 1000 >= payload.exp
 }
 
+/**
+ * Seconds until the stored JWT expires, or null when there is no token or it
+ * carries no exp. Never clears anything — safe from headless contexts.
+ * @param {string|null} token
+ */
+export function tokenSecondsLeft(token, nowSeconds = Date.now() / 1000) {
+  if (!token) return null
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return null
+  return payload.exp - nowSeconds
+}
+
 /** Retrieve the stored JWT token, or null if not logged in or expired. */
 export async function getToken() {
   const result = await chrome.storage.local.get(STORAGE_KEYS.token)
@@ -260,4 +272,60 @@ export async function verifyToken() {
   } finally {
     clearTimeout(timer)
   }
+}
+
+// ── Session renewal ──────────────────────────────────────────────────────────
+// A sign-in lasts 7 days. Before this, capture, the offline queue and the
+// Obsidian bridge all stopped once a week until the person opened the popup and
+// signed in again. The server (glassy ≥ 2.65.29) swaps a still-valid sign-in for
+// a fresh one at POST /api/auth/renew, up to 90 days after the password was
+// typed and only while the password is unchanged.
+export const RENEW_WHEN_SECONDS_LEFT = 6 * 24 * 3600
+
+let _renewInFlight = null
+
+/**
+ * Renew the stored sign-in when it has less than ~6 days left. Never signs the
+ * person out: a refusal (401), an older server (404) or a network error leaves
+ * the current token alone, and the token simply runs out as it did before.
+ * @returns {Promise<'renewed'|'not-due'|'signed-out'|'unsupported'|'refused'|'failed'|'changed'>}
+ */
+export function renewSessionIfDue() {
+  if (_renewInFlight) return _renewInFlight
+  _renewInFlight = (async () => {
+    const token = await peekToken()
+    if (!token) return 'signed-out'
+    const left = tokenSecondsLeft(token)
+    if (left === null || left > RENEW_WHEN_SECONDS_LEFT) return 'not-due'
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
+    try {
+      const { baseUrl, activeAccountId } = await getApiContext()
+      const res = await fetch(`${baseUrl}${API_PATHS.renewSession}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...(activeAccountId ? { 'X-Account-Id': activeAccountId } : {}),
+        },
+        body: '{}',
+        signal: controller.signal,
+      })
+      if (res.status === 404) return 'unsupported'
+      if (!res.ok) return 'refused'
+      const data = await res.json().catch(() => null)
+      if (!data?.token || typeof data.token !== 'string') return 'failed'
+      // The person may have signed out or into another account while we waited.
+      const current = await peekToken()
+      if (current !== token) return 'changed'
+      await setToken(data.token)
+      return 'renewed'
+    } catch {
+      return 'failed'
+    } finally {
+      clearTimeout(timer)
+    }
+  })().finally(() => { _renewInFlight = null })
+  return _renewInFlight
 }

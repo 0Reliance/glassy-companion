@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { deleteCapture } from '../hooks/useExtensionBridge.js'
-import { createCalendarEvent, reminderTimes } from '../../lib/api.js'
+import { createCalendarEvent, reminderTimes, updateBookmark } from '../../lib/api.js'
+import { describeMerge, mergeTookEffect } from '../../lib/saveMerge.js'
 
-export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother, captureId, onUndo, multiAccount = false, pageTitle = '', pageUrl = '' }) {
+export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother, captureId, onUndo, multiAccount = false, pageTitle = '', pageUrl = '', mergeOffer = null }) {
   const isError = type === 'error'
   const isDuplicate = type === 'duplicate'
   const isSaved = type === 'saved'
@@ -11,6 +12,19 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
   // "Read it later": null until the person picks a time, then 'saving', 'added' or 'error'.
   const [reminder, setReminder] = useState(null)
   const [reminderNote, setReminderNote] = useState('')
+  // "Add these to the saved page": null, 'saving', 'added', 'old' or 'error'.
+  const [merge, setMerge] = useState(null)
+
+  async function addToSaved() {
+    if (!mergeOffer) return
+    setMerge('saving')
+    try {
+      const updated = await updateBookmark(mergeOffer.id, mergeOffer.patch)
+      setMerge(mergeTookEffect(mergeOffer.patch, updated) ? 'added' : 'old')
+    } catch {
+      setMerge('error')
+    }
+  }
 
   // Auto-dismiss after 8 seconds for saved items — unless the person is setting a
   // reminder, so its confirmation stays on screen.
@@ -85,6 +99,22 @@ export default function SaveToast({ type, errorMessage, onDismiss, onSaveAnother
            'It’s in your Glassy.'}
         </p>
       </div>
+
+      {isDuplicate && mergeOffer && (
+        <div data-testid="merge-offer" style={{ width: '100%', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+          {merge === 'added' ? (
+            <p role="status" style={{ margin: 0, color: 'rgba(134,239,172,0.85)' }}>Added to the saved page.</p>
+          ) : merge === 'old' ? (
+            <p role="status" style={{ margin: 0, color: 'rgba(252,211,77,0.9)' }}>This Glassy is too old to add to a saved page. Updating Glassy adds it; nothing was changed.</p>
+          ) : merge === 'error' ? (
+            <p role="status" style={{ margin: 0, color: 'rgba(252,211,77,0.9)' }}>They weren’t added, and the saved page is unchanged. Try again in a moment.</p>
+          ) : (
+            <button className="btn-ghost" style={{ width: '100%' }} disabled={merge === 'saving'} onClick={addToSaved}>
+              {merge === 'saving' ? 'Adding…' : `Add ${describeMerge(mergeOffer.patch)} to the saved page`}
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 8 }}>
         <button className="btn-accent" style={{ flex: 1 }} onClick={onSaveAnother || onDismiss}>

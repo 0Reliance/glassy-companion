@@ -2,7 +2,7 @@
  * Glassy Capture — Service Worker (Manifest V3)
  */
 
-import { getToken, verifyToken, clearAuth, setActiveAccountId, getActiveAccountId, getCachedUser } from '../lib/auth.js'
+import { getToken, verifyToken, clearAuth, setActiveAccountId, getActiveAccountId, getCachedUser, renewSessionIfDue } from '../lib/auth.js'
 import { saveBookmark, saveNote, saveDocument, searchBookmarks, checkUrl, saveCapture, createHighlight, deleteBookmark } from '../lib/api.js'
 import { enqueue, getQueue, applyFlushOutcomes, clearQueue, trimQueueTo } from '../lib/offlineQueue.js'
 import { getSettings, invalidateAccountScopedCaches } from '../lib/cache.js'
@@ -25,6 +25,20 @@ import { pushCaptureToVault, isPushAvailable } from '../lib/obsidianPush.js'
 // Defined here (not at the bottom of the file) so the alarm listener can
 // reference it without depending on hoisting or evaluation order.
 const STORAGE_QUOTA_ALARM = 'glassy_storage_quota_check'
+// Keeps a sign-in fresh so capture, the offline queue and the Obsidian bridge
+// don't stop when the 7-day sign-in runs out. renewSessionIfDue() is a no-op
+// until fewer than ~6 days remain, so most ticks do nothing.
+const SESSION_RENEW_ALARM = 'glassy_session_renew'
+
+async function ensureSessionRenewAlarm() {
+  const existing = await chrome.alarms.get(SESSION_RENEW_ALARM)
+  if (!existing) await chrome.alarms.create(SESSION_RENEW_ALARM, { delayInMinutes: 1, periodInMinutes: 360 })
+}
+
+function keepSessionFresh() {
+  ensureSessionRenewAlarm().catch(() => {})
+  renewSessionIfDue().catch(() => {})
+}
 
 // ── Content Script Injection Fallback ─────────────────────────────────────────
 
@@ -271,6 +285,7 @@ async function processCaptureInServiceWorker(payload, tab) {
 chrome.runtime.onInstalled.addListener(() => {
   registerContextMenus()
   ensureOfflineSyncAlarm().catch(() => {})
+  keepSessionFresh()
   // Start the Obsidian bridge if it's enabled — the service worker just woke up
   startObsidianBridge().catch(() => {})
 })
@@ -278,11 +293,13 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(() => {
   registerContextMenus()
   ensureOfflineSyncAlarm().catch(() => {})
+  keepSessionFresh()
   // Reconnect the Obsidian bridge on browser startup
   startObsidianBridge().catch(() => {})
 })
 
 ensureOfflineSyncAlarm().catch(() => {})
+keepSessionFresh()
 // Best-effort bridge connect on SW wake
 startObsidianBridge().catch(() => {})
 
@@ -589,6 +606,10 @@ async function saveHighlightFromContext(tab) {
 }
 
 chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === SESSION_RENEW_ALARM) {
+    await renewSessionIfDue().catch(() => {})
+    return
+  }
   if (alarm.name === STORAGE_QUOTA_ALARM) {
     // S2.8: Storage quota monitoring (6h cadence)
     await checkStorageQuota()
@@ -678,8 +699,11 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     // Apply every removal/attempt-bump in a single read-modify-write instead of
     // one storage write per item (was O(n^2) across the queue). Items enqueued
     // concurrently during this flush window are preserved (see applyFlushOutcomes).
-    // A rare SW kill mid-flush just replays this cycle next alarm; server-side
-    // dedup makes any re-send of an already-synced item a no-op.
+    // A rare SW kill mid-flush just replays this cycle next alarm. Each queued save
+    // carries its own Idempotency-Key (lib/api.js stampSaveKey), so a server that has
+    // already stored it (glassy ≥ 2.65.29) answers the re-send with the first answer
+    // instead of storing it again. Older servers only dedupe bookmarks and captures
+    // by URL; a re-sent note or document can still land twice there.
     await applyFlushOutcomes({ remove: toRemove, increment: toIncrement })
   } finally {
     _queueFlushing = false
@@ -953,7 +977,7 @@ async function popupSaveWithQueue(saveFn, payload, queueType) {
         return { ok: false, error: queueErr.message, code: queueErr.code }
       }
     }
-    return { ok: false, error: err.message, status: err.status, kind: plan.kind }
+    return { ok: false, error: err.message, status: err.status, kind: plan.kind, body: err.body }
   }
 }
 

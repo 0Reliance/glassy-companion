@@ -270,33 +270,6 @@ function getSelectionHtml() {
   return container.innerHTML.trim().slice(0, 100_000)
 }
 
-function getPageText() {
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        const tag = node.parentElement?.tagName?.toUpperCase()
-        if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'NAV', 'HEADER', 'FOOTER', 'ASIDE'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT
-        }
-        return NodeFilter.FILTER_ACCEPT
-      },
-    }
-  )
-  const chunks = []
-  let total = 0
-  let node
-  while ((node = walker.nextNode()) && total < 5000) {
-    const text = node.textContent.replace(/\s+/g, ' ').trim()
-    if (text) {
-      chunks.push(text)
-      total += text.length
-    }
-  }
-  return chunks.join(' ').slice(0, 5000)
-}
-
 // ── Highlights ───────────────────────────────────────────────────────────────
 
 function getSelector(node) {
@@ -401,9 +374,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break
 
     // Compatibility cases
-    case 'GET_PAGE_TEXT':
-      respondSync('GET_PAGE_TEXT', sendResponse, () => ({ text: getPageText() }))
-      break
     case 'GET_SELECTED_TEXT':
       respondSync('GET_SELECTED_TEXT', sendResponse, () => ({
         text: window.getSelection()?.toString().trim().slice(0, 10000) || ''

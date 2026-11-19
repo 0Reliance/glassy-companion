@@ -5,6 +5,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.21.4] — 2026-11-18 — Stays signed in, saves land once, and re-saving a page adds what you chose
+
+No new permissions. Goes with Glassy 2.65.29; with an older Glassy each addition below
+switches itself off and the extension works as 2.21.3 did.
+
+### Added
+
+- **Stays signed in.** A sign-in lasts 7 days. The extension now swaps it for a fresh one
+  while it is still good (on browser start, when it wakes, and every 6 hours once fewer than
+  6 days remain), for up to 90 days from when you typed your password. Saving from the
+  context menu, the offline queue and the Obsidian bridge no longer stop once a week. If
+  Glassy says no (the password changed, 90 days passed) or cannot be reached, nothing changes
+  and you are never signed out by it.
+- **"Add your tags and your note to the saved page."** Saving a page you already have used to
+  drop the tags, note and collection you had just chosen. The "Already in Keep" card now
+  offers to add them. If your Glassy is too old to take them, it says so and changes nothing.
+
+### Fixed
+
+- **A retried save lands once.** If the connection dropped after Glassy had stored a save,
+  the automatic retry or the offline queue stored it again. Each save now carries one key,
+  kept with the queued copy, and Glassy answers a repeat with the first answer. A save Glassy
+  is still finishing is tried again later instead of being dropped.
+
+- **Search results show each bookmark's own icon.** The search view asked Google's favicon
+  service for every result's site, which told Google the sites in your results. It now shows
+  the icon Glassy saved with the bookmark, loaded from that site as when you visit it, or no
+  icon. This is what the privacy policy already said. A test fails if any source file asks a
+  third-party favicon service again.
+- Removed a page-text message the extension answered but never sent.
+
 ## [2.21.3] — 2026-11-18 — The Obsidian bridge never puts your sign-in token in an address
 
 No new permissions. Goes with Glassy 2.65.28.
