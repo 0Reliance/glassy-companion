@@ -33,8 +33,6 @@ Then click the Glassy icon in your toolbar and sign in with your Glassy account.
 machine, open the extension's settings first and set the server to your Glassy's address
 (`http://localhost:3000` unless you chose another).
 
-<a href="https://learn.glassy.fyi/lessons/capture/save-from-the-web"><img src="assets/screenshots/watch-save-from-the-web.jpg" alt="Watch a 43-second film on Glassy Learn: save anything from the web" width="60%"></a>
-
 ## What it does
 
 <table>
