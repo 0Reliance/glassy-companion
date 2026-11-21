@@ -53,9 +53,11 @@ whether the test save was found and how you checked, and anything you could not 
 - What they save is yours to read through Glassy's own tools (your named agent key, the Glassy
   MCP endpoint), not through the extension. Saved pages arrive as bookmarks; a highlight and the
   note on it are part of the page's searchable text.
-- The extension's settings show the exact MCP setup for Claude, Codex, Cursor and other agents.
-  Connecting yourself is covered in the self-host guide:
-  https://github.com/0Reliance/glassy-selfhost/blob/main/agents/CONFIGURE.md.
+- The extension's settings give a key and one setup, in the `url` and `headers` shape Cursor and
+  similar clients read. For your own named key and the setup for your app, the person uses
+  Glassy's **Settings → Connections & data → Agent access (MCP)**. Connecting yourself is covered
+  in the self-host guide: https://github.com/0Reliance/glassy-selfhost/blob/main/agents/CONFIGURE.md,
+  and every app's setup is at https://docs.glassy.fyi/02-core-features/integrations/mcp-server/.
 
 ## When it doesn't work
 
