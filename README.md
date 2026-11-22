@@ -72,7 +72,7 @@ Glassy Capture works the same with a Glassy you run yourself. Set its address in
 settings and sign in there. A few things are at their best at home:
 
 - **Your Obsidian vault** in the popup: browse it, add to today's daily note, and send saves to the vault as Markdown.
-- **Your agents.** Settings shows the exact setup to paste into Claude, Codex, Cursor and other agents, so what you save is there when they work.
+- **Your agents.** What you save is there when they work. The extension's settings give a key and a setup in the shape Cursor and similar clients read; Glassy's own **Settings → Connections & data → Agent access (MCP)** gives a named key per agent and the setup for each app (Claude, Codex, Cursor, OpenCode and more). [Connect an agent](https://docs.glassy.fyi/02-core-features/integrations/mcp-server/#connect-an-agent).
 - **Other devices.** With [Tailscale](https://tailscale.com/), point the extension at your Glassy's tailnet address (`https://glassy.<tailnet>.ts.net`) and save from any computer you use. [How to reach it from other devices](https://github.com/0Reliance/glassy-selfhost/blob/main/docs/reach-it-from-other-devices.md).
 
 Not running your own yet? [Hand the guide to your agent](https://www.glassy.fyi/self-host): it installs
@@ -99,6 +99,7 @@ in again. Still stuck? [Open an issue](https://github.com/0Reliance/glassy-compa
 ## For developers and agents
 
 - Agents helping someone install or use it: [AGENTS.md](AGENTS.md).
+- Using it with Glassy, page by page: [Glassy Capture in the Glassy docs](https://docs.glassy.fyi/02-core-features/companion/).
 - Building it, the API it uses and its history: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), [CHANGELOG.md](CHANGELOG.md).
 
 ## License
