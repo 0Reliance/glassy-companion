@@ -5,9 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — for 2.21.5, published after the Glassy release that brings agents to the cloud
+## [2.21.5] — 2026-11-26 — Make a key for an assistant, in plain words
 
-No new permissions and no code paths added: the extension already follows what the server says it
+No new permissions. Goes with Glassy 2.67.0, which brings agents to Glassy's cloud. No code paths added: the extension already follows what the server says it
 supports, so named keys and the 🔔 appear on Glassy's cloud as soon as the cloud offers them.
 
 ### Changed

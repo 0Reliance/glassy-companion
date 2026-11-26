@@ -8,7 +8,7 @@ you and your agents can find them. Free, for your Glassy on [our cloud](https://
 
 <img src="store/screenshots/01-save.png" alt="Glassy Capture open over an article, “How to keep a sourdough starter alive”: the page’s title, the Baking collection, the tags sourdough and bread, and a Save button" width="100%">
 
-[![Version](https://img.shields.io/badge/version-2.21.4-6366f1?style=flat-square)](https://github.com/0Reliance/glassy-companion/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.21.5-6366f1?style=flat-square)](https://github.com/0Reliance/glassy-companion/releases/latest)
 [![Chrome, Edge, Brave, Opera, Firefox](https://img.shields.io/badge/browsers-Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20·%20Firefox-0c0c14?style=flat-square)](#install)
 [![For AI agents](https://img.shields.io/badge/for%20AI%20agents-AGENTS.md-6a82ff?style=flat-square)](AGENTS.md)
 [![Privacy](https://img.shields.io/badge/privacy-policy-38bdf8?style=flat-square)](PRIVACY_POLICY.md)
@@ -25,7 +25,7 @@ Glassy Capture is not in the browser stores yet, so it loads in three clicks:
 
 | Chrome, Edge, Brave, Arc or Opera | Firefox 140 or newer |
 |---|---|
-| 1. Download `glassy-companion-v2.21.4.zip` and unzip it. | 1. Download `glassy-companion-v2.21.4-firefox.xpi`. |
+| 1. Download `glassy-companion-v2.21.5.zip` and unzip it. | 1. Download `glassy-companion-v2.21.5-firefox.xpi`. |
 | 2. Open `chrome://extensions` (or `edge://`, `brave://`, `opera://extensions`) and turn on **Developer mode**. | 2. Open `about:debugging` and choose **This Firefox**. |
 | 3. Click **Load unpacked** and choose the unzipped folder. | 3. Click **Load Temporary Add-on** and choose the `.xpi`. It stays until Firefox restarts; it isn't signed by Mozilla yet. |
 
