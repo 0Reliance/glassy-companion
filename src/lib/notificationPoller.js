@@ -1,10 +1,9 @@
 /**
  * notificationPoller — the plain, testable core behind the popup's unread badge.
  *
- * The split rule applies to clients: the awareness lane is SELF-HOST ONLY, so
- * the poller takes an `isAvailable` gate (backed by the /api/capabilities
- * manifest) and never fetches while it reads false — a cloud user's extension
- * sends nothing. A failing poll reports ZERO and keeps polling: the badge is
+ * The split rule applies to clients: the poller takes an `isAvailable` gate (backed
+ * by the /api/capabilities manifest's notifications.available) and never fetches while
+ * it reads false — a server without the awareness lane is sent nothing. A failing poll reports ZERO and keeps polling: the badge is
  * advisory, never load-bearing, and must not die because one tick failed.
  */
 

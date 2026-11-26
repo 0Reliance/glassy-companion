@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — for 2.21.5, published after the Glassy release that brings agents to the cloud
+
+No new permissions and no code paths added: the extension already follows what the server says it
+supports, so named keys and the 🔔 appear on Glassy's cloud as soon as the cloud offers them.
+
+### Changed
+
+- **Plain words for making a key.** "This appliance supports named agent keys. Mint one…" is now
+  "Make a key for an assistant", which is true on the cloud and on your own Glassy.
+- **The plan's limit, in the plan's words.** On Glassy's cloud, making a key past your plan's
+  number now shows the cloud's own sentence (how many your plan allows, and how to make room)
+  instead of telling you to use the account's one key.
+
 ## [2.21.4] — 2026-11-18 — Stays signed in, saves land once, and re-saving a page adds what you chose
 
 No new permissions. Goes with Glassy 2.65.29; with an older Glassy each addition below

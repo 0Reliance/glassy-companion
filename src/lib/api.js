@@ -451,8 +451,10 @@ export async function fetchManifest() {
 }
 
 /**
- * POST /api/mcp-keys — issue a NAMED per-agent MCP key (self-host only; the
- * server 403s FEATURE_NOT_AVAILABLE on cloud). The returned `key` is shown
+ * POST /api/mcp-keys — issue a NAMED per-agent MCP key (every self-host; Glassy's cloud
+ * from the agents-on-cloud release, where the plan caps the count and a key past the cap
+ * gets 403 AGENT_KEY_LIMIT with the plan's sentence in `message`; older cloud builds 403
+ * FEATURE_NOT_AVAILABLE). The returned `key` is shown
  * ONCE and never stored by the extension. A named key makes this browser
  * extension a VERIFIED principal: authorship, memory scoping and the activity
  * feed key off the pinned identity instead of a self-declared handshake name.
@@ -467,8 +469,9 @@ export function createNamedMcpKey({ agentName }) {
 }
 
 /**
- * GET /api/notifications?unread=1 — the owner's awareness lane (self-host
- * only; gated by capabilities.notifications.available at the call site). The
+ * GET /api/notifications?unread=1 — the owner's awareness lane (gated by
+ * capabilities.notifications.available at the call site: every self-host, and Glassy's
+ * cloud from the agents-on-cloud release). The
  * badge must NEVER throw into the popup, so any failure resolves to zero.
  * @returns {Promise<{notifications: Array, unreadCount: number}>}
  */

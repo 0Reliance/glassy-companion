@@ -32,7 +32,7 @@ export default function McpConnectionSection() {
   const { contract } = useServerContract()
   const mcpAvailable = contract.mcp.available
 
-  // Named keys are an appliance capability. Minting one identifies an EXTERNAL MCP
+  // Named keys: every self-host, and Glassy's cloud from the agents-on-cloud release. One identifies an EXTERNAL MCP
   // client (Claude Desktop, Cursor) by name; it does not make this extension an agent.
   // Saves from the extension are attributed to the human — extensionRoutes records
   // actor:{kind:'human'} — and that is correct: a person clicking Save is the person.
@@ -99,7 +99,8 @@ export default function McpConnectionSection() {
     }).catch(() => {})
   }, [result])
 
-  // Issue a NAMED key for this extension (self-host, named-keys mode). The key
+  // Issue a NAMED key for this extension (named-keys mode: every self-host, and Glassy's
+  // cloud from the agents-on-cloud release, where the plan caps how many keys). The key
   // is shown once — the server stores only its hash, so a lost key means
   // issuing a fresh one. A duplicate name (409) means one already exists; the
   // message says so instead of a generic failure.
@@ -112,10 +113,14 @@ export default function McpConnectionSection() {
       setNamedKey(created)
     } catch (err) {
       const msg = err?.message || ''
-      if (err?.status === 409 || /already exists/i.test(msg)) {
+      if (err?.body?.error === 'AGENT_KEY_LIMIT') {
+        // The plan's own sentence ("You can connect 2 agents on the free plan. Turn one off
+        // to add another, or get Pro for up to 10."), never retyped here.
+        setError(err.body.message || 'You have as many keys as your plan allows. Turn one off in Glassy under Settings → Connections & data → Agent access (MCP) to add another.')
+      } else if (err?.status === 409 || /already exists/i.test(msg)) {
         setError('This extension already has a key. If you lost it, revoke the old one in Glassy under Settings → Connections & data → Agent access (MCP), then make a new one here.')
       } else if (err?.status === 403) {
-        setError('A key of its own for each agent comes with Glassy on your own machine or server. On our cloud, use the one key above.')
+        setError('This Glassy doesn’t make a key for each assistant yet. Use the key above, or update your Glassy.')
       } else {
         setError(msg || 'The key wasn’t made. Try again in a moment.')
       }
@@ -157,7 +162,7 @@ export default function McpConnectionSection() {
         files directly via the Model Context Protocol.
       </div>
 
-      {/* Named-key flow (self-host, named-keys mode): this extension becomes a
+      {/* Named-key flow (named-keys mode): this extension becomes a
           VERIFIED principal. The key is displayed once and never stored. */}
       {namedKeysMode && !namedKey && (
         <div data-testid="named-key-section" style={{
@@ -165,11 +170,9 @@ export default function McpConnectionSection() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-            This appliance supports <strong>named agent keys</strong>. Mint one for an
-            external MCP client (Claude Desktop, Cursor, Windsurf) so that client is
-            identified by name in your activity feed instead of sharing one anonymous
-            key. Saves made <em>from this extension</em> are always attributed to you —
-            it acts as you, not as an agent.
+            Make a key for an assistant (Claude Desktop, Cursor, Windsurf). What it
+            writes then shows its name, and you can turn it off without touching the
+            others. What you save <em>from this extension</em> is always yours.
           </div>
           <button
             onClick={handleIssueNamedKey}
@@ -180,7 +183,7 @@ export default function McpConnectionSection() {
               border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6,
             }}
           >
-            {loading ? 'Minting…' : 'Mint a named key for an AI client'}
+            {loading ? 'Making the key…' : 'Make a key for an assistant'}
           </button>
         </div>
       )}
