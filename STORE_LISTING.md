@@ -44,6 +44,8 @@ WHAT YOU CAN DO
 
 • See what you already saved. Turn on the saved-page mark in Settings and a check shows on the toolbar button for pages already in your Glassy.
 
+• Connect an AI assistant. Make a key for Claude Desktop, Cursor or Windsurf: what it writes in your Glassy shows its name, and you can turn it off without touching the others.
+
 • Use Obsidian? Connect your vault and send a save to it as a Markdown file. The key to your vault stays in this browser.
 
 KEYBOARD SHORTCUTS
